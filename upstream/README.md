@@ -18,9 +18,14 @@ the framework itself. `chia/` is a shallow clone, so PRs go through a fork.
 
 ## ChampSim (not CHIA)
 
-4. **`0002-champsim-spp-dev-ghr-victim.patch`** — `prefetcher/spp_dev/spp_dev.cc`
-   asserts "[GHR] Cannot find a replacement victim!" when every GHR entry has
-   confidence 100: the victim search starts at `min_conf = 100`, so a saturated
-   table yields no victim. Deterministic on lbm with a slow-memory core profile.
-   Fix: start the search above any legal confidence. Found Sep 2 2026; no
-   existing issue found upstream.
+4. **`0002-champsim-spp-dev-ghr-victim.patch`** — two bugs in `prefetcher/spp_dev/spp_dev.cc`,
+   both found Sep 2 2026 running SPP on a small-core profile (L2 MSHR 16, DDR-1600) with lbm:
+   - **Heap-buffer-overflow in the lookahead loop.** `confidence_q`/`delta_q` are sized to the
+     L2 MSHR count, but `read_pattern` appends up to `PT_WAY + 1` entries per lookahead step
+     with no bounds check; a long confident chain overruns them (AddressSanitizer: READ of
+     size 4 past a 64-byte region at `confidence_q[i]`, spp_dev.cc:78). Silent SIGTRAP on
+     macOS, heap corruption elsewhere. Fix: stop the lookahead when the next step cannot fit.
+   - **GHR victim search never finds a victim** when every entry has confidence 100
+     (`min_conf` starts at 100): `assert(0)` "[GHR] Cannot find a replacement victim!".
+     Fix: start the search above any legal confidence.
+   No existing upstream issue found for either.

@@ -1,5 +1,5 @@
 diff --git a/prefetcher/spp_dev/spp_dev.cc b/prefetcher/spp_dev/spp_dev.cc
-index 29f824e..9491a6e 100644
+index 29f824e..85e7711 100644
 --- a/prefetcher/spp_dev/spp_dev.cc
 +++ b/prefetcher/spp_dev/spp_dev.cc
 @@ -1,6 +1,7 @@
@@ -10,7 +10,21 @@ index 29f824e..9491a6e 100644
  #include <iostream>
  
  void spp_dev::prefetcher_initialize()
-@@ -493,7 +494,9 @@ void spp_dev::GLOBAL_REGISTER::update_entry(uint32_t pf_sig, uint32_t pf_confide
+@@ -70,6 +71,13 @@ uint32_t spp_dev::prefetcher_cache_operate(champsim::address addr, champsim::add
+ 
+   do {
+     uint32_t lookahead_way = PT_WAY;
++    // read_pattern appends up to PT_WAY candidates plus one separator per
++    // lookahead step, with no bounds check. The queues are sized to the L2
++    // MSHR count (16 on small cores), so a long confident chain overran them
++    // (heap-buffer-overflow at the confidence_q[i] read below). Stop the
++    // lookahead when the next step could not fit.
++    if (pf_q_tail + PT_WAY + 1 > confidence_q.size())
++      break;
+     PT.read_pattern(curr_sig, delta_q, confidence_q, lookahead_way, lookahead_conf, pf_q_tail, depth);
+ 
+     do_lookahead = 0;
+@@ -493,7 +501,9 @@ void spp_dev::GLOBAL_REGISTER::update_entry(uint32_t pf_sig, uint32_t pf_confide
  {
    // NOTE: GHR implementation is slightly different from the original paper
    // Instead of matching (last_offset + delta), GHR simply stores and matches the pf_offset
