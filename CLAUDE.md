@@ -37,6 +37,10 @@ End-to-end pipeline built and tested on partial data; **dense sweeps running** (
 
 **Next:** (1) when sweeps finish: `python -m loop.experiment traces/...` on all 3 traces, then `python -m loop.plots`; read the playbook and the losing/re-scoped rules — that is the paper's story. (2) Team review of placeholders: SoC profiles, area budgets, search space. (3) GCP cluster bring-up (`cluster/README.md`, needs Tailscale key from user). (4) Tier B wide space on GCP. (5) Fork CHIA and open the gs:// PR. (6) Optional: humans-bet arm.
 
+## Stretch arm: Merlin compiler node (HW/SW co-design)
+
+A PhD teammate (Berkeley, close to the CHIA project) is integrating a **Merlin compiler node** into CHIA so an agent can change the compiler/compilation agentically. For us that is a second knob axis: the `problem` dict in `loop/loop.py` is search-space agnostic, so compiler choices become knobs next to cache knobs, and `evaluate` becomes compile -> re-trace -> simulate. Rules can then say "when the compiler does X, cache knob Y stops mattering", which is the co-design story the CHIA team wants. **Blocker to verify before committing:** ChampSim traces are recorded from a fixed binary, so every compiler change needs trace regeneration (tracer availability, time per trace). Do not start this before the cross-SoC result is in hand.
+
 ## Working rules
 
 - Budget: **~257 EUR total** GCP credits. Track LLM cost per call; expensive runs need the user's approval with a cost estimate first.
