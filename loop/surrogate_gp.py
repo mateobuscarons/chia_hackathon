@@ -43,17 +43,38 @@ def fit(history, search_space, objective):
         rows.append(encode(entry["knobs"], columns))
         targets.append(entry["metrics"][objective])
 
+    regressor = fit_regressor(rows, targets)
+
+    # A GP fit on a handful of points is overconfident: its own std ignores
+    # how wrong it is out of sample. Leave-one-out error is added to every
+    # prediction's std so the surrogate's bets are honest about that.
+    squared_errors = []
+    if len(rows) >= 3:
+        for left_out in range(len(rows)):
+            other_rows = rows[:left_out] + rows[left_out + 1:]
+            other_targets = targets[:left_out] + targets[left_out + 1:]
+            partial = fit_regressor(other_rows, other_targets)
+            prediction = partial.predict(numpy.array([rows[left_out]]))[0]
+            squared_errors.append((prediction - targets[left_out]) ** 2)
+    loo_std = 0.0
+    if len(squared_errors) > 0:
+        loo_std = math.sqrt(sum(squared_errors) / len(squared_errors))
+    return {"regressor": regressor, "columns": columns, "loo_std": loo_std}
+
+
+def fit_regressor(rows, targets):
     kernel = ConstantKernel(1.0) * Matern(length_scale=1.0, nu=2.5) + WhiteKernel(1e-4)
     regressor = GaussianProcessRegressor(kernel=kernel, normalize_y=True,
                                          n_restarts_optimizer=3, random_state=0)
     regressor.fit(numpy.array(rows), numpy.array(targets))
-    return {"regressor": regressor, "columns": columns}
+    return regressor
 
 
 def predict(model, knobs):
     row = numpy.array([encode(knobs, model["columns"])])
     mean, std = model["regressor"].predict(row, return_std=True)
-    return float(mean[0]), max(float(std[0]), MIN_STD)
+    total_std = math.sqrt(float(std[0]) ** 2 + model["loo_std"] ** 2)
+    return float(mean[0]), max(total_std, MIN_STD)
 
 
 def probability_at_least(model, knobs, threshold):
