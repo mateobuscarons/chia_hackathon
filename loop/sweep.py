@@ -72,6 +72,8 @@ def collect_finished(pending, table, path, wait):
         if wait or future.done():
             table[name] = {"knobs": knobs, "metrics": future.result()}
             print("simulated", name, "ipc={:.4f}".format(table[name]["metrics"]["ipc"]), flush=True)
+            # Save after every result: a crash must not lose finished simulations.
+            save_sweep(table, path)
         else:
             still_pending.append((name, knobs, future))
     save_sweep(table, path)
