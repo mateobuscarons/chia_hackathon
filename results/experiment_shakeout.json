@@ -1,0 +1,1898 @@
+{
+  "settings": {
+    "train_socs": [
+      "B_midrange"
+    ],
+    "test_soc": "B_midrange",
+    "traces": [
+      "traces/605.mcf_s-665B.champsimtrace.xz"
+    ],
+    "rounds": 3,
+    "per_round": 2,
+    "seeds": 1
+  },
+  "learn_bets": [
+    {
+      "id": "BET-0001",
+      "forecaster": "SURROGATE",
+      "experiment": "B_midrange_l2s1024_pf-spp_dev_llcs2048_rp-lru",
+      "event": "ipc >= 0.3182",
+      "probability": 1.041323693939944e-10,
+      "outcome": true
+    },
+    {
+      "id": "BET-0002",
+      "forecaster": "learn-B_midrange/mcf-HYP-r1-1",
+      "experiment": "B_midrange_l2s1024_pf-spp_dev_llcs2048_rp-lru",
+      "event": "ipc >= 0.3182",
+      "probability": 0.8,
+      "outcome": true
+    },
+    {
+      "id": "BET-0003",
+      "forecaster": "SURROGATE",
+      "experiment": "B_midrange_l2s1024_pf-no_llcs2048_rp-srrip",
+      "event": "ipc >= 0.2982",
+      "probability": 0.009258376504691745,
+      "outcome": false
+    },
+    {
+      "id": "BET-0004",
+      "forecaster": "learn-B_midrange/mcf-HYP-r1-2",
+      "experiment": "B_midrange_l2s1024_pf-no_llcs2048_rp-srrip",
+      "event": "ipc >= 0.2982",
+      "probability": 0.7,
+      "outcome": false
+    },
+    {
+      "id": "BET-0005",
+      "forecaster": "SURROGATE",
+      "experiment": "B_midrange_l2s1024_pf-spp_dev_llcs2048_rp-drrip",
+      "event": "ipc >= 0.3505",
+      "probability": 0.20280326862741616,
+      "outcome": true
+    },
+    {
+      "id": "BET-0006",
+      "forecaster": "learn-B_midrange/mcf-HYP-r2-2",
+      "experiment": "B_midrange_l2s1024_pf-spp_dev_llcs2048_rp-drrip",
+      "event": "ipc >= 0.3505",
+      "probability": 0.7,
+      "outcome": true
+    },
+    {
+      "id": "BET-0007",
+      "forecaster": "SURROGATE",
+      "experiment": "B_midrange_l2s1024_pf-ip_stride_llcs2048_rp-lru",
+      "event": "ipc >= 0.3480",
+      "probability": 0.21798453811653595,
+      "outcome": true
+    },
+    {
+      "id": "BET-0008",
+      "forecaster": "learn-B_midrange/mcf-HYP-r2-1",
+      "experiment": "B_midrange_l2s1024_pf-ip_stride_llcs2048_rp-lru",
+      "event": "ipc >= 0.3480",
+      "probability": 0.8,
+      "outcome": true
+    },
+    {
+      "id": "BET-0009",
+      "forecaster": "SURROGATE",
+      "experiment": "B_midrange_l2s2048_pf-spp_dev_llcs2048_rp-lru",
+      "event": "ipc >= 0.3693",
+      "probability": 0.2838740879329673,
+      "outcome": true
+    },
+    {
+      "id": "BET-0010",
+      "forecaster": "learn-B_midrange/mcf-HYP-r3-1",
+      "experiment": "B_midrange_l2s2048_pf-spp_dev_llcs2048_rp-lru",
+      "event": "ipc >= 0.3693",
+      "probability": 0.75,
+      "outcome": true
+    }
+  ],
+  "rules": [
+    {
+      "id": "RULE-001",
+      "condition": {
+        "metric": "ipc",
+        "op": "<",
+        "value": 0.3
+      },
+      "claim": {
+        "knob": "l2_prefetcher",
+        "value": "spp_dev",
+        "gain_pct": 31.7
+      },
+      "example": "B_midrange/mcf: 0.2864 -> 0.3774",
+      "text": "Enabling the SPP prefetcher for L2 cache significantly improves IPC and reduces LLC misses when the baseline IPC is low.",
+      "origin": [],
+      "wins": 0,
+      "losses": 0,
+      "brier_scores": [],
+      "status": "active"
+    },
+    {
+      "id": "RULE-002",
+      "condition": {
+        "metric": "ipc",
+        "op": "<",
+        "value": 0.3
+      },
+      "claim": {
+        "knob": "l2_prefetcher",
+        "value": "ip_stride",
+        "gain_pct": 27.51
+      },
+      "example": "B_midrange/mcf: 0.2864 -> 0.3652",
+      "text": "Enabling the IP Stride prefetcher for L2 cache significantly improves IPC and reduces LLC misses when the baseline IPC is low.",
+      "origin": [],
+      "wins": 0,
+      "losses": 0,
+      "brier_scores": [],
+      "status": "active"
+    },
+    {
+      "id": "RULE-003",
+      "condition": {
+        "metric": "ipc",
+        "op": ">=",
+        "value": 0.35
+      },
+      "claim": {
+        "knob": "l2_sets",
+        "value": 2048,
+        "gain_pct": 0.21
+      },
+      "example": "B_midrange/mcf: 0.3774 -> 0.3771 (note: this is comparing against a baseline *with* spp_dev already active, the gain is small but consistent)",
+      "text": "Increasing L2 cache sets from 1024 to 2048 slightly improves IPC and notably reduces L2 cache misses, especially when a prefetcher like SPP_DEV is active.",
+      "origin": [],
+      "wins": 0,
+      "losses": 0,
+      "brier_scores": [],
+      "status": "active"
+    }
+  ],
+  "test": {
+    "B_midrange/mcf": {
+      "optimum": 0.38935253619273724,
+      "arms": {
+        "random": {
+          "0": {
+            "history": [
+              {
+                "name": "baseline",
+                "ipc": 0.28644880563213126
+              },
+              {
+                "name": "B_midrange_l2s1024_pf-no_llcs2048_rp-drrip",
+                "ipc": 0.2922267311490017
+              },
+              {
+                "name": "B_midrange_l2s512_pf-spp_dev_llcs2048_rp-lru",
+                "ipc": 0.3731183555576218
+              },
+              {
+                "name": "B_midrange_l2s2048_pf-spp_dev_llcs1024_rp-srrip",
+                "ipc": 0.32231240233132336
+              },
+              {
+                "name": "B_midrange_l2s2048_pf-ip_stride_llcs1024_rp-srrip",
+                "ipc": 0.3443459366765293
+              },
+              {
+                "name": "B_midrange_l2s1024_pf-ip_stride_llcs2048_rp-lru",
+                "ipc": 0.36524755629393973
+              },
+              {
+                "name": "B_midrange_l2s512_pf-ip_stride_llcs1024_rp-srrip",
+                "ipc": 0.27552105004777255
+              }
+            ],
+            "sims_to_target": null,
+            "bets": [
+              {
+                "id": "BET-0001",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s1024_pf-spp_dev_llcs2048_rp-lru",
+                "event": "ipc >= 0.3182",
+                "probability": 1.041323693939944e-10,
+                "outcome": true
+              },
+              {
+                "id": "BET-0002",
+                "forecaster": "learn-B_midrange/mcf-HYP-r1-1",
+                "experiment": "B_midrange_l2s1024_pf-spp_dev_llcs2048_rp-lru",
+                "event": "ipc >= 0.3182",
+                "probability": 0.8,
+                "outcome": true
+              },
+              {
+                "id": "BET-0003",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s1024_pf-no_llcs2048_rp-srrip",
+                "event": "ipc >= 0.2982",
+                "probability": 0.009258376504691745,
+                "outcome": false
+              },
+              {
+                "id": "BET-0004",
+                "forecaster": "learn-B_midrange/mcf-HYP-r1-2",
+                "experiment": "B_midrange_l2s1024_pf-no_llcs2048_rp-srrip",
+                "event": "ipc >= 0.2982",
+                "probability": 0.7,
+                "outcome": false
+              },
+              {
+                "id": "BET-0005",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s1024_pf-spp_dev_llcs2048_rp-drrip",
+                "event": "ipc >= 0.3505",
+                "probability": 0.20280326862741616,
+                "outcome": true
+              },
+              {
+                "id": "BET-0006",
+                "forecaster": "learn-B_midrange/mcf-HYP-r2-2",
+                "experiment": "B_midrange_l2s1024_pf-spp_dev_llcs2048_rp-drrip",
+                "event": "ipc >= 0.3505",
+                "probability": 0.7,
+                "outcome": true
+              },
+              {
+                "id": "BET-0007",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s1024_pf-ip_stride_llcs2048_rp-lru",
+                "event": "ipc >= 0.3480",
+                "probability": 0.21798453811653595,
+                "outcome": true
+              },
+              {
+                "id": "BET-0008",
+                "forecaster": "learn-B_midrange/mcf-HYP-r2-1",
+                "experiment": "B_midrange_l2s1024_pf-ip_stride_llcs2048_rp-lru",
+                "event": "ipc >= 0.3480",
+                "probability": 0.8,
+                "outcome": true
+              },
+              {
+                "id": "BET-0009",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s2048_pf-spp_dev_llcs2048_rp-lru",
+                "event": "ipc >= 0.3693",
+                "probability": 0.2838740879329673,
+                "outcome": true
+              },
+              {
+                "id": "BET-0010",
+                "forecaster": "learn-B_midrange/mcf-HYP-r3-1",
+                "experiment": "B_midrange_l2s2048_pf-spp_dev_llcs2048_rp-lru",
+                "event": "ipc >= 0.3693",
+                "probability": 0.75,
+                "outcome": true
+              }
+            ],
+            "rules": [
+              {
+                "id": "RULE-001",
+                "condition": {
+                  "metric": "ipc",
+                  "op": "<",
+                  "value": 0.3
+                },
+                "claim": {
+                  "knob": "l2_prefetcher",
+                  "value": "spp_dev",
+                  "gain_pct": 31.7
+                },
+                "example": "B_midrange/mcf: 0.2864 -> 0.3774",
+                "text": "Enabling the SPP prefetcher for L2 cache significantly improves IPC and reduces LLC misses when the baseline IPC is low.",
+                "origin": [],
+                "wins": 0,
+                "losses": 0,
+                "brier_scores": [],
+                "status": "active"
+              },
+              {
+                "id": "RULE-002",
+                "condition": {
+                  "metric": "ipc",
+                  "op": "<",
+                  "value": 0.3
+                },
+                "claim": {
+                  "knob": "l2_prefetcher",
+                  "value": "ip_stride",
+                  "gain_pct": 27.51
+                },
+                "example": "B_midrange/mcf: 0.2864 -> 0.3652",
+                "text": "Enabling the IP Stride prefetcher for L2 cache significantly improves IPC and reduces LLC misses when the baseline IPC is low.",
+                "origin": [],
+                "wins": 0,
+                "losses": 0,
+                "brier_scores": [],
+                "status": "active"
+              },
+              {
+                "id": "RULE-003",
+                "condition": {
+                  "metric": "ipc",
+                  "op": ">=",
+                  "value": 0.35
+                },
+                "claim": {
+                  "knob": "l2_sets",
+                  "value": 2048,
+                  "gain_pct": 0.21
+                },
+                "example": "B_midrange/mcf: 0.3774 -> 0.3771 (note: this is comparing against a baseline *with* spp_dev already active, the gain is small but consistent)",
+                "text": "Increasing L2 cache sets from 1024 to 2048 slightly improves IPC and notably reduces L2 cache misses, especially when a prefetcher like SPP_DEV is active.",
+                "origin": [],
+                "wins": 0,
+                "losses": 0,
+                "brier_scores": [],
+                "status": "active"
+              }
+            ]
+          }
+        },
+        "surrogate": {
+          "0": {
+            "history": [
+              {
+                "name": "B_midrange_l2s1024_pf-no_llcs2048_rp-lru",
+                "ipc": 0.28644880563213126
+              },
+              {
+                "name": "B_midrange_l2s512_pf-spp_dev_llcs2048_rp-srrip",
+                "ipc": 0.29831761165345066
+              },
+              {
+                "name": "B_midrange_l2s512_pf-spp_dev_llcs2048_rp-lru",
+                "ipc": 0.3731183555576218
+              },
+              {
+                "name": "B_midrange_l2s512_pf-spp_dev_llcs2048_rp-drrip",
+                "ipc": 0.3596992282584205
+              },
+              {
+                "name": "B_midrange_l2s512_pf-spp_dev_llcs1024_rp-srrip",
+                "ipc": 0.2640151808668275
+              },
+              {
+                "name": "B_midrange_l2s2048_pf-ip_stride_llcs1024_rp-drrip",
+                "ipc": 0.34516753562559
+              },
+              {
+                "name": "B_midrange_l2s2048_pf-ip_stride_llcs1024_rp-lru",
+                "ipc": 0.31928271761335497
+              }
+            ],
+            "sims_to_target": null,
+            "bets": [
+              {
+                "id": "BET-0001",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s1024_pf-spp_dev_llcs2048_rp-lru",
+                "event": "ipc >= 0.3182",
+                "probability": 1.041323693939944e-10,
+                "outcome": true
+              },
+              {
+                "id": "BET-0002",
+                "forecaster": "learn-B_midrange/mcf-HYP-r1-1",
+                "experiment": "B_midrange_l2s1024_pf-spp_dev_llcs2048_rp-lru",
+                "event": "ipc >= 0.3182",
+                "probability": 0.8,
+                "outcome": true
+              },
+              {
+                "id": "BET-0003",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s1024_pf-no_llcs2048_rp-srrip",
+                "event": "ipc >= 0.2982",
+                "probability": 0.009258376504691745,
+                "outcome": false
+              },
+              {
+                "id": "BET-0004",
+                "forecaster": "learn-B_midrange/mcf-HYP-r1-2",
+                "experiment": "B_midrange_l2s1024_pf-no_llcs2048_rp-srrip",
+                "event": "ipc >= 0.2982",
+                "probability": 0.7,
+                "outcome": false
+              },
+              {
+                "id": "BET-0005",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s1024_pf-spp_dev_llcs2048_rp-drrip",
+                "event": "ipc >= 0.3505",
+                "probability": 0.20280326862741616,
+                "outcome": true
+              },
+              {
+                "id": "BET-0006",
+                "forecaster": "learn-B_midrange/mcf-HYP-r2-2",
+                "experiment": "B_midrange_l2s1024_pf-spp_dev_llcs2048_rp-drrip",
+                "event": "ipc >= 0.3505",
+                "probability": 0.7,
+                "outcome": true
+              },
+              {
+                "id": "BET-0007",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s1024_pf-ip_stride_llcs2048_rp-lru",
+                "event": "ipc >= 0.3480",
+                "probability": 0.21798453811653595,
+                "outcome": true
+              },
+              {
+                "id": "BET-0008",
+                "forecaster": "learn-B_midrange/mcf-HYP-r2-1",
+                "experiment": "B_midrange_l2s1024_pf-ip_stride_llcs2048_rp-lru",
+                "event": "ipc >= 0.3480",
+                "probability": 0.8,
+                "outcome": true
+              },
+              {
+                "id": "BET-0009",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s2048_pf-spp_dev_llcs2048_rp-lru",
+                "event": "ipc >= 0.3693",
+                "probability": 0.2838740879329673,
+                "outcome": true
+              },
+              {
+                "id": "BET-0010",
+                "forecaster": "learn-B_midrange/mcf-HYP-r3-1",
+                "experiment": "B_midrange_l2s2048_pf-spp_dev_llcs2048_rp-lru",
+                "event": "ipc >= 0.3693",
+                "probability": 0.75,
+                "outcome": true
+              }
+            ],
+            "rules": [
+              {
+                "id": "RULE-001",
+                "condition": {
+                  "metric": "ipc",
+                  "op": "<",
+                  "value": 0.3
+                },
+                "claim": {
+                  "knob": "l2_prefetcher",
+                  "value": "spp_dev",
+                  "gain_pct": 31.7
+                },
+                "example": "B_midrange/mcf: 0.2864 -> 0.3774",
+                "text": "Enabling the SPP prefetcher for L2 cache significantly improves IPC and reduces LLC misses when the baseline IPC is low.",
+                "origin": [],
+                "wins": 0,
+                "losses": 0,
+                "brier_scores": [],
+                "status": "active"
+              },
+              {
+                "id": "RULE-002",
+                "condition": {
+                  "metric": "ipc",
+                  "op": "<",
+                  "value": 0.3
+                },
+                "claim": {
+                  "knob": "l2_prefetcher",
+                  "value": "ip_stride",
+                  "gain_pct": 27.51
+                },
+                "example": "B_midrange/mcf: 0.2864 -> 0.3652",
+                "text": "Enabling the IP Stride prefetcher for L2 cache significantly improves IPC and reduces LLC misses when the baseline IPC is low.",
+                "origin": [],
+                "wins": 0,
+                "losses": 0,
+                "brier_scores": [],
+                "status": "active"
+              },
+              {
+                "id": "RULE-003",
+                "condition": {
+                  "metric": "ipc",
+                  "op": ">=",
+                  "value": 0.35
+                },
+                "claim": {
+                  "knob": "l2_sets",
+                  "value": 2048,
+                  "gain_pct": 0.21
+                },
+                "example": "B_midrange/mcf: 0.3774 -> 0.3771 (note: this is comparing against a baseline *with* spp_dev already active, the gain is small but consistent)",
+                "text": "Increasing L2 cache sets from 1024 to 2048 slightly improves IPC and notably reduces L2 cache misses, especially when a prefetcher like SPP_DEV is active.",
+                "origin": [],
+                "wins": 0,
+                "losses": 0,
+                "brier_scores": [],
+                "status": "active"
+              }
+            ]
+          }
+        },
+        "surrogate_pooled": {
+          "0": {
+            "history": [
+              {
+                "name": "B_midrange_l2s1024_pf-no_llcs2048_rp-lru",
+                "ipc": 0.28644880563213126
+              },
+              {
+                "name": "B_midrange_l2s2048_pf-no_llcs1024_rp-drrip",
+                "ipc": 0.2748476540676461
+              },
+              {
+                "name": "B_midrange_l2s512_pf-no_llcs1024_rp-drrip",
+                "ipc": 0.24829671624496258
+              },
+              {
+                "name": "B_midrange_l2s1024_pf-spp_dev_llcs1024_rp-srrip",
+                "ipc": 0.2783717021248048
+              },
+              {
+                "name": "B_midrange_l2s512_pf-ip_stride_llcs2048_rp-drrip",
+                "ipc": 0.36229617134978964
+              },
+              {
+                "name": "B_midrange_l2s512_pf-spp_dev_llcs1024_rp-lru",
+                "ipc": 0.2995619387259419
+              },
+              {
+                "name": "B_midrange_l2s512_pf-spp_dev_llcs2048_rp-srrip",
+                "ipc": 0.29831761165345066
+              }
+            ],
+            "sims_to_target": null,
+            "bets": [
+              {
+                "id": "BET-0001",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s1024_pf-spp_dev_llcs2048_rp-lru",
+                "event": "ipc >= 0.3182",
+                "probability": 1.041323693939944e-10,
+                "outcome": true
+              },
+              {
+                "id": "BET-0002",
+                "forecaster": "learn-B_midrange/mcf-HYP-r1-1",
+                "experiment": "B_midrange_l2s1024_pf-spp_dev_llcs2048_rp-lru",
+                "event": "ipc >= 0.3182",
+                "probability": 0.8,
+                "outcome": true
+              },
+              {
+                "id": "BET-0003",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s1024_pf-no_llcs2048_rp-srrip",
+                "event": "ipc >= 0.2982",
+                "probability": 0.009258376504691745,
+                "outcome": false
+              },
+              {
+                "id": "BET-0004",
+                "forecaster": "learn-B_midrange/mcf-HYP-r1-2",
+                "experiment": "B_midrange_l2s1024_pf-no_llcs2048_rp-srrip",
+                "event": "ipc >= 0.2982",
+                "probability": 0.7,
+                "outcome": false
+              },
+              {
+                "id": "BET-0005",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s1024_pf-spp_dev_llcs2048_rp-drrip",
+                "event": "ipc >= 0.3505",
+                "probability": 0.20280326862741616,
+                "outcome": true
+              },
+              {
+                "id": "BET-0006",
+                "forecaster": "learn-B_midrange/mcf-HYP-r2-2",
+                "experiment": "B_midrange_l2s1024_pf-spp_dev_llcs2048_rp-drrip",
+                "event": "ipc >= 0.3505",
+                "probability": 0.7,
+                "outcome": true
+              },
+              {
+                "id": "BET-0007",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s1024_pf-ip_stride_llcs2048_rp-lru",
+                "event": "ipc >= 0.3480",
+                "probability": 0.21798453811653595,
+                "outcome": true
+              },
+              {
+                "id": "BET-0008",
+                "forecaster": "learn-B_midrange/mcf-HYP-r2-1",
+                "experiment": "B_midrange_l2s1024_pf-ip_stride_llcs2048_rp-lru",
+                "event": "ipc >= 0.3480",
+                "probability": 0.8,
+                "outcome": true
+              },
+              {
+                "id": "BET-0009",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s2048_pf-spp_dev_llcs2048_rp-lru",
+                "event": "ipc >= 0.3693",
+                "probability": 0.2838740879329673,
+                "outcome": true
+              },
+              {
+                "id": "BET-0010",
+                "forecaster": "learn-B_midrange/mcf-HYP-r3-1",
+                "experiment": "B_midrange_l2s2048_pf-spp_dev_llcs2048_rp-lru",
+                "event": "ipc >= 0.3693",
+                "probability": 0.75,
+                "outcome": true
+              }
+            ],
+            "rules": [
+              {
+                "id": "RULE-001",
+                "condition": {
+                  "metric": "ipc",
+                  "op": "<",
+                  "value": 0.3
+                },
+                "claim": {
+                  "knob": "l2_prefetcher",
+                  "value": "spp_dev",
+                  "gain_pct": 31.7
+                },
+                "example": "B_midrange/mcf: 0.2864 -> 0.3774",
+                "text": "Enabling the SPP prefetcher for L2 cache significantly improves IPC and reduces LLC misses when the baseline IPC is low.",
+                "origin": [],
+                "wins": 0,
+                "losses": 0,
+                "brier_scores": [],
+                "status": "active"
+              },
+              {
+                "id": "RULE-002",
+                "condition": {
+                  "metric": "ipc",
+                  "op": "<",
+                  "value": 0.3
+                },
+                "claim": {
+                  "knob": "l2_prefetcher",
+                  "value": "ip_stride",
+                  "gain_pct": 27.51
+                },
+                "example": "B_midrange/mcf: 0.2864 -> 0.3652",
+                "text": "Enabling the IP Stride prefetcher for L2 cache significantly improves IPC and reduces LLC misses when the baseline IPC is low.",
+                "origin": [],
+                "wins": 0,
+                "losses": 0,
+                "brier_scores": [],
+                "status": "active"
+              },
+              {
+                "id": "RULE-003",
+                "condition": {
+                  "metric": "ipc",
+                  "op": ">=",
+                  "value": 0.35
+                },
+                "claim": {
+                  "knob": "l2_sets",
+                  "value": 2048,
+                  "gain_pct": 0.21
+                },
+                "example": "B_midrange/mcf: 0.3774 -> 0.3771 (note: this is comparing against a baseline *with* spp_dev already active, the gain is small but consistent)",
+                "text": "Increasing L2 cache sets from 1024 to 2048 slightly improves IPC and notably reduces L2 cache misses, especially when a prefetcher like SPP_DEV is active.",
+                "origin": [],
+                "wins": 0,
+                "losses": 0,
+                "brier_scores": [],
+                "status": "active"
+              }
+            ]
+          }
+        },
+        "textbook": {
+          "0": {
+            "history": [
+              {
+                "name": "B_midrange_l2s1024_pf-no_llcs2048_rp-lru",
+                "ipc": 0.28644880563213126
+              },
+              {
+                "name": "B_midrange_l2s2048_pf-spp_dev_llcs2048_rp-srrip",
+                "ipc": 0.3497491407803733
+              },
+              {
+                "name": "B_midrange_l2s2048_pf-spp_dev_llcs2048_rp-lru",
+                "ipc": 0.3771116120575959
+              },
+              {
+                "name": "B_midrange_l2s2048_pf-spp_dev_llcs2048_rp-drrip",
+                "ipc": 0.372932092374944
+              },
+              {
+                "name": "B_midrange_l2s2048_pf-spp_dev_llcs1024_rp-drrip",
+                "ipc": 0.3256051205943203
+              },
+              {
+                "name": "B_midrange_l2s512_pf-ip_stride_llcs1024_rp-srrip",
+                "ipc": 0.27552105004777255
+              },
+              {
+                "name": "B_midrange_l2s512_pf-ip_stride_llcs1024_rp-lru",
+                "ipc": 0.2871698671400526
+              }
+            ],
+            "sims_to_target": null,
+            "bets": [
+              {
+                "id": "BET-0001",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s2048_pf-spp_dev_llcs2048_rp-srrip",
+                "event": "ipc >= 0.2972",
+                "probability": 0.01584234410338925,
+                "outcome": true
+              },
+              {
+                "id": "BET-0002",
+                "forecaster": "RULE-001",
+                "experiment": "B_midrange_l2s2048_pf-spp_dev_llcs2048_rp-srrip",
+                "event": "ipc >= 0.2972",
+                "probability": 0.7,
+                "outcome": true
+              },
+              {
+                "id": "BET-0003",
+                "forecaster": "RULE-003",
+                "experiment": "B_midrange_l2s2048_pf-spp_dev_llcs2048_rp-srrip",
+                "event": "ipc >= 0.2972",
+                "probability": 0.7,
+                "outcome": true
+              },
+              {
+                "id": "BET-0004",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s2048_pf-spp_dev_llcs2048_rp-lru",
+                "event": "ipc >= 0.2972",
+                "probability": 0.01584234410338925,
+                "outcome": true
+              },
+              {
+                "id": "BET-0005",
+                "forecaster": "RULE-001",
+                "experiment": "B_midrange_l2s2048_pf-spp_dev_llcs2048_rp-lru",
+                "event": "ipc >= 0.2972",
+                "probability": 0.7,
+                "outcome": true
+              },
+              {
+                "id": "BET-0006",
+                "forecaster": "RULE-003",
+                "experiment": "B_midrange_l2s2048_pf-spp_dev_llcs2048_rp-lru",
+                "event": "ipc >= 0.2972",
+                "probability": 0.7,
+                "outcome": true
+              },
+              {
+                "id": "BET-0007",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s2048_pf-spp_dev_llcs2048_rp-drrip",
+                "event": "ipc >= 0.3167",
+                "probability": 0.729513064316971,
+                "outcome": true
+              },
+              {
+                "id": "BET-0008",
+                "forecaster": "RULE-001",
+                "experiment": "B_midrange_l2s2048_pf-spp_dev_llcs2048_rp-drrip",
+                "event": "ipc >= 0.3167",
+                "probability": 0.15000000000000002,
+                "outcome": true
+              },
+              {
+                "id": "BET-0009",
+                "forecaster": "RULE-003",
+                "experiment": "B_midrange_l2s2048_pf-spp_dev_llcs2048_rp-drrip",
+                "event": "ipc >= 0.3167",
+                "probability": 0.15000000000000002,
+                "outcome": true
+              },
+              {
+                "id": "BET-0010",
+                "forecaster": "RULE-004",
+                "experiment": "B_midrange_l2s2048_pf-spp_dev_llcs2048_rp-drrip",
+                "event": "ipc >= 0.3167",
+                "probability": 0.30000000000000004,
+                "outcome": true
+              },
+              {
+                "id": "BET-0011",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s2048_pf-spp_dev_llcs1024_rp-drrip",
+                "event": "ipc >= 0.3158",
+                "probability": 0.7211257731084749,
+                "outcome": true
+              },
+              {
+                "id": "BET-0012",
+                "forecaster": "RULE-001",
+                "experiment": "B_midrange_l2s2048_pf-spp_dev_llcs1024_rp-drrip",
+                "event": "ipc >= 0.3158",
+                "probability": 0.15000000000000002,
+                "outcome": true
+              },
+              {
+                "id": "BET-0013",
+                "forecaster": "RULE-003",
+                "experiment": "B_midrange_l2s2048_pf-spp_dev_llcs1024_rp-drrip",
+                "event": "ipc >= 0.3158",
+                "probability": 0.15000000000000002,
+                "outcome": true
+              },
+              {
+                "id": "BET-0014",
+                "forecaster": "RULE-004",
+                "experiment": "B_midrange_l2s2048_pf-spp_dev_llcs1024_rp-drrip",
+                "event": "ipc >= 0.3158",
+                "probability": 0.30000000000000004,
+                "outcome": true
+              }
+            ],
+            "rules": [
+              {
+                "id": "RULE-001",
+                "condition": {
+                  "metric": "L2C_mpki",
+                  "op": ">=",
+                  "value": 30
+                },
+                "claim": {
+                  "knob": "l2_sets",
+                  "value": 2048,
+                  "gain_pct": 7.5
+                },
+                "example": "B_high_l2_miss/bzip2: 0.85 -> 0.93",
+                "text": "If the L2 cache miss rate (L2C_mpki) is at least 30, increasing the L2 cache capacity can reduce misses and improve IPC by accommodating a larger working set.",
+                "origin": [
+                  {
+                    "rescoped_from": {
+                      "metric": "L2C_mpki",
+                      "op": ">=",
+                      "value": 15
+                    },
+                    "because": "problem: B_midrange/mcf\nbaseline metrics: {\"ipc\": 0.28644880563213126, \"L1D_hits\": 3680612, \"L1D_misses\": 685586, \"L1D_mpki\": 68.55857257657097, \"L2C_hits\": 179421, \"L2C_misses\": 267922, \"L2C_mpki\": 26.792189283124287, \"LLC_hits\": 165140, \"LLC_misses\": 130390, \"LLC_mpki\": 13.038994784402087}\nexperiment B_midrange_l2s2048_pf-spp_dev_llcs2048_rp-drrip: {\"ipc\": 0.372932092374944, \"L1D_hits\": 3681466, \"L1D_misses\": 685546, \"L1D_mpki\": 68.55457257817096, \"L2C_hits\": 282030, \"L2C_misses\": 165313, \"L2C_mpki\": 16.531293387482645, \"LLC_hits\": 79590, \"LLC_misses\": 79828, \"LLC_mpki\": 7.982796806881277}"
+                  },
+                  {
+                    "rescoped_from": {
+                      "metric": "L2C_mpki",
+                      "op": ">=",
+                      "value": 27
+                    },
+                    "because": "problem: B_midrange/mcf\nbaseline metrics: {\"ipc\": 0.28644880563213126, \"L1D_hits\": 3680612, \"L1D_misses\": 685586, \"L1D_mpki\": 68.55857257657097, \"L2C_hits\": 179421, \"L2C_misses\": 267922, \"L2C_mpki\": 26.792189283124287, \"LLC_hits\": 165140, \"LLC_misses\": 130390, \"LLC_mpki\": 13.038994784402087}\nexperiment B_midrange_l2s2048_pf-spp_dev_llcs1024_rp-drrip: {\"ipc\": 0.3256051205943203, \"L1D_hits\": 3684815, \"L1D_misses\": 682198, \"L1D_mpki\": 68.21977271209091, \"L2C_hits\": 285637, \"L2C_misses\": 161709, \"L2C_mpki\": 16.170893531642587, \"LLC_hits\": 58249, \"LLC_misses\": 101236, \"LLC_mpki\": 10.12359595056162}"
+                  }
+                ],
+                "wins": 2,
+                "losses": 2,
+                "brier_scores": [
+                  0.09000000000000002,
+                  0.09000000000000002,
+                  0.7224999999999999,
+                  0.7224999999999999
+                ],
+                "status": "active"
+              },
+              {
+                "id": "RULE-002",
+                "condition": {
+                  "metric": "LLC_mpki",
+                  "op": ">=",
+                  "value": 8
+                },
+                "claim": {
+                  "knob": "llc_sets",
+                  "value": 4096,
+                  "gain_pct": 8.0
+                },
+                "example": "A_memory_bound/mcf: 0.31 -> 0.35",
+                "text": "When the last-level cache experiences a high miss rate, expanding its capacity is crucial for improving data locality and overall performance by reducing off-chip memory accesses.",
+                "origin": [],
+                "wins": 0,
+                "losses": 0,
+                "brier_scores": [],
+                "status": "active"
+              },
+              {
+                "id": "RULE-003",
+                "condition": {
+                  "metric": "L2C_mpki",
+                  "op": "<",
+                  "value": 15
+                },
+                "claim": {
+                  "knob": "l2_prefetcher",
+                  "value": "spp_dev",
+                  "gain_pct": 4.0
+                },
+                "example": "C_stream_heavy/libquantum: 1.10 -> 1.15",
+                "text": "For workloads with a moderate L2 miss rate (below 15 MPKI), enabling a stream-based L2 prefetcher can proactively fetch data patterns, reducing effective memory latency and improving IPC.",
+                "origin": [
+                  {
+                    "rescoped_from": {
+                      "metric": "L2C_mpki",
+                      "op": ">=",
+                      "value": 5
+                    },
+                    "because": "problem: B_midrange/mcf\nbaseline metrics: {\"ipc\": 0.28644880563213126, \"L1D_hits\": 3680612, \"L1D_misses\": 685586, \"L1D_mpki\": 68.55857257657097, \"L2C_hits\": 179421, \"L2C_misses\": 267922, \"L2C_mpki\": 26.792189283124287, \"LLC_hits\": 165140, \"LLC_misses\": 130390, \"LLC_mpki\": 13.038994784402087}\nexperiment B_midrange_l2s2048_pf-spp_dev_llcs2048_rp-drrip: {\"ipc\": 0.372932092374944, \"L1D_hits\": 3681466, \"L1D_misses\": 685546, \"L1D_mpki\": 68.55457257817096, \"L2C_hits\": 282030, \"L2C_misses\": 165313, \"L2C_mpki\": 16.531293387482645, \"LLC_hits\": 79590, \"LLC_misses\": 79828, \"LLC_mpki\": 7.982796806881277}"
+                  },
+                  {
+                    "rescoped_from": {
+                      "metric": "L2C_mpki",
+                      "op": "<",
+                      "value": 20
+                    },
+                    "because": "problem: B_midrange/mcf\nbaseline metrics: {\"ipc\": 0.28644880563213126, \"L1D_hits\": 3680612, \"L1D_misses\": 685586, \"L1D_mpki\": 68.55857257657097, \"L2C_hits\": 179421, \"L2C_misses\": 267922, \"L2C_mpki\": 26.792189283124287, \"LLC_hits\": 165140, \"LLC_misses\": 130390, \"LLC_mpki\": 13.038994784402087}\nexperiment B_midrange_l2s2048_pf-spp_dev_llcs1024_rp-drrip: {\"ipc\": 0.3256051205943203, \"L1D_hits\": 3684815, \"L1D_misses\": 682198, \"L1D_mpki\": 68.21977271209091, \"L2C_hits\": 285637, \"L2C_misses\": 161709, \"L2C_mpki\": 16.170893531642587, \"LLC_hits\": 58249, \"LLC_misses\": 101236, \"LLC_mpki\": 10.12359595056162}"
+                  }
+                ],
+                "wins": 2,
+                "losses": 2,
+                "brier_scores": [
+                  0.09000000000000002,
+                  0.09000000000000002,
+                  0.7224999999999999,
+                  0.7224999999999999
+                ],
+                "status": "active"
+              },
+              {
+                "id": "RULE-004",
+                "condition": {
+                  "metric": "LLC_mpki",
+                  "op": ">=",
+                  "value": 15
+                },
+                "claim": {
+                  "knob": "llc_replacement",
+                  "value": "drrip",
+                  "gain_pct": 2.5
+                },
+                "example": "D_thrashing/lbm: 0.95 -> 0.97",
+                "text": "When the LLC experiences very frequent misses (LLC_mpki >= 15), employing an adaptive replacement policy like DRRIP can better utilize cache lines by protecting frequently reused data more effectively than simpler policies.",
+                "origin": [
+                  {
+                    "rescoped_from": {
+                      "metric": "LLC_mpki",
+                      "op": ">=",
+                      "value": 5
+                    },
+                    "because": "problem: B_midrange/mcf\nbaseline metrics: {\"ipc\": 0.28644880563213126, \"L1D_hits\": 3680612, \"L1D_misses\": 685586, \"L1D_mpki\": 68.55857257657097, \"L2C_hits\": 179421, \"L2C_misses\": 267922, \"L2C_mpki\": 26.792189283124287, \"LLC_hits\": 165140, \"LLC_misses\": 130390, \"LLC_mpki\": 13.038994784402087}\nexperiment B_midrange_l2s2048_pf-spp_dev_llcs2048_rp-drrip: {\"ipc\": 0.372932092374944, \"L1D_hits\": 3681466, \"L1D_misses\": 685546, \"L1D_mpki\": 68.55457257817096, \"L2C_hits\": 282030, \"L2C_misses\": 165313, \"L2C_mpki\": 16.531293387482645, \"LLC_hits\": 79590, \"LLC_misses\": 79828, \"LLC_mpki\": 7.982796806881277}"
+                  },
+                  {
+                    "rescoped_from": {
+                      "metric": "LLC_mpki",
+                      "op": ">=",
+                      "value": 5
+                    },
+                    "because": "problem: B_midrange/mcf\nbaseline metrics: {\"ipc\": 0.28644880563213126, \"L1D_hits\": 3680612, \"L1D_misses\": 685586, \"L1D_mpki\": 68.55857257657097, \"L2C_hits\": 179421, \"L2C_misses\": 267922, \"L2C_mpki\": 26.792189283124287, \"LLC_hits\": 165140, \"LLC_misses\": 130390, \"LLC_mpki\": 13.038994784402087}\nexperiment B_midrange_l2s2048_pf-spp_dev_llcs1024_rp-drrip: {\"ipc\": 0.3256051205943203, \"L1D_hits\": 3684815, \"L1D_misses\": 682198, \"L1D_mpki\": 68.21977271209091, \"L2C_hits\": 285637, \"L2C_misses\": 161709, \"L2C_mpki\": 16.170893531642587, \"LLC_hits\": 58249, \"LLC_misses\": 101236, \"LLC_mpki\": 10.12359595056162}"
+                  }
+                ],
+                "wins": 0,
+                "losses": 2,
+                "brier_scores": [
+                  0.48999999999999994,
+                  0.48999999999999994
+                ],
+                "status": "active"
+              },
+              {
+                "id": "RULE-005",
+                "condition": {
+                  "metric": "L2C_mpki",
+                  "op": "<",
+                  "value": 2
+                },
+                "claim": {
+                  "knob": "l2_prefetcher",
+                  "value": "no",
+                  "gain_pct": 1.0
+                },
+                "example": "E_low_miss/xalancbmk: 1.80 -> 1.82",
+                "text": "If the L2 cache miss rate is already very low, disabling prefetchers can prevent cache pollution and potential performance degradation by avoiding speculative data fetches that might evict useful data.",
+                "origin": [],
+                "wins": 0,
+                "losses": 0,
+                "brier_scores": [],
+                "status": "active"
+              },
+              {
+                "id": "RULE-006",
+                "condition": {
+                  "metric": "ipc",
+                  "op": ">=",
+                  "value": 1.7
+                },
+                "claim": {
+                  "knob": "llc_replacement",
+                  "value": "srrip",
+                  "gain_pct": 1.5
+                },
+                "example": "F_moderate_ipc/gcc: 1.90 -> 1.93",
+                "text": "For workloads exhibiting moderate-to-high IPC, optimizing the LLC replacement policy with SRRIP can offer a good balance of performance and stability over basic LRU by giving newly accessed blocks a chance to be reused.",
+                "origin": [],
+                "wins": 0,
+                "losses": 0,
+                "brier_scores": [],
+                "status": "active"
+              }
+            ]
+          }
+        },
+        "rules": {
+          "0": {
+            "history": [
+              {
+                "name": "B_midrange_l2s1024_pf-no_llcs2048_rp-lru",
+                "ipc": 0.28644880563213126
+              },
+              {
+                "name": "B_midrange_l2s512_pf-spp_dev_llcs2048_rp-srrip",
+                "ipc": 0.29831761165345066
+              },
+              {
+                "name": "B_midrange_l2s512_pf-spp_dev_llcs2048_rp-lru",
+                "ipc": 0.3731183555576218
+              },
+              {
+                "name": "B_midrange_l2s1024_pf-ip_stride_llcs2048_rp-lru",
+                "ipc": 0.36524755629393973
+              },
+              {
+                "name": "B_midrange_l2s512_pf-ip_stride_llcs2048_rp-srrip",
+                "ipc": 0.3205991097286883
+              },
+              {
+                "name": "B_midrange_l2s512_pf-ip_stride_llcs1024_rp-srrip",
+                "ipc": 0.27552105004777255
+              },
+              {
+                "name": "B_midrange_l2s2048_pf-ip_stride_llcs2048_rp-srrip",
+                "ipc": 0.37884101064436737
+              }
+            ],
+            "sims_to_target": null,
+            "bets": [
+              {
+                "id": "BET-0001",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s1024_pf-spp_dev_llcs2048_rp-lru",
+                "event": "ipc >= 0.3182",
+                "probability": 1.041323693939944e-10,
+                "outcome": true
+              },
+              {
+                "id": "BET-0002",
+                "forecaster": "learn-B_midrange/mcf-HYP-r1-1",
+                "experiment": "B_midrange_l2s1024_pf-spp_dev_llcs2048_rp-lru",
+                "event": "ipc >= 0.3182",
+                "probability": 0.8,
+                "outcome": true
+              },
+              {
+                "id": "BET-0003",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s1024_pf-no_llcs2048_rp-srrip",
+                "event": "ipc >= 0.2982",
+                "probability": 0.009258376504691745,
+                "outcome": false
+              },
+              {
+                "id": "BET-0004",
+                "forecaster": "learn-B_midrange/mcf-HYP-r1-2",
+                "experiment": "B_midrange_l2s1024_pf-no_llcs2048_rp-srrip",
+                "event": "ipc >= 0.2982",
+                "probability": 0.7,
+                "outcome": false
+              },
+              {
+                "id": "BET-0005",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s1024_pf-spp_dev_llcs2048_rp-drrip",
+                "event": "ipc >= 0.3505",
+                "probability": 0.20280326862741616,
+                "outcome": true
+              },
+              {
+                "id": "BET-0006",
+                "forecaster": "learn-B_midrange/mcf-HYP-r2-2",
+                "experiment": "B_midrange_l2s1024_pf-spp_dev_llcs2048_rp-drrip",
+                "event": "ipc >= 0.3505",
+                "probability": 0.7,
+                "outcome": true
+              },
+              {
+                "id": "BET-0007",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s1024_pf-ip_stride_llcs2048_rp-lru",
+                "event": "ipc >= 0.3480",
+                "probability": 0.21798453811653595,
+                "outcome": true
+              },
+              {
+                "id": "BET-0008",
+                "forecaster": "learn-B_midrange/mcf-HYP-r2-1",
+                "experiment": "B_midrange_l2s1024_pf-ip_stride_llcs2048_rp-lru",
+                "event": "ipc >= 0.3480",
+                "probability": 0.8,
+                "outcome": true
+              },
+              {
+                "id": "BET-0009",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s2048_pf-spp_dev_llcs2048_rp-lru",
+                "event": "ipc >= 0.3693",
+                "probability": 0.2838740879329673,
+                "outcome": true
+              },
+              {
+                "id": "BET-0010",
+                "forecaster": "learn-B_midrange/mcf-HYP-r3-1",
+                "experiment": "B_midrange_l2s2048_pf-spp_dev_llcs2048_rp-lru",
+                "event": "ipc >= 0.3693",
+                "probability": 0.75,
+                "outcome": true
+              },
+              {
+                "id": "BET-0011",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s512_pf-spp_dev_llcs2048_rp-srrip",
+                "event": "ipc >= 0.3319",
+                "probability": 0.0,
+                "outcome": false
+              },
+              {
+                "id": "BET-0012",
+                "forecaster": "RULE-001",
+                "experiment": "B_midrange_l2s512_pf-spp_dev_llcs2048_rp-srrip",
+                "event": "ipc >= 0.3319",
+                "probability": 0.7,
+                "outcome": false
+              },
+              {
+                "id": "BET-0013",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s512_pf-spp_dev_llcs2048_rp-lru",
+                "event": "ipc >= 0.3319",
+                "probability": 0.0,
+                "outcome": true
+              },
+              {
+                "id": "BET-0014",
+                "forecaster": "RULE-001",
+                "experiment": "B_midrange_l2s512_pf-spp_dev_llcs2048_rp-lru",
+                "event": "ipc >= 0.3319",
+                "probability": 0.7,
+                "outcome": true
+              },
+              {
+                "id": "BET-0015",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s1024_pf-ip_stride_llcs2048_rp-lru",
+                "event": "ipc >= 0.3423",
+                "probability": 0.2746151461095181,
+                "outcome": true
+              },
+              {
+                "id": "BET-0016",
+                "forecaster": "RULE-002",
+                "experiment": "B_midrange_l2s1024_pf-ip_stride_llcs2048_rp-lru",
+                "event": "ipc >= 0.3423",
+                "probability": 0.7,
+                "outcome": true
+              },
+              {
+                "id": "BET-0017",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s512_pf-ip_stride_llcs2048_rp-srrip",
+                "event": "ipc >= 0.3423",
+                "probability": 0.27461514654394925,
+                "outcome": false
+              },
+              {
+                "id": "BET-0018",
+                "forecaster": "RULE-002",
+                "experiment": "B_midrange_l2s512_pf-ip_stride_llcs2048_rp-srrip",
+                "event": "ipc >= 0.3423",
+                "probability": 0.7,
+                "outcome": false
+              },
+              {
+                "id": "BET-0019",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s512_pf-ip_stride_llcs1024_rp-srrip",
+                "event": "ipc >= 0.3470",
+                "probability": 0.3003796145144062,
+                "outcome": false
+              },
+              {
+                "id": "BET-0020",
+                "forecaster": "RULE-002",
+                "experiment": "B_midrange_l2s512_pf-ip_stride_llcs1024_rp-srrip",
+                "event": "ipc >= 0.3470",
+                "probability": 0.6,
+                "outcome": false
+              },
+              {
+                "id": "BET-0021",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s2048_pf-ip_stride_llcs2048_rp-srrip",
+                "event": "ipc >= 0.3470",
+                "probability": 0.30037961452342365,
+                "outcome": true
+              },
+              {
+                "id": "BET-0022",
+                "forecaster": "RULE-002",
+                "experiment": "B_midrange_l2s2048_pf-ip_stride_llcs2048_rp-srrip",
+                "event": "ipc >= 0.3470",
+                "probability": 0.6,
+                "outcome": true
+              }
+            ],
+            "rules": [
+              {
+                "id": "RULE-001",
+                "condition": {
+                  "metric": "L2C_mpki",
+                  "op": ">=",
+                  "value": 29.0
+                },
+                "claim": {
+                  "knob": "l2_prefetcher",
+                  "value": "spp_dev",
+                  "gain_pct": 31.7
+                },
+                "example": "B_midrange/mcf: 0.2864 -> 0.3774",
+                "text": "Enabling the SPP prefetcher for L2 cache significantly improves IPC and reduces LLC misses when the baseline L2C MPKI is high.",
+                "origin": [
+                  {
+                    "rescoped_from": {
+                      "metric": "ipc",
+                      "op": "<",
+                      "value": 0.3
+                    },
+                    "because": "problem: B_midrange/mcf\nbaseline metrics: {\"ipc\": 0.28644880563213126, \"L1D_hits\": 3680612, \"L1D_misses\": 685586, \"L1D_mpki\": 68.55857257657097, \"L2C_hits\": 179421, \"L2C_misses\": 267922, \"L2C_mpki\": 26.792189283124287, \"LLC_hits\": 165140, \"LLC_misses\": 130390, \"LLC_mpki\": 13.038994784402087}\nexperiment B_midrange_l2s512_pf-spp_dev_llcs2048_rp-srrip: {\"ipc\": 0.29831761165345066, \"L1D_hits\": 3679650, \"L1D_misses\": 685798, \"L1D_mpki\": 68.57977256809097, \"L2C_hits\": 152801, \"L2C_misses\": 294533, \"L2C_mpki\": 29.453288218684712, \"LLC_hits\": 213713, \"LLC_misses\": 112750, \"LLC_mpki\": 11.274995490001803}"
+                  }
+                ],
+                "wins": 1,
+                "losses": 1,
+                "brier_scores": [
+                  0.48999999999999994,
+                  0.09000000000000002
+                ],
+                "status": "active"
+              },
+              {
+                "id": "RULE-002",
+                "condition": {
+                  "metric": "LLC_mpki",
+                  "op": ">=",
+                  "value": 13.0
+                },
+                "claim": {
+                  "knob": "l2_prefetcher",
+                  "value": "ip_stride",
+                  "gain_pct": 27.51
+                },
+                "example": "B_midrange/mcf: 0.2864 -> 0.3652",
+                "text": "Enabling the IP Stride prefetcher for L2 cache significantly improves IPC and reduces LLC misses when baseline LLC MPKI is high.",
+                "origin": [
+                  {
+                    "rescoped_from": {
+                      "metric": "ipc",
+                      "op": "<",
+                      "value": 0.3
+                    },
+                    "because": "problem: B_midrange/mcf\nbaseline metrics: {\"ipc\": 0.28644880563213126, \"L1D_hits\": 3680612, \"L1D_misses\": 685586, \"L1D_mpki\": 68.55857257657097, \"L2C_hits\": 179421, \"L2C_misses\": 267922, \"L2C_mpki\": 26.792189283124287, \"LLC_hits\": 165140, \"LLC_misses\": 130390, \"LLC_mpki\": 13.038994784402087}\nexperiment B_midrange_l2s512_pf-ip_stride_llcs2048_rp-srrip: {\"ipc\": 0.3205991097286883, \"L1D_hits\": 3688363, \"L1D_misses\": 677255, \"L1D_mpki\": 67.72547290981083, \"L2C_hits\": 189467, \"L2C_misses\": 257875, \"L2C_mpki\": 25.787489685004125, \"LLC_hits\": 201019, \"LLC_misses\": 93241, \"LLC_mpki\": 9.324096270361492}"
+                  },
+                  {
+                    "rescoped_from": {
+                      "metric": "LLC_mpki",
+                      "op": ">=",
+                      "value": 13.0
+                    },
+                    "because": "problem: B_midrange/mcf\nbaseline metrics: {\"ipc\": 0.28644880563213126, \"L1D_hits\": 3680612, \"L1D_misses\": 685586, \"L1D_mpki\": 68.55857257657097, \"L2C_hits\": 179421, \"L2C_misses\": 267922, \"L2C_mpki\": 26.792189283124287, \"LLC_hits\": 165140, \"LLC_misses\": 130390, \"LLC_mpki\": 13.038994784402087}\nexperiment B_midrange_l2s512_pf-ip_stride_llcs1024_rp-srrip: {\"ipc\": 0.27552105004777255, \"L1D_hits\": 3689346, \"L1D_misses\": 676214, \"L1D_mpki\": 67.62137295145082, \"L2C_hits\": 190824, \"L2C_misses\": 256520, \"L2C_mpki\": 25.651989739204105, \"LLC_hits\": 168646, \"LLC_misses\": 125602, \"LLC_mpki\": 12.560194975922009}"
+                  }
+                ],
+                "wins": 2,
+                "losses": 2,
+                "brier_scores": [
+                  0.09000000000000002,
+                  0.48999999999999994,
+                  0.36,
+                  0.16000000000000003
+                ],
+                "status": "active"
+              },
+              {
+                "id": "RULE-003",
+                "condition": {
+                  "metric": "ipc",
+                  "op": ">=",
+                  "value": 0.35
+                },
+                "claim": {
+                  "knob": "l2_sets",
+                  "value": 2048,
+                  "gain_pct": 0.21
+                },
+                "example": "B_midrange/mcf: 0.3774 -> 0.3771 (note: this is comparing against a baseline *with* spp_dev already active, the gain is small but consistent)",
+                "text": "Increasing L2 cache sets from 1024 to 2048 slightly improves IPC and notably reduces L2 cache misses, especially when a prefetcher like SPP_DEV is active.",
+                "origin": [],
+                "wins": 0,
+                "losses": 0,
+                "brier_scores": [],
+                "status": "active"
+              }
+            ]
+          }
+        },
+        "analyst": {
+          "0": {
+            "history": [
+              {
+                "name": "B_midrange_l2s1024_pf-no_llcs2048_rp-lru",
+                "ipc": 0.28644880563213126
+              },
+              {
+                "name": "B_midrange_l2s2048_pf-no_llcs2048_rp-lru",
+                "ipc": 0.28628846563128385
+              },
+              {
+                "name": "B_midrange_l2s1024_pf-no_llcs2048_rp-drrip",
+                "ipc": 0.2922267311490017
+              },
+              {
+                "name": "B_midrange_l2s1024_pf-spp_dev_llcs2048_rp-drrip",
+                "ipc": 0.3678931532757046
+              },
+              {
+                "name": "B_midrange_l2s512_pf-spp_dev_llcs2048_rp-srrip",
+                "ipc": 0.29831761165345066
+              },
+              {
+                "name": "B_midrange_l2s2048_pf-ip_stride_llcs2048_rp-drrip",
+                "ipc": 0.38935253619273724
+              },
+              {
+                "name": "B_midrange_l2s512_pf-spp_dev_llcs1024_rp-lru",
+                "ipc": 0.2995619387259419
+              }
+            ],
+            "sims_to_target": 5,
+            "bets": [
+              {
+                "id": "BET-0001",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s1024_pf-spp_dev_llcs2048_rp-lru",
+                "event": "ipc >= 0.3182",
+                "probability": 1.041323693939944e-10,
+                "outcome": true
+              },
+              {
+                "id": "BET-0002",
+                "forecaster": "learn-B_midrange/mcf-HYP-r1-1",
+                "experiment": "B_midrange_l2s1024_pf-spp_dev_llcs2048_rp-lru",
+                "event": "ipc >= 0.3182",
+                "probability": 0.8,
+                "outcome": true
+              },
+              {
+                "id": "BET-0003",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s1024_pf-no_llcs2048_rp-srrip",
+                "event": "ipc >= 0.2982",
+                "probability": 0.009258376504691745,
+                "outcome": false
+              },
+              {
+                "id": "BET-0004",
+                "forecaster": "learn-B_midrange/mcf-HYP-r1-2",
+                "experiment": "B_midrange_l2s1024_pf-no_llcs2048_rp-srrip",
+                "event": "ipc >= 0.2982",
+                "probability": 0.7,
+                "outcome": false
+              },
+              {
+                "id": "BET-0005",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s1024_pf-spp_dev_llcs2048_rp-drrip",
+                "event": "ipc >= 0.3505",
+                "probability": 0.20280326862741616,
+                "outcome": true
+              },
+              {
+                "id": "BET-0006",
+                "forecaster": "learn-B_midrange/mcf-HYP-r2-2",
+                "experiment": "B_midrange_l2s1024_pf-spp_dev_llcs2048_rp-drrip",
+                "event": "ipc >= 0.3505",
+                "probability": 0.7,
+                "outcome": true
+              },
+              {
+                "id": "BET-0007",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s1024_pf-ip_stride_llcs2048_rp-lru",
+                "event": "ipc >= 0.3480",
+                "probability": 0.21798453811653595,
+                "outcome": true
+              },
+              {
+                "id": "BET-0008",
+                "forecaster": "learn-B_midrange/mcf-HYP-r2-1",
+                "experiment": "B_midrange_l2s1024_pf-ip_stride_llcs2048_rp-lru",
+                "event": "ipc >= 0.3480",
+                "probability": 0.8,
+                "outcome": true
+              },
+              {
+                "id": "BET-0009",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s2048_pf-spp_dev_llcs2048_rp-lru",
+                "event": "ipc >= 0.3693",
+                "probability": 0.2838740879329673,
+                "outcome": true
+              },
+              {
+                "id": "BET-0010",
+                "forecaster": "learn-B_midrange/mcf-HYP-r3-1",
+                "experiment": "B_midrange_l2s2048_pf-spp_dev_llcs2048_rp-lru",
+                "event": "ipc >= 0.3693",
+                "probability": 0.75,
+                "outcome": true
+              },
+              {
+                "id": "BET-0011",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s2048_pf-no_llcs2048_rp-lru",
+                "event": "ipc >= 0.3182",
+                "probability": 1.041323693939944e-10,
+                "outcome": false
+              },
+              {
+                "id": "BET-0012",
+                "forecaster": "analyst-B_midrange/mcf-s0-HYP-r1-1",
+                "experiment": "B_midrange_l2s2048_pf-no_llcs2048_rp-lru",
+                "event": "ipc >= 0.3182",
+                "probability": 0.7,
+                "outcome": false
+              },
+              {
+                "id": "BET-0013",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s1024_pf-no_llcs2048_rp-drrip",
+                "event": "ipc >= 0.3032",
+                "probability": 0.00039665362690000094,
+                "outcome": false
+              },
+              {
+                "id": "BET-0014",
+                "forecaster": "analyst-B_midrange/mcf-s0-HYP-r1-2",
+                "experiment": "B_midrange_l2s1024_pf-no_llcs2048_rp-drrip",
+                "event": "ipc >= 0.3032",
+                "probability": 0.6,
+                "outcome": false
+              },
+              {
+                "id": "BET-0015",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s1024_pf-spp_dev_llcs2048_rp-drrip",
+                "event": "ipc >= 0.2927",
+                "probability": 0.19273374347400252,
+                "outcome": true
+              },
+              {
+                "id": "BET-0016",
+                "forecaster": "analyst-B_midrange/mcf-s0-HYP-r2-1",
+                "experiment": "B_midrange_l2s1024_pf-spp_dev_llcs2048_rp-drrip",
+                "event": "ipc >= 0.2927",
+                "probability": 0.7,
+                "outcome": true
+              },
+              {
+                "id": "BET-0017",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s2048_pf-ip_stride_llcs2048_rp-drrip",
+                "event": "ipc >= 0.3231",
+                "probability": 0.29388680017824065,
+                "outcome": true
+              },
+              {
+                "id": "BET-0018",
+                "forecaster": "analyst-B_midrange/mcf-s0-HYP-r3-2",
+                "experiment": "B_midrange_l2s2048_pf-ip_stride_llcs2048_rp-drrip",
+                "event": "ipc >= 0.3231",
+                "probability": 0.7,
+                "outcome": true
+              }
+            ],
+            "rules": [
+              {
+                "id": "RULE-001",
+                "condition": {
+                  "metric": "ipc",
+                  "op": "<",
+                  "value": 0.3
+                },
+                "claim": {
+                  "knob": "l2_prefetcher",
+                  "value": "spp_dev",
+                  "gain_pct": 31.7
+                },
+                "example": "B_midrange/mcf: 0.2864 -> 0.3774",
+                "text": "Enabling the SPP prefetcher for L2 cache significantly improves IPC and reduces LLC misses when the baseline IPC is low.",
+                "origin": [],
+                "wins": 0,
+                "losses": 0,
+                "brier_scores": [],
+                "status": "active"
+              },
+              {
+                "id": "RULE-002",
+                "condition": {
+                  "metric": "ipc",
+                  "op": "<",
+                  "value": 0.3
+                },
+                "claim": {
+                  "knob": "l2_prefetcher",
+                  "value": "ip_stride",
+                  "gain_pct": 27.51
+                },
+                "example": "B_midrange/mcf: 0.2864 -> 0.3652",
+                "text": "Enabling the IP Stride prefetcher for L2 cache significantly improves IPC and reduces LLC misses when the baseline IPC is low.",
+                "origin": [],
+                "wins": 0,
+                "losses": 0,
+                "brier_scores": [],
+                "status": "active"
+              },
+              {
+                "id": "RULE-003",
+                "condition": {
+                  "metric": "ipc",
+                  "op": ">=",
+                  "value": 0.35
+                },
+                "claim": {
+                  "knob": "l2_sets",
+                  "value": 2048,
+                  "gain_pct": 0.21
+                },
+                "example": "B_midrange/mcf: 0.3774 -> 0.3771 (note: this is comparing against a baseline *with* spp_dev already active, the gain is small but consistent)",
+                "text": "Increasing L2 cache sets from 1024 to 2048 slightly improves IPC and notably reduces L2 cache misses, especially when a prefetcher like SPP_DEV is active.",
+                "origin": [],
+                "wins": 0,
+                "losses": 0,
+                "brier_scores": [],
+                "status": "active"
+              }
+            ]
+          }
+        },
+        "full": {
+          "0": {
+            "history": [
+              {
+                "name": "B_midrange_l2s1024_pf-no_llcs2048_rp-lru",
+                "ipc": 0.28644880563213126
+              },
+              {
+                "name": "B_midrange_l2s512_pf-spp_dev_llcs2048_rp-srrip",
+                "ipc": 0.29831761165345066
+              },
+              {
+                "name": "B_midrange_l2s512_pf-spp_dev_llcs2048_rp-lru",
+                "ipc": 0.3731183555576218
+              },
+              {
+                "name": "B_midrange_l2s1024_pf-ip_stride_llcs2048_rp-lru",
+                "ipc": 0.36524755629393973
+              },
+              {
+                "name": "B_midrange_l2s512_pf-ip_stride_llcs2048_rp-srrip",
+                "ipc": 0.3205991097286883
+              },
+              {
+                "name": "B_midrange_l2s2048_pf-spp_dev_llcs2048_rp-lru",
+                "ipc": 0.3771116120575959
+              },
+              {
+                "name": "B_midrange_l2s1024_pf-ip_stride_llcs2048_rp-drrip",
+                "ipc": 0.37378647000422716
+              }
+            ],
+            "sims_to_target": null,
+            "bets": [
+              {
+                "id": "BET-0001",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s1024_pf-spp_dev_llcs2048_rp-lru",
+                "event": "ipc >= 0.3182",
+                "probability": 1.041323693939944e-10,
+                "outcome": true
+              },
+              {
+                "id": "BET-0002",
+                "forecaster": "learn-B_midrange/mcf-HYP-r1-1",
+                "experiment": "B_midrange_l2s1024_pf-spp_dev_llcs2048_rp-lru",
+                "event": "ipc >= 0.3182",
+                "probability": 0.8,
+                "outcome": true
+              },
+              {
+                "id": "BET-0003",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s1024_pf-no_llcs2048_rp-srrip",
+                "event": "ipc >= 0.2982",
+                "probability": 0.009258376504691745,
+                "outcome": false
+              },
+              {
+                "id": "BET-0004",
+                "forecaster": "learn-B_midrange/mcf-HYP-r1-2",
+                "experiment": "B_midrange_l2s1024_pf-no_llcs2048_rp-srrip",
+                "event": "ipc >= 0.2982",
+                "probability": 0.7,
+                "outcome": false
+              },
+              {
+                "id": "BET-0005",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s1024_pf-spp_dev_llcs2048_rp-drrip",
+                "event": "ipc >= 0.3505",
+                "probability": 0.20280326862741616,
+                "outcome": true
+              },
+              {
+                "id": "BET-0006",
+                "forecaster": "learn-B_midrange/mcf-HYP-r2-2",
+                "experiment": "B_midrange_l2s1024_pf-spp_dev_llcs2048_rp-drrip",
+                "event": "ipc >= 0.3505",
+                "probability": 0.7,
+                "outcome": true
+              },
+              {
+                "id": "BET-0007",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s1024_pf-ip_stride_llcs2048_rp-lru",
+                "event": "ipc >= 0.3480",
+                "probability": 0.21798453811653595,
+                "outcome": true
+              },
+              {
+                "id": "BET-0008",
+                "forecaster": "learn-B_midrange/mcf-HYP-r2-1",
+                "experiment": "B_midrange_l2s1024_pf-ip_stride_llcs2048_rp-lru",
+                "event": "ipc >= 0.3480",
+                "probability": 0.8,
+                "outcome": true
+              },
+              {
+                "id": "BET-0009",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s2048_pf-spp_dev_llcs2048_rp-lru",
+                "event": "ipc >= 0.3693",
+                "probability": 0.2838740879329673,
+                "outcome": true
+              },
+              {
+                "id": "BET-0010",
+                "forecaster": "learn-B_midrange/mcf-HYP-r3-1",
+                "experiment": "B_midrange_l2s2048_pf-spp_dev_llcs2048_rp-lru",
+                "event": "ipc >= 0.3693",
+                "probability": 0.75,
+                "outcome": true
+              },
+              {
+                "id": "BET-0011",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s512_pf-spp_dev_llcs2048_rp-srrip",
+                "event": "ipc >= 0.3319",
+                "probability": 0.0,
+                "outcome": false
+              },
+              {
+                "id": "BET-0012",
+                "forecaster": "RULE-001",
+                "experiment": "B_midrange_l2s512_pf-spp_dev_llcs2048_rp-srrip",
+                "event": "ipc >= 0.3319",
+                "probability": 0.7,
+                "outcome": false
+              },
+              {
+                "id": "BET-0013",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s512_pf-spp_dev_llcs2048_rp-lru",
+                "event": "ipc >= 0.3319",
+                "probability": 0.0,
+                "outcome": true
+              },
+              {
+                "id": "BET-0014",
+                "forecaster": "RULE-001",
+                "experiment": "B_midrange_l2s512_pf-spp_dev_llcs2048_rp-lru",
+                "event": "ipc >= 0.3319",
+                "probability": 0.7,
+                "outcome": true
+              },
+              {
+                "id": "BET-0015",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s1024_pf-ip_stride_llcs2048_rp-lru",
+                "event": "ipc >= 0.3423",
+                "probability": 0.2746151461095181,
+                "outcome": true
+              },
+              {
+                "id": "BET-0016",
+                "forecaster": "RULE-002",
+                "experiment": "B_midrange_l2s1024_pf-ip_stride_llcs2048_rp-lru",
+                "event": "ipc >= 0.3423",
+                "probability": 0.7,
+                "outcome": true
+              },
+              {
+                "id": "BET-0017",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s512_pf-ip_stride_llcs2048_rp-srrip",
+                "event": "ipc >= 0.3423",
+                "probability": 0.27461514654394925,
+                "outcome": false
+              },
+              {
+                "id": "BET-0018",
+                "forecaster": "RULE-002",
+                "experiment": "B_midrange_l2s512_pf-ip_stride_llcs2048_rp-srrip",
+                "event": "ipc >= 0.3423",
+                "probability": 0.7,
+                "outcome": false
+              },
+              {
+                "id": "BET-0019",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s2048_pf-spp_dev_llcs2048_rp-lru",
+                "event": "ipc >= 0.3644",
+                "probability": 0.15352000977072344,
+                "outcome": true
+              },
+              {
+                "id": "BET-0020",
+                "forecaster": "full-B_midrange/mcf-s0-HYP-r3-1",
+                "experiment": "B_midrange_l2s2048_pf-spp_dev_llcs2048_rp-lru",
+                "event": "ipc >= 0.3644",
+                "probability": 0.75,
+                "outcome": true
+              },
+              {
+                "id": "BET-0021",
+                "forecaster": "SURROGATE",
+                "experiment": "B_midrange_l2s1024_pf-ip_stride_llcs2048_rp-drrip",
+                "event": "ipc >= 0.3569",
+                "probability": 0.21000001140232571,
+                "outcome": true
+              },
+              {
+                "id": "BET-0022",
+                "forecaster": "RULE-002",
+                "experiment": "B_midrange_l2s1024_pf-ip_stride_llcs2048_rp-drrip",
+                "event": "ipc >= 0.3569",
+                "probability": 0.6,
+                "outcome": true
+              },
+              {
+                "id": "BET-0023",
+                "forecaster": "full-B_midrange/mcf-s0-HYP-r3-2",
+                "experiment": "B_midrange_l2s1024_pf-ip_stride_llcs2048_rp-drrip",
+                "event": "ipc >= 0.3569",
+                "probability": 0.65,
+                "outcome": true
+              }
+            ],
+            "rules": [
+              {
+                "id": "RULE-001",
+                "condition": {
+                  "metric": "LLC_mpki",
+                  "op": ">=",
+                  "value": 13.04
+                },
+                "claim": {
+                  "knob": "l2_prefetcher",
+                  "value": "spp_dev",
+                  "gain_pct": 31.7
+                },
+                "example": "B_midrange/mcf: 0.2864 -> 0.3774",
+                "text": "Enabling the SPP prefetcher for L2 cache significantly improves IPC and reduces LLC misses when the baseline LLC misses per thousand instructions (LLC_mpki) is high.",
+                "origin": [
+                  {
+                    "rescoped_from": {
+                      "metric": "ipc",
+                      "op": "<",
+                      "value": 0.3
+                    },
+                    "because": "problem: B_midrange/mcf\nbaseline metrics: {\"ipc\": 0.28644880563213126, \"L1D_hits\": 3680612, \"L1D_misses\": 685586, \"L1D_mpki\": 68.55857257657097, \"L2C_hits\": 179421, \"L2C_misses\": 267922, \"L2C_mpki\": 26.792189283124287, \"LLC_hits\": 165140, \"LLC_misses\": 130390, \"LLC_mpki\": 13.038994784402087}\nexperiment B_midrange_l2s512_pf-spp_dev_llcs2048_rp-srrip: {\"ipc\": 0.29831761165345066, \"L1D_hits\": 3679650, \"L1D_misses\": 685798, \"L1D_mpki\": 68.57977256809097, \"L2C_hits\": 152801, \"L2C_misses\": 294533, \"L2C_mpki\": 29.453288218684712, \"LLC_hits\": 213713, \"LLC_misses\": 112750, \"LLC_mpki\": 11.274995490001803}"
+                  }
+                ],
+                "wins": 1,
+                "losses": 1,
+                "brier_scores": [
+                  0.48999999999999994,
+                  0.09000000000000002
+                ],
+                "status": "active"
+              },
+              {
+                "id": "RULE-002",
+                "condition": {
+                  "metric": "LLC_mpki",
+                  "op": ">=",
+                  "value": 13.0
+                },
+                "claim": {
+                  "knob": "l2_prefetcher",
+                  "value": "ip_stride",
+                  "gain_pct": 27.51
+                },
+                "example": "B_midrange/mcf: 0.2864 -> 0.3652",
+                "text": "Enabling the IP Stride prefetcher for L2 cache significantly improves IPC and reduces LLC misses when the baseline LLC misses per thousand instructions are high.",
+                "origin": [
+                  {
+                    "rescoped_from": {
+                      "metric": "ipc",
+                      "op": "<",
+                      "value": 0.3
+                    },
+                    "because": "problem: B_midrange/mcf\nbaseline metrics: {\"ipc\": 0.28644880563213126, \"L1D_hits\": 3680612, \"L1D_misses\": 685586, \"L1D_mpki\": 68.55857257657097, \"L2C_hits\": 179421, \"L2C_misses\": 267922, \"L2C_mpki\": 26.792189283124287, \"LLC_hits\": 165140, \"LLC_misses\": 130390, \"LLC_mpki\": 13.038994784402087}\nexperiment B_midrange_l2s512_pf-ip_stride_llcs2048_rp-srrip: {\"ipc\": 0.3205991097286883, \"L1D_hits\": 3688363, \"L1D_misses\": 677255, \"L1D_mpki\": 67.72547290981083, \"L2C_hits\": 189467, \"L2C_misses\": 257875, \"L2C_mpki\": 25.787489685004125, \"LLC_hits\": 201019, \"LLC_misses\": 93241, \"LLC_mpki\": 9.324096270361492}"
+                  }
+                ],
+                "wins": 2,
+                "losses": 1,
+                "brier_scores": [
+                  0.09000000000000002,
+                  0.48999999999999994,
+                  0.16000000000000003
+                ],
+                "status": "active"
+              },
+              {
+                "id": "RULE-003",
+                "condition": {
+                  "metric": "ipc",
+                  "op": ">=",
+                  "value": 0.35
+                },
+                "claim": {
+                  "knob": "l2_sets",
+                  "value": 2048,
+                  "gain_pct": 0.21
+                },
+                "example": "B_midrange/mcf: 0.3774 -> 0.3771 (note: this is comparing against a baseline *with* spp_dev already active, the gain is small but consistent)",
+                "text": "Increasing L2 cache sets from 1024 to 2048 slightly improves IPC and notably reduces L2 cache misses, especially when a prefetcher like SPP_DEV is active.",
+                "origin": [],
+                "wins": 0,
+                "losses": 0,
+                "brier_scores": [],
+                "status": "active"
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "wall_seconds": 295.7622928619385
+}
