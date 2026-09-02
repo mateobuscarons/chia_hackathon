@@ -1,1 +1,62 @@
-{}
+{
+  "A_mobile_l2s512_pf-no_llcs1024_rp-lru": {
+    "knobs": {
+      "l2_sets": 512,
+      "llc_sets": 1024,
+      "l2_prefetcher": "no",
+      "llc_replacement": "lru"
+    },
+    "metrics": {
+      "ipc": 0.18162540791250362,
+      "L1D_hits": 2671017,
+      "L1D_misses": 1344778,
+      "L1D_mpki": 134.4778,
+      "L2C_hits": 642450,
+      "L2C_misses": 740499,
+      "L2C_mpki": 74.0499,
+      "LLC_hits": 860403,
+      "LLC_misses": 465113,
+      "LLC_mpki": 46.5113
+    }
+  },
+  "A_mobile_l2s512_pf-no_llcs1024_rp-srrip": {
+    "knobs": {
+      "l2_sets": 512,
+      "llc_sets": 1024,
+      "l2_prefetcher": "no",
+      "llc_replacement": "srrip"
+    },
+    "metrics": {
+      "ipc": 0.12882074730067422,
+      "L1D_hits": 2668905,
+      "L1D_misses": 1346000,
+      "L1D_mpki": 134.59998654000134,
+      "L2C_hits": 641849,
+      "L2C_misses": 741101,
+      "L2C_mpki": 74.11009258899074,
+      "LLC_hits": 140493,
+      "LLC_misses": 1184754,
+      "LLC_mpki": 118.47538815246118
+    }
+  },
+  "A_mobile_l2s512_pf-no_llcs1024_rp-drrip": {
+    "knobs": {
+      "l2_sets": 512,
+      "llc_sets": 1024,
+      "l2_prefetcher": "no",
+      "llc_replacement": "drrip"
+    },
+    "metrics": {
+      "ipc": 0.18581248814516327,
+      "L1D_hits": 2669634,
+      "L1D_misses": 1346064,
+      "L1D_mpki": 134.6064,
+      "L2C_hits": 642111,
+      "L2C_misses": 740835,
+      "L2C_mpki": 74.0835,
+      "LLC_hits": 594869,
+      "LLC_misses": 730398,
+      "LLC_mpki": 73.0398
+    }
+  }
+}

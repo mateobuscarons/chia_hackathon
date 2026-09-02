@@ -59,18 +59,25 @@ def gather_forecasts(candidates, surrogate, model, rules, hypotheses, baseline_m
     return forecasts
 
 
-def disagreement(entry):
-    """Spread between the most optimistic and most pessimistic forecaster, plus surrogate doubt."""
+def disagreement(entry, best_so_far):
+    """Spread between the most optimistic and most pessimistic forecaster, plus
+    surrogate doubt, plus how much the optimist expects to beat the best so far.
+
+    The last term keeps the loop from spending runs on "is this config terrible
+    or merely bad?" - a dispute nobody needs settled.
+    """
     values = []
     for _, predicted in entry["opinions"]:
         values.append(predicted)
-    return (max(values) - min(values)) + entry["surrogate_std"]
+    spread = max(values) - min(values)
+    promise = max(0.0, max(values) - best_so_far)
+    return spread + entry["surrogate_std"] + promise
 
 
-def pick_most_disagreed(forecasts, how_many):
+def pick_most_disagreed(forecasts, how_many, best_so_far):
     scored = []
     for name in forecasts:
-        scored.append((disagreement(forecasts[name]), name))
+        scored.append((disagreement(forecasts[name], best_so_far), name))
     scored.sort(reverse=True)
     chosen = []
     for score, name in scored[:how_many]:

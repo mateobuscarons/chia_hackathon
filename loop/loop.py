@@ -54,7 +54,8 @@ def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analys
 
         forecasts = forecast.gather_forecasts(candidates, surrogate, model, rules,
                                               hypotheses, baseline_metrics, objective)
-        chosen = forecast.pick_most_disagreed(forecasts, per_round)
+        best_so_far = max(entry["metrics"][objective] for entry in history)
+        chosen = forecast.pick_most_disagreed(forecasts, per_round, best_so_far)
         round_logs.append({"round": round_number, "forecasts": forecasts,
                            "hypotheses": hypotheses, "chosen": chosen})
 
@@ -74,6 +75,16 @@ def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analys
                                                  model, candidates[name], rules, hypotheses)
                     bets_by_name[name].append(
                         playbook.place_bet(store, forecaster_id, name, events[name], probability))
+            # A rule also bets on its OWN claim: "this knob delivers at least half
+            # the gain I promised". Only losing that re-scopes the rule.
+            for rule in rules:
+                predicted = forecast.rule_forecast(rule, candidates[name], baseline_metrics, objective)
+                if predicted is not None:
+                    half_gain = baseline_metrics[objective] + (predicted - baseline_metrics[objective]) / 2.0
+                    claim_event = "{} >= {:.4f}".format(objective, half_gain)
+                    bets_by_name[name].append(playbook.place_bet(
+                        store, rule["id"], name, claim_event,
+                        forecast.rule_confidence(rule), kind="claim"))
 
         # 2) the chosen configs run in parallel (one CHIA task each)
         knobs_list = [candidates[name] for name in chosen]
@@ -84,11 +95,13 @@ def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analys
             history.append({"name": name, "knobs": knobs, "metrics": metrics})
             del candidates[name]
             for bet_id in bets_by_name[name]:
-                happened = check_event(events[name], metrics)
+                bet = find_bet(store, bet_id)
+                happened = check_event(bet["event"], metrics)
                 playbook.settle_bet(store, bet_id, happened)
-                lost_rule = losing_rule(store, bet_id, rules, happened)
-                if lost_rule is not None:
-                    rescope(lost_rule, problem, baseline_metrics, name, metrics)
+                if bet["kind"] == "claim":
+                    lost_rule = losing_rule(store, bet_id, rules, happened)
+                    if lost_rule is not None:
+                        rescope(lost_rule, problem, baseline_metrics, name, metrics)
             print("[{}] round {} | {} | {}={:.4f} | {} bets".format(
                 tag, round_number, name, objective, metrics[objective],
                 len(bets_by_name[name])), flush=True)
@@ -174,6 +187,13 @@ def check_event(event, metrics):
     if operator == ">=":
         return metrics[metric_name] >= float(threshold)
     raise ValueError("unsupported event: " + event)
+
+
+def find_bet(store, bet_id):
+    for bet in store["bets"]:
+        if bet["id"] == bet_id:
+            return bet
+    raise KeyError(bet_id)
 
 
 def losing_rule(store, bet_id, rules, happened):

@@ -50,11 +50,13 @@ def add_rule(store, condition, claim, example, text):
     return rule_id
 
 
-def place_bet(store, forecaster_id, experiment, event, probability):
+def place_bet(store, forecaster_id, experiment, event, probability, kind="dispute"):
     """Log a prediction BEFORE its experiment runs. Returns the bet id.
 
-    event is a human-readable, objectively checkable claim, e.g.
-    "ipc gain over baseline >= 5%". The loop settles it with a boolean.
+    event is an objectively checkable claim like "ipc >= 0.35"; the loop
+    settles it with a boolean. kind is "dispute" (the shared question all
+    forecasters answer, used to compare them) or "claim" (a rule's own
+    promise; only these decide whether the rule is re-scoped).
     """
     bet_id = "BET-{:04d}".format(len(store["bets"]) + 1)
     bet = {
@@ -63,6 +65,7 @@ def place_bet(store, forecaster_id, experiment, event, probability):
         "experiment": experiment,
         "event": event,
         "probability": probability,
+        "kind": kind,
         "outcome": None,
     }
     store["bets"].append(bet)
@@ -83,8 +86,9 @@ def settle_bet(store, bet_id, event_happened):
     leaned_yes = bet["probability"] >= 0.5
     won = (leaned_yes == event_happened)
 
+    # A rule's record tracks its own claims, not the shared dispute questions.
     for rule in store["rules"]:
-        if rule["id"] == bet["forecaster"]:
+        if rule["id"] == bet["forecaster"] and bet["kind"] == "claim":
             rule["brier_scores"].append(brier)
             if won:
                 rule["wins"] += 1
