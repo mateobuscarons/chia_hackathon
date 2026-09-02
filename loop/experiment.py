@@ -9,7 +9,7 @@ Arms on the target SoC (same simulation cap for all):
   analyst         - GP + LLM hypotheses, no rules (LLM cold start)
   full            - GP + distilled rules + LLM hypotheses (the whole loop)
 The metric is simulations-to-target: how many runs until best-so-far
-reaches 98% of the in-budget optimum known from the dense sweep.
+captures 90% of the gap between baseline and the in-budget optimum (dense sweep).
 """
 
 import copy
@@ -20,7 +20,7 @@ import time
 from loop import analyst, loop, playbook, surrogate_gp
 from loop.champsim_problem import make_problem
 
-TARGET_FRACTION = 0.98
+TARGET_FRACTION = 0.9
 
 
 def learn(store, soc_names, traces, rounds, per_round):
@@ -99,7 +99,14 @@ def run_arm(arm, store, soc_name, trace_path, rounds, per_round, prior_history, 
 
 
 def simulations_to_target(history, optimum, objective):
-    target = TARGET_FRACTION * optimum
+    """Runs until best-so-far captures TARGET_FRACTION of the achievable gain.
+
+    The gap is optimum minus the baseline (history[0]). Scoring against the
+    gap, not the raw optimum, keeps workloads with little headroom (omnetpp:
+    +2%) from being "solved" at step zero.
+    """
+    baseline = history[0]["metrics"][objective]
+    target = baseline + TARGET_FRACTION * (optimum - baseline)
     best = None
     for index, entry in enumerate(history):
         value = entry["metrics"][objective]

@@ -32,6 +32,19 @@ def best_so_far(history, objective):
     return curve
 
 
+def sims_to_target(history, optimum, fraction=0.9):
+    """Re-scored from the history so the metric can change without rerunning."""
+    baseline = history[0]["ipc"]
+    target = baseline + fraction * (optimum - baseline)
+    best = None
+    for index, row in enumerate(history):
+        if best is None or row["ipc"] > best:
+            best = row["ipc"]
+        if best >= target:
+            return index
+    return None
+
+
 def median(values):
     ordered = sorted(values)
     middle = len(ordered) // 2
@@ -71,14 +84,15 @@ def plot_sims_to_target(report, out_prefix):
         trace_report = report["test"][problem_name]
         for arm in trace_report["arms"]:
             for seed in trace_report["arms"][arm]:
-                count = trace_report["arms"][arm][seed]["sims_to_target"]
+                history = trace_report["arms"][arm][seed]["history"]
+                count = sims_to_target(history, trace_report["optimum"])
                 if count is None:
-                    count = len(trace_report["arms"][arm][seed]["history"])   # never reached: cap
+                    count = len(history)   # never reached: cap at the budget
                 values_by_arm.setdefault(arm, []).append(count)
     arms = list(values_by_arm.keys())
     figure, axis = pyplot.subplots(figsize=(7, 4))
     axis.bar(arms, [median(values_by_arm[arm]) for arm in arms])
-    axis.set_ylabel("simulations to 98% of optimum (median)")
+    axis.set_ylabel("simulations to capture 90% of achievable gain (median)")
     axis.tick_params(axis="x", rotation=30)
     figure.tight_layout()
     figure.savefig(out_prefix + "_sims_to_target.png", dpi=150)
