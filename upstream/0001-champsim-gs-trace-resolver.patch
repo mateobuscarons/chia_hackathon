@@ -1,0 +1,24 @@
+diff --git a/chia/simulators/champsim.py b/chia/simulators/champsim.py
+index 520895a..c53c2c9 100644
+--- a/chia/simulators/champsim.py
++++ b/chia/simulators/champsim.py
+@@ -504,16 +504,14 @@ def _extract_custom_prefetch_stats(stdout: str) -> dict[str, str]:
+ def _resolve_trace(trace: str) -> str:
+     """Resolve a trace path or URI to a local filesystem path.
+ 
+-    Supports local paths and ``s3://`` URIs.  ``gs://`` URIs raise
+-    :class:`NotImplementedError` (full TraceSource abstraction is future
+-    scope).
++    Supports local paths, ``s3://`` URIs (boto3) and ``gs://`` URIs
++    (google-cloud-storage).  Remote traces are downloaded once to the
++    worker's temp dir and reused.
+ 
+     Raises
+     ------
+     FileNotFoundError
+         If the trace is a local path that does not exist.
+-    NotImplementedError
+-        If the trace uses a ``gs://`` URI scheme.
+     """
+     if os.path.isfile(trace):
+         return trace

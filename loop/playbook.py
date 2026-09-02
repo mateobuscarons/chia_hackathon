@@ -28,7 +28,8 @@ def add_rule(store, condition, claim, example, text):
     condition: {"metric": "LLC_mpki", "op": ">=", "value": 20} - checked on
                the SoC/trace baseline run, decides whether the rule speaks.
     claim:     {"knob": "l2_prefetcher", "value": "spp_dev", "gain_pct": 15}
-               - "this knob value gains at least X% IPC over baseline".
+               - "this knob value changes the objective by about X% vs baseline"
+               (a point estimate: it is scored against the real number).
     example:   the run that motivated the rule, e.g. "B_midrange/mcf: 0.31->0.41".
     text:      the rule in the architect's own words, for humans.
     """

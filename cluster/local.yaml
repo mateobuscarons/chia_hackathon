@@ -1,0 +1,30 @@
+# Local development cluster: this Mac is head and only worker.
+# Resources are the loop's scheduling contract:
+#   champsim_build - 1 per ChampSim checkout (builds share the tree)
+#   champsim       - one slot per simulation core
+#   vertex_creds   - workers allowed to call Gemini on Vertex
+provider:
+    head_ip: ${THIS_MACHINE}
+
+auth:
+    ssh_user: ${USER}
+
+available_node_types:
+    local_champsim:
+        resources: {"champsim": 4, "champsim_build": 1, "vertex_creds": 1}
+        num_workers: 1
+        compatible_ips: ["${THIS_MACHINE}"]
+
+head_start_ray_commands:
+    - "ray stop"
+    - "ray start --head --port=6379 --resources='{\"champsim\": 4, \"champsim_build\": 1, \"vertex_creds\": 1}'"
+
+worker_start_ray_commands:
+    - "ray stop"
+    - "ray start --address=$RAY_HEAD_IP:6379"
+
+# Every simulation is written to the cache keyed by its config name, so a
+# rerun of the loop replays instead of re-simulating (CHIA cache + bypass).
+cache:
+    simulate:
+        cache: true

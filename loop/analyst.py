@@ -25,7 +25,8 @@ RULE_SCHEMA = """A rule is a JSON object with EXACTLY these keys:
 "condition": {"metric": one of ipc / L2C_mpki / LLC_mpki, "op": ">=" or "<", "value": number}
              - checked on the untouched baseline run of a chip+workload; it says WHEN the rule applies,
 "claim": {"knob": knob name, "value": allowed value, "gain_pct": number}
-             - "using this knob value gains at least gain_pct % of the objective over the baseline",
+             - "using this knob value changes the objective by about gain_pct % vs the baseline"
+             (a point estimate, negative if it hurts; it is scored against the real number),
 "example": the run(s) that motivated it, e.g. "B_midrange/mcf: 0.31 -> 0.41".
 """
 

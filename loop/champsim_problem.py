@@ -20,6 +20,9 @@ SIMULATION_INSTRUCTIONS = 10_000_000
 BASELINE_KNOBS = {"l2_sets": 1024, "llc_sets": 2048,
                   "l2_prefetcher": "no", "llc_replacement": "lru"}
 
+# "local" or "chia"; run_chia.py flips this so experiment.py needs no changes.
+DEFAULT_DISPATCH = "local"
+
 
 class ChampSimProblem:
     """Answers evaluate() from the dense sweep table when it can; otherwise simulates.
@@ -80,7 +83,9 @@ class ChampSimProblem:
                                     _chia_tag=config["executable_name"])
 
 
-def make_problem(soc_name, trace_path, allow_simulation=True, dispatch="local"):
+def make_problem(soc_name, trace_path, allow_simulation=True, dispatch=None):
+    if dispatch is None:
+        dispatch = DEFAULT_DISPATCH
     trace_name = os.path.basename(trace_path).split(".")[1].split("_")[0]
     holder = ChampSimProblem(soc_name, trace_path, allow_simulation, dispatch)
 
