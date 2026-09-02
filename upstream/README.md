@@ -15,3 +15,12 @@ the framework itself. `chia/` is a shallow clone, so PRs go through a fork.
    `loop/playbook.py`, `loop/forecast.py`, `loop/loop.py` are simulator-agnostic:
    any `evaluate(config) -> metrics` fits. Candidate for a `chia.analysis`
    "calibration layer" any agentic CHIA loop can wrap around its simulator node.
+
+## ChampSim (not CHIA)
+
+4. **`0002-champsim-spp-dev-ghr-victim.patch`** — `prefetcher/spp_dev/spp_dev.cc`
+   asserts "[GHR] Cannot find a replacement victim!" when every GHR entry has
+   confidence 100: the victim search starts at `min_conf = 100`, so a saturated
+   table yields no victim. Deterministic on lbm with a slow-memory core profile.
+   Fix: start the search above any legal confidence. Found Sep 2 2026; no
+   existing issue found upstream.

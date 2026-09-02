@@ -1,0 +1,23 @@
+diff --git a/prefetcher/spp_dev/spp_dev.cc b/prefetcher/spp_dev/spp_dev.cc
+index 29f824e..9491a6e 100644
+--- a/prefetcher/spp_dev/spp_dev.cc
++++ b/prefetcher/spp_dev/spp_dev.cc
+@@ -1,6 +1,7 @@
+ #include "spp_dev.h"
+ 
+ #include <cassert>
++#include <limits>
+ #include <iostream>
+ 
+ void spp_dev::prefetcher_initialize()
+@@ -493,7 +494,9 @@ void spp_dev::GLOBAL_REGISTER::update_entry(uint32_t pf_sig, uint32_t pf_confide
+ {
+   // NOTE: GHR implementation is slightly different from the original paper
+   // Instead of matching (last_offset + delta), GHR simply stores and matches the pf_offset
+-  uint32_t min_conf = 100, victim_way = MAX_GHR_ENTRY;
++  // Confidence can reach 100, so a search floor of 100 finds no victim when every
++  // entry is saturated and the assert below fires. Start above any legal value.
++  uint32_t min_conf = std::numeric_limits<uint32_t>::max(), victim_way = MAX_GHR_ENTRY;
+ 
+   if constexpr (SPP_DEBUG_PRINT) {
+     std::cout << "[GHR] Crossing the page boundary pf_sig: " << std::hex << pf_sig << std::dec;
