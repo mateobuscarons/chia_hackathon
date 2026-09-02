@@ -130,13 +130,18 @@ def compact(history, objective):
     return rows
 
 
-def run_experiment(train_socs, test_soc, traces, rounds, per_round, seeds, output_path):
+def run_experiment(train_socs, test_soc, traces, rounds, per_round, seeds, output_path,
+                   train_traces=None):
+    """train_traces defaults to `traces`; pass a different list for cross-trace transfer."""
+    if train_traces is None:
+        train_traces = traces
     started = time.time()
     store = {"rules": [], "bets": []}
-    prior_history = learn(store, train_socs, traces, rounds, per_round)
+    prior_history = learn(store, train_socs, train_traces, rounds, per_round)
     playbook.save(store, output_path.replace(".json", "_playbook.json"))
 
     report = {"settings": {"train_socs": train_socs, "test_soc": test_soc, "traces": traces,
+                           "train_traces": train_traces,
                            "rounds": rounds, "per_round": per_round, "seeds": seeds},
               "learn_bets": store["bets"], "rules": store["rules"], "test": {}}
 
