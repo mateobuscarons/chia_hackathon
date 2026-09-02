@@ -159,9 +159,10 @@ def run_experiment(train_socs, test_soc, traces, rounds, per_round, seeds, outpu
                 print("== {} / {} seed {}: sims_to_target={}".format(
                     arm, problem["name"], seed,
                     trace_report["arms"][arm][str(seed)]["sims_to_target"]), flush=True)
-        report["test"][problem["name"]] = trace_report
-        with open(output_path, "w") as report_file:
-            json.dump(report, report_file, indent=2)
+                # Save after every arm so a crash or timeout loses nothing.
+                report["test"][problem["name"]] = trace_report
+                with open(output_path, "w") as report_file:
+                    json.dump(report, report_file, indent=2)
 
     report["wall_seconds"] = time.time() - started
     with open(output_path, "w") as report_file:

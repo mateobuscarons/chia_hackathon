@@ -7,6 +7,7 @@ can act on it mechanically.
 
 import json
 import os
+import time
 
 from google import genai
 
@@ -17,7 +18,9 @@ USAGE_LOG = "loop/llm_usage.json"
 # USD per 1M tokens (input, output). Update if we change model.
 PRICES = {"gemini-2.5-flash": (0.30, 2.50)}
 
-_client = genai.Client(vertexai=True, project=GCP_PROJECT, location="us-central1")
+# 120 s timeout per call: a hung request must fail loudly, not stall the loop.
+_client = genai.Client(vertexai=True, project=GCP_PROJECT, location="us-central1",
+                      http_options={"timeout": 120_000})
 
 ROLE = "You are a computer architect running simulation experiments.\n"
 RULE_SCHEMA = """A rule is a JSON object with EXACTLY these keys:
@@ -47,11 +50,13 @@ def ask_gemini(prompt):
         tokens = _chia_node.llm._last_metadata
         _log_cost(tokens.get("input_tokens", 0), tokens.get("output_tokens", 0))
         return answer
+    started = time.time()
     response = _client.models.generate_content(
         model=MODEL, contents=prompt,
         config={"response_mime_type": "application/json"},
     )
     _log_usage(response)
+    print("  [gemini] {:.1f}s".format(time.time() - started), flush=True)
     return json.loads(response.text)
 
 
