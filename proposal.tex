@@ -1,0 +1,52 @@
+\documentclass[10pt]{article}
+\usepackage[a4paper, margin=1.9cm]{geometry}
+\usepackage{booktabs}
+\usepackage{parskip}
+\usepackage{titlesec}
+\titlespacing*{\section}{0pt}{8pt}{3pt}
+\titleformat{\section}{\normalfont\large\bfseries}{\thesection}{0.6em}{}
+\pagenumbering{gobble}
+
+\title{\vspace{-2cm}A Hypothesis-Driven CHIA Loop for Cross-SoC Cache Hierarchy Optimization}
+\date{\vspace{-0.5cm}}
+
+\begin{document}
+\maketitle
+\vspace{-1cm}
+
+\section{Task Overview}
+This proposal addresses the cache hierarchy optimization track. The cache hierarchy can be one of the highest leverage design choices in an SoC, yet tuning it means searching a space of sizes, associativities, line sizes, replacement policies, and prefetchers far too large to simulate exhaustively. Worse, this search restarts from zero for every new SoC, while a human architect carries understanding between designs. Existing agentic approaches largely treat optimization as black-box search: they often require large simulation budgets and typically do not preserve explicit, testable architectural reasoning that can be transferred to the next design. We propose a CHIA loop in which the LLM agent works the way an architect does: it reads simulation results, states a hypothesis about the current bottleneck, and runs only the experiments that test it, while a statistical surrogate model discards experiments whose outcome is already predictable. We run this loop on three heterogeneous SoCs to test our central hypothesis: explicit, hypothesis-level architectural knowledge transfers across SoCs more effectively than raw observations or a surrogate model alone, cutting the simulations required to optimize an unseen design.
+
+\section{Methodology and Loop Design}
+\textbf{Setup.} We use ChampSim, wrapped as a CHIA tool node and parallelized on GCP, and instantiate three deliberately heterogeneous SoC profiles (small mobile-like, mid-range, and server-class) with materially different cache capacities, latencies, and core and memory-system parameters, each evaluated on a fixed mix of SPEC CPU2017 traces. The knobs are L1/L2/LLC size, associativity, line size, replacement policy, and prefetcher; the objective is IPC under an area proxy constraint.
+
+\textbf{The loop.} A small seed batch of simulations initializes the loop. Each round, an analyst agent (Gemini) reads the accumulated results as compact metric tables and writes a hypothesis about the current bottleneck with candidate configurations to test it. A surrogate model trained on all simulations so far scores candidates by predicted utility and uncertainty, suppressing redundant experiments while retaining uncertain or high-value ones; CHIA runs the selected candidates in parallel. The hypothesis is accepted or rejected against the new evidence and the round is logged to a machine-generated research notebook. The loop stops when the budget is spent or improvement stalls.
+
+\textbf{Transfer phase.} After converging on SoC A and B, the agent distills its notebook into explicit rules and optimizes the unseen SoC C under a hard simulation cap. Unlike Bayesian optimization, which transfers only through a statistical model of the design space, these rules (e.g. whether a workload is capacity-, conflict-, or latency-limited) remain valid priors even when optimal parameter values differ. To isolate the source of transfer gains, we evaluate (i) no transfer, (ii) pooled-surrogate transfer, (iii) distilled-rule transfer, and (iv) their combination.
+
+\textbf{Execution plan.} Week 1: ChampSim node, traces, reference sweeps for ground truth. Week 2: surrogate and agent nodes, single-SoC loop end to end. Week 3: runs on A and B, transfer and ablations on C. Week 4: analysis, open-source cleanup, paper.
+
+\section{Expected Results}
+(1) \emph{Sample efficiency:} we test whether the hybrid loop can reach within 2\% of the best configuration found by the dense reference sweep using substantially fewer simulations than random and surrogate-only search.
+(2) \emph{Transfer:} on the unseen SoC C, we measure the reduction in simulations required to reach fixed IPC-quality thresholds, comparing rule transfer, surrogate transfer, their combination, and scratch baselines.
+(3) \emph{Explanation:} a research notebook per SoC tying each accepted change to a tested hypothesis.
+(4) \emph{Artifacts:} an open-source, reproducible CHIA loop whose ChampSim wrapper, surrogate, and analyst nodes are reusable as standalone CHIA blocks.
+
+\section{Cost Estimate}
+A ChampSim run takes roughly 10 minutes on one CPU core; we budget about 5{,}000 simulations across reference sweeps, agent loops, and baselines.
+
+\begin{center}
+\begin{tabular}{lr}
+\toprule
+GCP compute ($\sim$1{,}000 core-hrs, incl. headroom for reruns) & \$260 \\
+Gemini API (analyst calls over 4 weeks) & \$290 \\
+Storage, orchestration VM, misc. & \$50 \\
+\midrule
+\textbf{Total} & \textbf{$\sim$\$600} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+This sits within the \$100 to \$1{,}500 target, with room to scale up the trace mix or add a fourth SoC.
+
+\end{document}
