@@ -55,7 +55,10 @@ def ask_gemini(prompt):
         started = time.time()
         response = _client.models.generate_content(
             model=MODEL, contents=prompt,
-            config={"response_mime_type": "application/json", "max_output_tokens": 8192},
+            # Flash "thinks" before answering and those tokens count against the
+            # output cap; without a thinking budget it starves its own answer.
+            config={"response_mime_type": "application/json", "max_output_tokens": 16384,
+                    "thinking_config": {"thinking_budget": 2048}},
         )
         _log_usage(response)
         print("  [gemini] {:.1f}s".format(time.time() - started), flush=True)
