@@ -5,7 +5,8 @@ This is the only place where the loop learns it is tuning caches.
 
 import os
 
-from loop.configs import SEARCH_SPACE, all_configurations, config_name, make_config, within_budget
+from loop.configs import (SEARCH_SPACE, all_configurations, build_config, config_name,
+                          make_config, within_budget)
 from loop.simulate import build_binary, run_simulation
 from loop.sweep import sweep_path, load_sweep
 
@@ -21,32 +22,67 @@ BASELINE_KNOBS = {"l2_sets": 1024, "llc_sets": 2048,
 
 
 class ChampSimProblem:
-    """Holds the sweep table so evaluate() can answer from it without re-simulating."""
+    """Answers evaluate() from the dense sweep table when it can; otherwise simulates.
 
-    def __init__(self, soc_name, trace_path, allow_simulation):
+    dispatch="local": build + run in this process, one config at a time.
+    dispatch="chia":  build_from_config and simulate are dispatched as CHIA
+                      tasks (ray must be initialised); a round's configs run
+                      in parallel on whatever workers advertise "champsim".
+    """
+
+    def __init__(self, soc_name, trace_path, allow_simulation, dispatch):
         self.soc_name = soc_name
         self.trace_path = trace_path
         self.allow_simulation = allow_simulation
+        self.dispatch = dispatch
         self.sweep_table = load_sweep(sweep_path(soc_name, trace_path))
         self.simulations_run = 0
 
     def evaluate(self, knobs):
-        """Metrics for one config: from the dense sweep if we have it, else simulate."""
-        self.simulations_run += 1
-        name = config_name(knobs, self.soc_name)
-        if name in self.sweep_table:
-            return self.sweep_table[name]["metrics"]
-        if not self.allow_simulation:
-            raise KeyError("not in sweep table and simulation disabled: " + name)
+        return self.evaluate_many([knobs])[0]
+
+    def evaluate_many(self, knobs_list):
+        results = []
+        pending = []                       # (index, knobs, future) for configs not in the table
+        for index, knobs in enumerate(knobs_list):
+            self.simulations_run += 1
+            name = config_name(knobs, self.soc_name)
+            if name in self.sweep_table:
+                results.append(self.sweep_table[name]["metrics"])
+                continue
+            if not self.allow_simulation:
+                raise KeyError("not in sweep table and simulation disabled: " + name)
+            results.append(None)
+            if self.dispatch == "chia":
+                pending.append((index, self.dispatch_chia(knobs)))
+            else:
+                results[index] = self.simulate_here(knobs)
+
+        if len(pending) > 0:
+            from chia.base.ChiaFunction import get
+            for index, future in pending:
+                results[index] = get(future)
+        return results
+
+    def simulate_here(self, knobs):
         config_path = make_config(knobs, self.soc_name, BASE_CONFIG, GENERATED_DIR)
         binary_path = build_binary(config_path, CHAMPSIM_ROOT)
         return run_simulation(binary_path, self.trace_path,
                               WARMUP_INSTRUCTIONS, SIMULATION_INSTRUCTIONS)
 
+    def dispatch_chia(self, knobs):
+        """Two chained CHIA tasks: build -> simulate. Returns the simulate future."""
+        from loop.chia_nodes import build_from_config, simulate
+        config = build_config(knobs, self.soc_name, BASE_CONFIG)
+        binary_future = build_from_config.chia_remote(config, os.path.abspath(CHAMPSIM_ROOT))
+        return simulate.chia_remote(binary_future, os.path.abspath(self.trace_path),
+                                    WARMUP_INSTRUCTIONS, SIMULATION_INSTRUCTIONS,
+                                    _chia_tag=config["executable_name"])
 
-def make_problem(soc_name, trace_path, allow_simulation=True):
+
+def make_problem(soc_name, trace_path, allow_simulation=True, dispatch="local"):
     trace_name = os.path.basename(trace_path).split(".")[1].split("_")[0]
-    holder = ChampSimProblem(soc_name, trace_path, allow_simulation)
+    holder = ChampSimProblem(soc_name, trace_path, allow_simulation, dispatch)
 
     candidates = {}
     for knobs in all_configurations():
@@ -59,6 +95,7 @@ def make_problem(soc_name, trace_path, allow_simulation=True):
         "candidates": candidates,
         "baseline": BASELINE_KNOBS,
         "evaluate": holder.evaluate,
+        "evaluate_many": holder.evaluate_many,
         "objective": "ipc",
         "table_metrics": ["ipc", "L2C_mpki", "LLC_mpki"],
         "holder": holder,

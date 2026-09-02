@@ -30,8 +30,22 @@ RULE_SCHEMA = """A rule is a JSON object with EXACTLY these keys:
 """
 
 
+# When set (see use_chia_node), calls go through CHIA's Vertex backend instead.
+_chia_node = None
+
+
+def use_chia_node(node):
+    global _chia_node
+    _chia_node = node
+
+
 def ask_gemini(prompt):
     """One LLM call, JSON-mode, parsed. All analyst functions go through here."""
+    if _chia_node is not None:
+        answer = _chia_node.ask(prompt)
+        tokens = _chia_node.llm._last_metadata
+        _log_cost(tokens.get("input_tokens", 0), tokens.get("output_tokens", 0))
+        return answer
     response = _client.models.generate_content(
         model=MODEL, contents=prompt,
         config={"response_mime_type": "application/json"},
@@ -41,9 +55,12 @@ def ask_gemini(prompt):
 
 
 def _log_usage(response):
+    _log_cost(response.usage_metadata.prompt_token_count,
+              response.usage_metadata.candidates_token_count)
+
+
+def _log_cost(input_tokens, output_tokens):
     """Append this call's tokens and cost to the running usage log."""
-    input_tokens = response.usage_metadata.prompt_token_count
-    output_tokens = response.usage_metadata.candidates_token_count
     price_in, price_out = PRICES[MODEL]
     cost = (input_tokens * price_in + output_tokens * price_out) / 1_000_000
 

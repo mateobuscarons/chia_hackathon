@@ -6,6 +6,7 @@ Simulator-agnostic. Everything domain-specific arrives in the `problem` dict:
   candidates    - {config name: knobs} for every config allowed to be run
   baseline      - the knobs of the untouched design (must be in candidates)
   evaluate      - function(knobs) -> metrics dict (the ONLY call to a simulator)
+  evaluate_many - function([knobs]) -> [metrics], may run them in parallel
   objective     - metric name to maximize, e.g. "ipc"
   table_metrics - metric names shown to the analyst
 
@@ -19,14 +20,19 @@ import json
 from loop import analyst, forecast, playbook
 
 
-def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analyst, tag):
+def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analyst, tag,
+             prior_history=None):
     """Returns {"history": [...], "rounds": [...]}; bets land in `store`.
 
     surrogate:   module with fit / predict / probability_at_least
     use_rules:   let playbook rules forecast and bet (transfer arm)
     use_analyst: let the LLM propose hypotheses (else statistical search only)
     tag:         prefix for hypothesis ids so arms can be told apart in the ledger
+    prior_history: runs from OTHER designs the surrogate may learn from
+                 (pooled-surrogate transfer); they never count as simulations
     """
+    if prior_history is None:
+        prior_history = []
     objective = problem["objective"]
     candidates = dict(problem["candidates"])
     baseline_name = name_of(problem, problem["baseline"])
@@ -40,7 +46,7 @@ def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analys
 
     round_logs = []
     for round_number in range(1, rounds + 1):
-        model = surrogate.fit(history, problem["search_space"], objective)
+        model = surrogate.fit(prior_history + history, problem["search_space"], objective)
         hypotheses = []
         if use_analyst:
             hypotheses = ask_hypotheses(problem, history, rules, candidates, per_round,
@@ -52,33 +58,40 @@ def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analys
         round_logs.append({"round": round_number, "forecasts": forecasts,
                            "hypotheses": hypotheses, "chosen": chosen})
 
+        # 1) every forecaster bets on every chosen config, BEFORE anything runs
+        events = {}
+        bets_by_name = {}
         for name in chosen:
-            knobs = candidates[name]
             opinions = forecasts[name]["opinions"]
-            bets = []
-            event = None
+            bets_by_name[name] = []
             if len(opinions) > 1:
                 # Settle at the midpoint of the dispute: exactly where they disagree.
                 values = [predicted for _, predicted in opinions]
                 threshold = (max(values) + min(values)) / 2.0
-                event = "{} >= {:.4f}".format(objective, threshold)
+                events[name] = "{} >= {:.4f}".format(objective, threshold)
                 for forecaster_id, predicted in opinions:
-                    probability = to_probability(forecaster_id, predicted, threshold,
-                                                 surrogate, model, knobs, rules, hypotheses)
-                    bets.append(playbook.place_bet(store, forecaster_id, name, event, probability))
+                    probability = to_probability(forecaster_id, predicted, threshold, surrogate,
+                                                 model, candidates[name], rules, hypotheses)
+                    bets_by_name[name].append(
+                        playbook.place_bet(store, forecaster_id, name, events[name], probability))
 
-            metrics = problem["evaluate"](knobs)
+        # 2) the chosen configs run in parallel (one CHIA task each)
+        knobs_list = [candidates[name] for name in chosen]
+        metrics_list = problem["evaluate_many"](knobs_list)
+
+        # 3) settle; a rule that lost gets re-scoped
+        for name, knobs, metrics in zip(chosen, knobs_list, metrics_list):
             history.append({"name": name, "knobs": knobs, "metrics": metrics})
             del candidates[name]
-
-            for bet_id in bets:
-                happened = check_event(event, metrics)
+            for bet_id in bets_by_name[name]:
+                happened = check_event(events[name], metrics)
                 playbook.settle_bet(store, bet_id, happened)
                 lost_rule = losing_rule(store, bet_id, rules, happened)
                 if lost_rule is not None:
                     rescope(lost_rule, problem, baseline_metrics, name, metrics)
             print("[{}] round {} | {} | {}={:.4f} | {} bets".format(
-                tag, round_number, name, objective, metrics[objective], len(bets)), flush=True)
+                tag, round_number, name, objective, metrics[objective],
+                len(bets_by_name[name])), flush=True)
     return {"history": history, "rounds": round_logs}
 
 
