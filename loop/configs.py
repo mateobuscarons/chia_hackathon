@@ -8,6 +8,8 @@ affordable and "% of true optimum" claims stay rigorous.
 import json
 import os
 
+from loop.socs import apply_profile, AREA_BUDGET_KB
+
 SEARCH_SPACE = {
     "l2_sets": [512, 1024, 2048],                    # 256KB / 512KB / 1MB
     "llc_sets": [1024, 2048, 4096],                  # 1MB / 2MB / 4MB
@@ -33,25 +35,47 @@ def all_configurations():
     return combinations
 
 
-def config_name(knobs):
-    """Stable, filesystem-safe name for one knob combination."""
-    return "cs_l2s{}_pf-{}_llcs{}_rp-{}".format(
-        knobs["l2_sets"], knobs["l2_prefetcher"],
+def config_name(knobs, soc_name):
+    """Stable, filesystem-safe name for one SoC + knob combination."""
+    return "{}_l2s{}_pf-{}_llcs{}_rp-{}".format(
+        soc_name, knobs["l2_sets"], knobs["l2_prefetcher"],
         knobs["llc_sets"], knobs["llc_replacement"],
     )
 
 
-def make_config(knobs, base_config_path, output_dir):
-    """Write the ChampSim config JSON for one combination; return its path."""
+def build_config(knobs, soc_name, base_config_path):
+    """The full ChampSim config dict for one SoC + knobs (nothing written)."""
     with open(base_config_path) as base_file:
         config = json.load(base_file)
-
-    name = config_name(knobs)
-    config["executable_name"] = name
+    config = apply_profile(config, soc_name)
+    config["executable_name"] = config_name(knobs, soc_name)
     config["L2C"]["sets"] = knobs["l2_sets"]
     config["L2C"]["prefetcher"] = knobs["l2_prefetcher"]
     config["LLC"]["sets"] = knobs["llc_sets"]
     config["LLC"]["replacement"] = knobs["llc_replacement"]
+    return config
+
+
+def cache_area_kb(config):
+    """Area proxy: total data capacity of the tuned caches (L2 + LLC), in KB."""
+    block_bytes = config["block_size"]
+    total_bytes = 0
+    for cache_name in ["L2C", "LLC"]:
+        cache = config[cache_name]
+        total_bytes += cache["sets"] * cache["ways"] * block_bytes
+    return total_bytes / 1024.0
+
+
+def within_budget(knobs, soc_name, base_config_path):
+    """Hard constraint: a config is a candidate only if it fits the SoC's area budget."""
+    config = build_config(knobs, soc_name, base_config_path)
+    return cache_area_kb(config) <= AREA_BUDGET_KB[soc_name]
+
+
+def make_config(knobs, soc_name, base_config_path, output_dir):
+    """Write the ChampSim config JSON for one SoC + knobs; return its path."""
+    config = build_config(knobs, soc_name, base_config_path)
+    name = config["executable_name"]
 
     os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir, name + ".json")

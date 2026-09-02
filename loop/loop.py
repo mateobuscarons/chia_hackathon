@@ -1,103 +1,184 @@
-"""The loop itself: seed runs -> hypotheses bet -> simulate -> settle -> repeat.
+"""The loop: seed -> forecasters bet -> run the most disputed configs -> settle -> repeat.
 
-This file only wires the other modules together; it owns no cleverness.
-Part A (this chunk): the three helpers. Part B: the round loop.
+Simulator-agnostic. Everything domain-specific arrives in the `problem` dict:
+  name          - label, e.g. "B_midrange/mcf"
+  search_space  - {knob: [allowed values]}
+  candidates    - {config name: knobs} for every config allowed to be run
+  baseline      - the knobs of the untouched design (must be in candidates)
+  evaluate      - function(knobs) -> metrics dict (the ONLY call to a simulator)
+  objective     - metric name to maximize, e.g. "ipc"
+  table_metrics - metric names shown to the analyst
+
+One round: fit surrogate -> analyst hypotheses -> every forecaster predicts
+every candidate -> run the most disputed ones -> settle bets -> re-scope
+losing rules. Every forecast (chosen or not) is logged for calibration plots.
 """
 
-from loop.configs import make_config, config_name
-from loop.simulate import build_binary, run_simulation
-from loop.analyst import propose_hypotheses
-from loop import playbook
+import json
 
-CHAMPSIM_ROOT = "champsim"
-BASE_CONFIG = "champsim/champsim_config.json"
-GENERATED_DIR = "configs/generated"
-PLAYBOOK_PATH = "loop/playbook.json"
-
-# Short runs for the MVP (~1.5 min each); scale up for the real study.
-WARMUP_INSTRUCTIONS = 5_000_000
-SIMULATION_INSTRUCTIONS = 10_000_000
+from loop import analyst, forecast, playbook
 
 
-def run_experiment(knobs, trace_path):
-    """Config -> binary -> simulation. Returns the metrics dict."""
-    config_path = make_config(knobs, BASE_CONFIG, GENERATED_DIR)
-    binary_path = build_binary(config_path, CHAMPSIM_ROOT)
-    metrics = run_simulation(
-        binary_path, trace_path, WARMUP_INSTRUCTIONS, SIMULATION_INSTRUCTIONS,
-    )
-    return metrics
+def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analyst, tag):
+    """Returns {"history": [...], "rounds": [...]}; bets land in `store`.
+
+    surrogate:   module with fit / predict / probability_at_least
+    use_rules:   let playbook rules forecast and bet (transfer arm)
+    use_analyst: let the LLM propose hypotheses (else statistical search only)
+    tag:         prefix for hypothesis ids so arms can be told apart in the ledger
+    """
+    objective = problem["objective"]
+    candidates = dict(problem["candidates"])
+    baseline_name = name_of(problem, problem["baseline"])
+    baseline_metrics = problem["evaluate"](problem["baseline"])
+    history = [{"name": baseline_name, "knobs": problem["baseline"], "metrics": baseline_metrics}]
+    del candidates[baseline_name]
+
+    rules = []
+    if use_rules:
+        rules = store["rules"]
+
+    round_logs = []
+    for round_number in range(1, rounds + 1):
+        model = surrogate.fit(history, problem["search_space"], objective)
+        hypotheses = []
+        if use_analyst:
+            hypotheses = ask_hypotheses(problem, history, rules, candidates, per_round,
+                                        "{}-HYP-r{}".format(tag, round_number))
+
+        forecasts = forecast.gather_forecasts(candidates, surrogate, model, rules,
+                                              hypotheses, baseline_metrics, objective)
+        chosen = forecast.pick_most_disagreed(forecasts, per_round)
+        round_logs.append({"round": round_number, "forecasts": forecasts,
+                           "hypotheses": hypotheses, "chosen": chosen})
+
+        for name in chosen:
+            knobs = candidates[name]
+            opinions = forecasts[name]["opinions"]
+            bets = []
+            event = None
+            if len(opinions) > 1:
+                # Settle at the midpoint of the dispute: exactly where they disagree.
+                values = [predicted for _, predicted in opinions]
+                threshold = (max(values) + min(values)) / 2.0
+                event = "{} >= {:.4f}".format(objective, threshold)
+                for forecaster_id, predicted in opinions:
+                    probability = to_probability(forecaster_id, predicted, threshold,
+                                                 surrogate, model, knobs, rules, hypotheses)
+                    bets.append(playbook.place_bet(store, forecaster_id, name, event, probability))
+
+            metrics = problem["evaluate"](knobs)
+            history.append({"name": name, "knobs": knobs, "metrics": metrics})
+            del candidates[name]
+
+            for bet_id in bets:
+                happened = check_event(event, metrics)
+                playbook.settle_bet(store, bet_id, happened)
+                lost_rule = losing_rule(store, bet_id, rules, happened)
+                if lost_rule is not None:
+                    rescope(lost_rule, problem, baseline_metrics, name, metrics)
+            print("[{}] round {} | {} | {}={:.4f} | {} bets".format(
+                tag, round_number, name, objective, metrics[objective], len(bets)), flush=True)
+    return {"history": history, "rounds": round_logs}
 
 
-def format_table(history):
-    """Render experiment history as the compact table the analyst reads."""
+def name_of(problem, knobs):
+    for name in problem["candidates"]:
+        if problem["candidates"][name] == knobs:
+            return name
+    raise KeyError("knobs not in candidates: " + json.dumps(knobs))
+
+
+def ask_hypotheses(problem, history, rules, candidates, how_many, id_prefix):
+    """Analyst proposals, filtered to valid, untested, in-budget configs."""
+    proposals = analyst.propose_hypotheses(problem["search_space"], problem["objective"],
+                                           format_table(history, problem["table_metrics"]),
+                                           format_rules(rules), how_many)
+    hypotheses = []
+    for index, proposal in enumerate(proposals):
+        name = None
+        for candidate_name in candidates:
+            if same_knobs(candidates[candidate_name], proposal["knobs"]):
+                name = candidate_name
+        if name is None:
+            continue
+        hypotheses.append({"id": "{}-{}".format(id_prefix, index + 1), "name": name,
+                           "text": proposal["hypothesis"],
+                           "predicted": float(proposal["predicted"]),
+                           "confidence": float(proposal["confidence"])})
+    return hypotheses
+
+
+def same_knobs(knobs_a, knobs_b):
+    """Compare as strings: the analyst may return 1024 as "1024"."""
+    for knob in knobs_a:
+        if knob not in knobs_b or str(knobs_a[knob]) != str(knobs_b[knob]):
+            return False
+    return True
+
+
+def format_table(history, table_metrics):
     lines = []
     for entry in history:
-        knobs = entry["knobs"]
-        metrics = entry["metrics"]
-        line = "config: {} | ipc={:.4f} | L2_mpki={:.1f} | LLC_mpki={:.1f}".format(
-            config_name(knobs), metrics["ipc"],
-            metrics["L2C_mpki"], metrics["LLC_mpki"],
-        )
-        lines.append(line)
+        cells = []
+        for metric in table_metrics:
+            cells.append("{}={:.4f}".format(metric, entry["metrics"][metric]))
+        lines.append(entry["name"] + " | " + " | ".join(cells))
     return "\n".join(lines)
 
 
-def find_previous(history, name):
-    """Reuse a result if this exact config was already simulated."""
-    for entry in history:
-        if config_name(entry["knobs"]) == name:
-            return entry
-    return None
+def format_rules(rules):
+    lines = []
+    for rule in rules:
+        if rule["status"] == "active":
+            lines.append("{} [{}]: {} | condition {} | claim {}".format(
+                rule["id"], playbook.rule_record(rule), rule["text"],
+                json.dumps(rule["condition"]), json.dumps(rule["claim"])))
+    if len(lines) == 0:
+        return "(none yet)"
+    return "\n".join(lines)
 
 
-def run_loop(rounds, trace_path, hypotheses_per_round=3):
-    """Run the full cycle for N rounds. Every bet lands in the playbook file."""
-    store = playbook.load(PLAYBOOK_PATH)
-    history = []
-
-    # Seed: the untouched SoC config grounds the first hypotheses.
-    baseline = {"l2_sets": 1024, "llc_sets": 2048,
-                "l2_prefetcher": "no", "llc_replacement": "lru"}
-    history.append({"knobs": baseline, "metrics": run_experiment(baseline, trace_path)})
-    print("seed:", format_table(history))
-
-    for round_number in range(1, rounds + 1):
-        hypotheses = propose_hypotheses(format_table(history), hypotheses_per_round)
-        for index, hypothesis in enumerate(hypotheses):
-            experiment = config_name(hypothesis["knobs"])
-            forecaster = "HYP-r{}-{}".format(round_number, index + 1)
-
-            # The bet is registered BEFORE the simulation runs.
-            bet_id = playbook.place_bet(store, forecaster, experiment,
-                                        hypothesis["event"], hypothesis["probability"])
-
-            previous = find_previous(history, experiment)
-            if previous is None:
-                metrics = run_experiment(hypothesis["knobs"], trace_path)
-                history.append({"knobs": hypothesis["knobs"], "metrics": metrics})
-            else:
-                metrics = previous["metrics"]
-
-            happened = check_event(hypothesis["event"], metrics)
-            playbook.settle_bet(store, bet_id, happened)
-            print("round {} | {} | bet '{}' p={} -> {} | ipc={:.4f}".format(
-                round_number, hypothesis["hypothesis"][:60], hypothesis["event"],
-                hypothesis["probability"], "WON" if happened == (hypothesis["probability"] >= 0.5) else "LOST",
-                metrics["ipc"]))
-        playbook.save(store, PLAYBOOK_PATH)
-    return history
+def to_probability(forecaster_id, predicted, threshold, surrogate, model, knobs, rules, hypotheses):
+    """Turn a point forecast into P(objective >= threshold) for the bet."""
+    if forecaster_id == "SURROGATE":
+        return surrogate.probability_at_least(model, knobs, threshold)
+    confidence = None
+    for rule in rules:
+        if rule["id"] == forecaster_id:
+            confidence = forecast.rule_confidence(rule)
+    for hypothesis in hypotheses:
+        if hypothesis["id"] == forecaster_id:
+            confidence = hypothesis["confidence"]
+    if predicted >= threshold:
+        return confidence
+    return 1.0 - confidence
 
 
 def check_event(event, metrics):
-    """Settle a bet objectively. Events look like 'ipc >= 0.35' or 'ipc < 0.3'."""
-    parts = event.split()
-    metric_name = parts[0]
-    operator = parts[1]
-    threshold = float(parts[2])
-    value = metrics[metric_name]
+    """Settle objectively. Events look like 'ipc >= 0.35'."""
+    metric_name, operator, threshold = event.split()
     if operator == ">=":
-        return value >= threshold
-    if operator == "<":
-        return value < threshold
-    raise ValueError("unsupported event format: " + event)
+        return metrics[metric_name] >= float(threshold)
+    raise ValueError("unsupported event: " + event)
+
+
+def losing_rule(store, bet_id, rules, happened):
+    for bet in store["bets"]:
+        if bet["id"] == bet_id:
+            leaned_yes = bet["probability"] >= 0.5
+            if leaned_yes != happened:
+                for rule in rules:
+                    if rule["id"] == bet["forecaster"]:
+                        return rule
+    return None
+
+
+def rescope(rule, problem, baseline_metrics, name, metrics):
+    """Ask the analyst to sharpen the condition; keep the old one in the rule's trail."""
+    context = "problem: {}\nbaseline metrics: {}\nexperiment {}: {}".format(
+        problem["name"], json.dumps(baseline_metrics), name, json.dumps(metrics))
+    updated = analyst.rescope_rule(rule, context)
+    rule["origin"].append({"rescoped_from": rule["condition"], "because": context})
+    rule["condition"] = updated["condition"]
+    rule["text"] = updated["text"]

@@ -22,14 +22,24 @@ def save(store, path):
         json.dump(store, playbook_file, indent=2)
 
 
-def add_rule(store, condition, claim, example):
-    """Add a rule and return its id. New rules start with an empty record."""
+def add_rule(store, condition, claim, example, text):
+    """Add a rule and return its id. New rules start with an empty record.
+
+    condition: {"metric": "LLC_mpki", "op": ">=", "value": 20} - checked on
+               the SoC/trace baseline run, decides whether the rule speaks.
+    claim:     {"knob": "l2_prefetcher", "value": "spp_dev", "gain_pct": 15}
+               - "this knob value gains at least X% IPC over baseline".
+    example:   the run that motivated the rule, e.g. "B_midrange/mcf: 0.31->0.41".
+    text:      the rule in the architect's own words, for humans.
+    """
     rule_id = "RULE-{:03d}".format(len(store["rules"]) + 1)
     rule = {
         "id": rule_id,
         "condition": condition,
         "claim": claim,
         "example": example,
+        "text": text,
+        "origin": [],
         "wins": 0,
         "losses": 0,
         "brier_scores": [],

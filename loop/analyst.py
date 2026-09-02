@@ -1,16 +1,14 @@
 """The analyst: every LLM call in the loop lives in this file.
 
-The LLM proposes and explains; it never scores anything. It sees results
-as a compact text table and must answer in strict JSON so the loop can
-act on it mechanically.
+The LLM proposes, explains and distills; it never scores anything. It
+sees results as compact text and must answer in strict JSON so the loop
+can act on it mechanically.
 """
 
 import json
 import os
 
 from google import genai
-
-from loop.configs import SEARCH_SPACE
 
 GCP_PROJECT = "project-c23a6080-f5d0-4871-9cb"
 MODEL = "gemini-2.5-flash"
@@ -21,12 +19,21 @@ PRICES = {"gemini-2.5-flash": (0.30, 2.50)}
 
 _client = genai.Client(vertexai=True, project=GCP_PROJECT, location="us-central1")
 
+ROLE = "You are a computer architect running simulation experiments.\n"
+RULE_SCHEMA = """A rule is a JSON object with EXACTLY these keys:
+"text": the rule in one sentence, in your own words,
+"condition": {"metric": one of ipc / L2C_mpki / LLC_mpki, "op": ">=" or "<", "value": number}
+             - checked on the untouched baseline run of a chip+workload; it says WHEN the rule applies,
+"claim": {"knob": knob name, "value": allowed value, "gain_pct": number}
+             - "using this knob value gains at least gain_pct % of the objective over the baseline",
+"example": the run(s) that motivated it, e.g. "B_midrange/mcf: 0.31 -> 0.41".
+"""
+
 
 def ask_gemini(prompt):
     """One LLM call, JSON-mode, parsed. All analyst functions go through here."""
     response = _client.models.generate_content(
-        model=MODEL,
-        contents=prompt,
+        model=MODEL, contents=prompt,
         config={"response_mime_type": "application/json"},
     )
     _log_usage(response)
@@ -45,7 +52,6 @@ def _log_usage(response):
             log = json.load(log_file)
     else:
         log = {"total_cost_usd": 0.0, "calls": []}
-
     log["total_cost_usd"] += cost
     log["calls"].append({"model": MODEL, "in": input_tokens, "out": output_tokens,
                          "cost_usd": round(cost, 6)})
@@ -53,31 +59,85 @@ def _log_usage(response):
         json.dump(log, log_file, indent=2)
 
 
-def propose_hypotheses(results_table, how_many):
-    """Ask for competing bottleneck hypotheses, each with a pre-registered bet.
+def knobs_text(search_space):
+    return "Tunable knobs and their ONLY allowed values:\n{}\n".format(json.dumps(search_space, indent=2))
 
-    Returns a list of dicts:
-      {hypothesis, knobs, event, probability}
-    where knobs picks one value per search-space dimension (the experiment
-    that tests the hypothesis) and event is an objectively checkable claim.
+
+def propose_hypotheses(search_space, objective, results_table, rules_text, how_many):
+    """Competing bottleneck hypotheses, each with a point forecast for one experiment.
+
+    Returns a list of {hypothesis, knobs, predicted, confidence}.
     """
-    prompt = """You are a CPU cache-hierarchy architect running experiments.
+    prompt = ROLE + knobs_text(search_space) + """
+The objective to maximize is: {objective}.
+Playbook rules learned on earlier chips (may or may not apply here):
+{rules}
 
-Tunable knobs and their ONLY allowed values:
-{space}
-
-Simulation results so far (one row per experiment):
+Simulation results so far on THIS chip and workload (one row per experiment):
 {table}
 
 Propose {n} COMPETING hypotheses about the current performance bottleneck.
-They must disagree: if one is right, another should be wrong.
-For each, pick the single experiment (one value per knob) that best tests
-it, and pre-register a bet: an objectively checkable event about that
-experiment's outcome (e.g. "ipc >= 0.35") and your probability (0 to 1).
+They must disagree: if one is right, another should be wrong. For each,
+pick the single untested experiment (one value per knob) that best tests it,
+and pre-register a point forecast of its {objective}.
 
 Answer with a JSON list of objects with EXACTLY these keys:
-"hypothesis" (one sentence), "knobs" (object with one allowed value per
-knob), "event" (checkable claim about ipc using >= or <), "probability".
-""".format(space=json.dumps(SEARCH_SPACE, indent=2), table=results_table, n=how_many)
+"hypothesis" (one sentence), "knobs" (one allowed value per knob),
+"predicted" (number), "confidence" (0 to 1: how sure you are the real
+value lands within 5% of your forecast).
+""".format(objective=objective, rules=rules_text, table=results_table, n=how_many)
+    return ask_gemini(prompt)
 
+
+def distill_rules(search_space, results_table, ledger_text, existing_rules_text):
+    """Turn a finished chip's evidence into transferable rules. Returns a list of rules."""
+    prompt = ROLE + knobs_text(search_space) + """
+All simulation results on this chip and workload:
+{table}
+
+Settled bets (what was predicted vs what happened):
+{ledger}
+
+Rules already in the playbook (do not repeat them; sharpen or add):
+{existing}
+
+Write the rules an architect should carry to the NEXT chip. Only claim
+what the evidence supports; give each rule a condition that says when it
+applies. {schema}
+Answer with a JSON list of rules.
+""".format(table=results_table, ledger=ledger_text, existing=existing_rules_text,
+           schema=RULE_SCHEMA)
+    return ask_gemini(prompt)
+
+
+def rescope_rule(rule, losing_context):
+    """A rule lost a bet: sharpen its condition so it stops applying where it fails."""
+    prompt = ROLE + """
+This playbook rule just lost a bet:
+{rule}
+
+Where it failed (baseline metrics of that chip+workload, and the outcome):
+{context}
+
+Do NOT delete the rule. Re-scope it: change ONLY "condition" (and "text"
+to match) so the rule no longer applies to cases like this one but still
+covers the example that motivated it. {schema}
+Answer with the single updated rule as a JSON object.
+""".format(rule=json.dumps(rule, indent=2), context=losing_context, schema=RULE_SCHEMA)
+    return ask_gemini(prompt)
+
+
+def textbook_rules(search_space, objective, how_many):
+    """Baseline arm: rules from prior knowledge only, before seeing any result.
+
+    The delta between these and the loop's rules measures what the loop adds,
+    and defends against "the LLM already knew this".
+    """
+    prompt = ROLE + knobs_text(search_space) + """
+You have NOT run any experiment. From textbook knowledge alone, write the
+{n} rules you would carry into tuning these knobs to maximize {objective}
+on SPEC CPU2017-like workloads. Conditions may only use the metrics
+ipc, L2C_mpki, LLC_mpki of the untouched baseline design. {schema}
+Answer with a JSON list of rules.
+""".format(n=how_many, objective=objective, schema=RULE_SCHEMA)
     return ask_gemini(prompt)

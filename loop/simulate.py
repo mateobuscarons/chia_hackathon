@@ -77,12 +77,23 @@ def build_binary(config_path, champsim_root):
         ["./config.sh", config_path],
         cwd=champsim_root, check=True, capture_output=True, text=True,
     )
+    # generated_environment.o is shared between configs but its contents
+    # depend on the config hash; make sometimes keeps a stale copy and the
+    # link fails. Deleting it forces a rebuild (adds ~20 s per build).
+    stale_object = os.path.join(champsim_root, ".csconfig", "generated_environment.o")
+    if os.path.isfile(stale_object):
+        os.remove(stale_object)
+
     cpu_count = os.cpu_count()
-    subprocess.run(
-        ["make", "-j" + str(cpu_count)],
-        cwd=champsim_root, check=True, capture_output=True, text=True,
-    )
-    return binary_path
+    for attempt in range(2):
+        make_result = subprocess.run(
+            ["make", "-j" + str(cpu_count)],
+            cwd=champsim_root, capture_output=True, text=True,
+        )
+        if make_result.returncode == 0:
+            return binary_path
+        print("make attempt", attempt + 1, "failed:", make_result.stderr[-1500:], flush=True)
+    raise RuntimeError("make failed for " + executable_name)
 
 
 def _find_cache(stats, cache_name):
