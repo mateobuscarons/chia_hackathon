@@ -21,7 +21,7 @@ BASE_CONFIG = "champsim/champsim_config.json"
 GENERATED_DIR = "configs/generated"
 WARMUP_INSTRUCTIONS = 5_000_000
 SIMULATION_INSTRUCTIONS = 10_000_000
-PARALLEL_SIMULATIONS = 4
+PARALLEL_SIMULATIONS = 7
 
 
 def sweep_path(soc_name, trace_path):
