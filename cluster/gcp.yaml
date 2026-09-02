@@ -1,0 +1,62 @@
+# GCP cluster for the loop: this Mac is the head (driver + analyst), GCP
+# spot VMs run ChampSim in CHIA's published image. Modeled on
+# chia/examples/tailscale/cluster_gcp_fullymanaged.yaml.
+#
+# Before `chia up cluster/gcp.yaml` (see cluster/README.md):
+#   export TS_AUTHKEY=...            tailscale auth key (reusable, ephemeral)
+#   export HEAD_IP=$(hostname)       how CHIA SSHes to this Mac
+#   export GCP_PROJECT=project-c23a6080-f5d0-4871-9cb
+#   export GCP_PRIVATE_KEY_PATH=~/.ssh/id_ed25519
+cluster_name: RulesThatBet
+
+tailnet:
+    manage_all: true
+    auth_key: ${TS_AUTHKEY}
+    socks_proxy: 127.0.0.1:1155
+
+provider:
+    head_ip: ${HEAD_IP}
+
+auth:
+    ssh_user: ${USER}
+
+gcp_nodes:
+    project: ${GCP_PROJECT}
+    zone: us-central1-a
+    sim_vm:
+        machine_type: n2-standard-8      # 8 vCPU: 1 build slot + 6 sim slots
+        count: 2
+        image: projects/ubuntu-os-cloud/global/images/family/ubuntu-2204-lts
+        disk_size_gb: 60                 # traces (~3 GB) + docker image
+        spot: true                       # ChampSim runs are short; reclaim is cheap
+        ssh_user: chia
+        ssh_private_key: ${GCP_PRIVATE_KEY_PATH}
+
+available_node_types:
+    head_worker:
+        # The analyst runs here: Gemini credentials stay on the Mac.
+        resources: {"vertex_creds": 1}
+        num_workers: 1
+        compatible_ips: ["${HEAD_IP}"]
+    champsim_vm:
+        # Each VM: one checkout -> one build slot, several simulation slots.
+        resources: {"champsim": 6, "champsim_build": 1}
+        num_workers: 2
+        compatible_ips: ["@sim_vm:0", "@sim_vm:1"]
+        docker:
+            image: "ghcr.io/ucb-bar/chia-champsim:latest"
+            pull_before_run: true
+            run_options:
+                - --shm-size=4gb
+
+head_start_ray_commands:
+    - ray stop
+    - ray start --head --port=6379 --include-dashboard=False --dashboard-agent-listen-port=0
+
+worker_start_ray_commands:
+    - ray stop
+    - ray start --address=$RAY_HEAD_IP:6379 --dashboard-agent-listen-port=0
+
+cache:
+    simulate:
+        cache: true
