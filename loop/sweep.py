@@ -70,8 +70,13 @@ def collect_finished(pending, table, path, wait):
     still_pending = []
     for name, knobs, future in pending:
         if wait or future.done():
-            table[name] = {"knobs": knobs, "metrics": future.result()}
-            print("simulated", name, "ipc={:.4f}".format(table[name]["metrics"]["ipc"]), flush=True)
+            try:
+                table[name] = {"knobs": knobs, "metrics": future.result()}
+                print("simulated", name, "ipc={:.4f}".format(table[name]["metrics"]["ipc"]), flush=True)
+            except Exception as error:
+                # One crashed simulation must not kill the sweep; record it and move on.
+                table[name] = {"knobs": knobs, "metrics": None, "error": str(error)[-300:]}
+                print("FAILED", name, str(error)[-200:], flush=True)
             # Save after every result: a crash must not lose finished simulations.
             save_sweep(table, path)
         else:

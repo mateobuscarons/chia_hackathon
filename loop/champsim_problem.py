@@ -51,6 +51,8 @@ class ChampSimProblem:
             self.simulations_run += 1
             name = config_name(knobs, self.soc_name)
             if name in self.sweep_table:
+                if self.sweep_table[name]["metrics"] is None:
+                    raise RuntimeError("config crashed in the sweep: " + name)
                 results.append(self.sweep_table[name]["metrics"])
                 continue
             if not self.allow_simulation:
@@ -91,8 +93,10 @@ def make_problem(soc_name, trace_path, allow_simulation=True, dispatch=None):
 
     candidates = {}
     for knobs in all_configurations():
-        if within_budget(knobs, soc_name, BASE_CONFIG):
-            candidates[config_name(knobs, soc_name)] = knobs
+        name = config_name(knobs, soc_name)
+        crashed = name in holder.sweep_table and holder.sweep_table[name]["metrics"] is None
+        if within_budget(knobs, soc_name, BASE_CONFIG) and not crashed:
+            candidates[name] = knobs
 
     return {
         "name": soc_name + "/" + trace_name,
