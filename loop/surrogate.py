@@ -16,8 +16,9 @@ UNSEEN_VALUE_PENALTY = 0.05   # extra IPC std for a knob value with no data
 MIN_STD = 0.01                # never pretend to be more certain than this
 
 
-def fit(history, search_space, objective):
-    """history: list of {"knobs", "metrics"}. Returns the fitted model dict."""
+def fit(history, search_space, objective, priors=None):
+    """history: list of {"knobs", "metrics"}. Returns the fitted model dict.
+    priors (rule virtual points) are ignored by this simple model."""
     ipcs = []
     for entry in history:
         ipcs.append(entry["metrics"][objective])

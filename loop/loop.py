@@ -46,7 +46,10 @@ def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analys
 
     round_logs = []
     for round_number in range(1, rounds + 1):
-        model = surrogate.fit(prior_history + history, problem["search_space"], objective)
+        # Rules warm-start the surrogate as virtual experiments (re-built every
+        # round: a re-scoped or discredited rule stops or weakens its prior).
+        priors = forecast.rule_priors(rules, problem["baseline"], baseline_metrics, objective)
+        model = surrogate.fit(prior_history + history, problem["search_space"], objective, priors)
         hypotheses = []
         if use_analyst:
             hypotheses = ask_hypotheses(problem, history, rules, candidates, per_round,

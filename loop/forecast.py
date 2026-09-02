@@ -83,3 +83,19 @@ def pick_most_disagreed(forecasts, how_many, best_so_far):
     for score, name in scored[:how_many]:
         chosen.append(name)
     return chosen
+
+
+def rule_priors(rules, baseline_knobs, baseline_metrics, objective):
+    """One virtual experiment per applicable rule: the baseline with the rule's
+    knob switched to its value, at the objective the rule promises."""
+    priors = []
+    for rule in rules:
+        if rule["status"] != "active":
+            continue
+        if not condition_holds(rule["condition"], baseline_metrics):
+            continue
+        knobs = dict(baseline_knobs)
+        knobs[rule["claim"]["knob"]] = rule["claim"]["value"]
+        predicted = baseline_metrics[objective] * (1.0 + rule["claim"]["gain_pct"] / 100.0)
+        priors.append({"knobs": knobs, "value": predicted, "confidence": rule_confidence(rule)})
+    return priors
