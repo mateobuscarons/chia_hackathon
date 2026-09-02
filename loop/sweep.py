@@ -49,7 +49,8 @@ def run_sweep(soc_name, trace_path):
 
     for knobs in all_configurations():
         name = config_name(knobs, soc_name)
-        if name in table:
+        # Skip finished configs; a recorded failure (metrics None) is retried.
+        if name in table and table[name]["metrics"] is not None:
             continue
         config_path = make_config(knobs, soc_name, BASE_CONFIG, GENERATED_DIR)
         binary_path = build_binary(config_path, CHAMPSIM_ROOT)
