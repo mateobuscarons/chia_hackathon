@@ -53,13 +53,7 @@ def ask_gemini(prompt):
     # The model occasionally returns truncated or malformed JSON; retry a few times.
     for attempt in range(3):
         started = time.time()
-        response = _client.models.generate_content(
-            model=MODEL, contents=prompt,
-            # Flash "thinks" before answering and those tokens count against the
-            # output cap; without a thinking budget it starves its own answer.
-            config={"response_mime_type": "application/json", "max_output_tokens": 16384,
-                    "thinking_config": {"thinking_budget": 2048}},
-        )
+        response = _generate_with_backoff(prompt)
         _log_usage(response)
         print("  [gemini] {:.1f}s".format(time.time() - started), flush=True)
         try:
@@ -67,6 +61,27 @@ def ask_gemini(prompt):
         except json.JSONDecodeError:
             print("  [gemini] bad JSON, retrying. Tail:", repr(response.text[-200:]), flush=True)
     raise RuntimeError("Gemini returned malformed JSON three times")
+
+
+def _generate_with_backoff(prompt):
+    """Rate limits (429) and server hiccups (5xx) are transient: wait and retry."""
+    from google.genai import errors
+    delays = [15, 30, 60, 120]
+    for attempt in range(len(delays) + 1):
+        try:
+            return _client.models.generate_content(
+                model=MODEL, contents=prompt,
+                # Flash "thinks" before answering and those tokens count against the
+                # output cap; without a thinking budget it starves its own answer.
+                config={"response_mime_type": "application/json", "max_output_tokens": 16384,
+                        "thinking_config": {"thinking_budget": 2048}},
+            )
+        except errors.APIError as error:
+            retryable = error.code == 429 or error.code >= 500
+            if not retryable or attempt == len(delays):
+                raise
+            print("  [gemini] {} - waiting {}s".format(error.code, delays[attempt]), flush=True)
+            time.sleep(delays[attempt])
 
 
 def _log_usage(response):
