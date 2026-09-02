@@ -50,14 +50,20 @@ def ask_gemini(prompt):
         tokens = _chia_node.llm._last_metadata
         _log_cost(tokens.get("input_tokens", 0), tokens.get("output_tokens", 0))
         return answer
-    started = time.time()
-    response = _client.models.generate_content(
-        model=MODEL, contents=prompt,
-        config={"response_mime_type": "application/json"},
-    )
-    _log_usage(response)
-    print("  [gemini] {:.1f}s".format(time.time() - started), flush=True)
-    return json.loads(response.text)
+    # The model occasionally returns truncated or malformed JSON; retry a few times.
+    for attempt in range(3):
+        started = time.time()
+        response = _client.models.generate_content(
+            model=MODEL, contents=prompt,
+            config={"response_mime_type": "application/json", "max_output_tokens": 8192},
+        )
+        _log_usage(response)
+        print("  [gemini] {:.1f}s".format(time.time() - started), flush=True)
+        try:
+            return json.loads(response.text)
+        except json.JSONDecodeError:
+            print("  [gemini] bad JSON, retrying. Tail:", repr(response.text[-200:]), flush=True)
+    raise RuntimeError("Gemini returned malformed JSON three times")
 
 
 def _log_usage(response):
