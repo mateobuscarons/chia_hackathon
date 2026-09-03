@@ -22,7 +22,7 @@ from loop import analyst, loop, playbook, surrogate_gp
 from loop.champsim_problem import make_problem
 
 TARGET_FRACTION = 0.9
-PARALLEL_RUNS = 6          # parallel arm runs; more means more Gemini rate-limit retries
+PARALLEL_RUNS = 4          # parallel arm runs; more means more Gemini rate-limit retries
 
 
 def learn(store, soc_names, traces, rounds, per_round):
@@ -61,17 +61,8 @@ def distill(store, problem, history, tag):
 
 
 def well_formed(rule, problem):
-    """The analyst must name a real metric, a real knob and one of its allowed values."""
-    try:
-        metric_ok = rule["condition"]["metric"] in problem["table_metrics"]
-        float(rule["condition"]["value"])
-        knob = rule["claim"]["knob"]
-        allowed = [str(value) for value in problem["search_space"][knob]]
-        value_ok = str(rule["claim"]["value"]) in allowed
-        float(rule["claim"]["gain_pct"])
-        return metric_ok and value_ok and isinstance(rule.get("text"), str)
-    except (KeyError, TypeError, ValueError):
-        return False
+    """Every rule the LLM writes (distill, textbook, re-scope) passes through here."""
+    return loop.valid_rule(rule, problem)
 
 
 def with_soc(entry, soc_name):
@@ -194,8 +185,16 @@ def run_experiment(train_socs, test_soc, traces, rounds, per_round, seeds, outpu
                                      rounds, per_round, prior_history, seed)
                 futures.append((problem["name"], arm, seed, future))
 
+    report["failed_jobs"] = []
     for problem_name, arm, seed, future in futures:
-        run = future.result()
+        try:
+            run = future.result()
+        except Exception as error:
+            # One bad job must never abort the experiment; it is recorded and visible.
+            report["failed_jobs"].append({"problem": problem_name, "arm": arm, "seed": seed,
+                                          "error": repr(error)[-400:]})
+            print("!! FAILED {} / {} seed {}: {}".format(arm, problem_name, seed, repr(error)[-200:]), flush=True)
+            continue
         optimum = report["test"][problem_name]["optimum"]
         run["sims_to_target"] = simulations_to_target(run["full_history"], optimum, "ipc")
         del run["full_history"]
@@ -207,6 +206,7 @@ def run_experiment(train_socs, test_soc, traces, rounds, per_round, seeds, outpu
     pool.shutdown()
 
     report["wall_seconds"] = time.time() - started
+    print("failed jobs:", len(report["failed_jobs"]), flush=True)
     with open(output_path, "w") as report_file:
         json.dump(report, report_file, indent=2)
     return report

@@ -126,6 +126,8 @@ def ask_hypotheses(problem, history, rules, candidates, how_many, id_prefix):
                                            format_rules(rules), how_many)
     hypotheses = []
     for index, proposal in enumerate(proposals):
+        if not valid_hypothesis(proposal) or not isinstance(proposal.get("knobs"), dict):
+            continue
         name = None
         for candidate_name in candidates:
             if same_knobs(candidates[candidate_name], proposal["knobs"]):
@@ -137,6 +139,35 @@ def ask_hypotheses(problem, history, rules, candidates, how_many, id_prefix):
                            "predicted": float(proposal["predicted"]),
                            "confidence": float(proposal["confidence"])})
     return hypotheses
+
+
+def valid_rule(rule, problem):
+    """LLM output is untrusted: a rule may only name real metrics, knobs and values."""
+    try:
+        condition = rule["condition"]
+        claim = rule["claim"]
+        if condition["metric"] not in problem["table_metrics"]:
+            return False
+        if condition["op"] not in [">=", ">", "<", "<=", "=="]:
+            return False
+        float(condition["value"])
+        allowed = [str(value) for value in problem["search_space"][claim["knob"]]]
+        if str(claim["value"]) not in allowed:
+            return False
+        float(claim["gain_pct"])
+        return isinstance(rule["text"], str)
+    except (KeyError, TypeError, ValueError):
+        return False
+
+
+def valid_hypothesis(proposal):
+    """A proposal must carry a numeric forecast and a confidence in [0, 1]."""
+    try:
+        float(proposal["predicted"])
+        confidence = float(proposal["confidence"])
+        return 0.0 <= confidence <= 1.0 and isinstance(proposal["hypothesis"], str)
+    except (KeyError, TypeError, ValueError):
+        return False
 
 
 def same_knobs(knobs_a, knobs_b):
@@ -216,6 +247,37 @@ def rescope(rule, problem, baseline_metrics, name, metrics):
     context = "problem: {}\nbaseline metrics: {}\nexperiment {}: {}".format(
         problem["name"], json.dumps(baseline_metrics), name, json.dumps(metrics))
     updated = analyst.rescope_rule(rule, context)
-    rule["origin"].append({"rescoped_from": rule["condition"], "because": context})
-    rule["condition"] = updated["condition"]
-    rule["text"] = updated["text"]
+    candidate = dict(rule)
+    candidate["condition"] = updated.get("condition")
+    candidate["text"] = updated.get("text")
+    if valid_rule(candidate, problem) and not forecast.condition_holds(candidate["condition"], baseline_metrics):
+        new_condition = dict(candidate["condition"])
+        new_condition["value"] = float(new_condition["value"])
+        new_text = candidate["text"]
+        how = "analyst"
+    else:
+        # The analyst's re-scope was invalid or still covers the failing case:
+        # tighten the threshold mechanically so this baseline no longer qualifies.
+        new_condition = tightened_condition(rule["condition"], baseline_metrics)
+        new_text = rule["text"] + " [narrowed: {} {} {:.3g}]".format(
+            new_condition["metric"], new_condition["op"], new_condition["value"])
+        how = "mechanical"
+    rule["origin"].append({"rescoped_from": rule["condition"], "because": context, "how": how})
+    rule["condition"] = new_condition
+    rule["text"] = new_text
+
+
+def tightened_condition(condition, baseline_metrics):
+    """Move the threshold just past the failing case's value, keeping the direction."""
+    failing_value = baseline_metrics[condition["metric"]]
+    tightened = dict(condition)
+    if condition["op"] in [">=", ">"]:
+        tightened["op"] = ">"
+        tightened["value"] = failing_value
+    elif condition["op"] in ["<", "<="]:
+        tightened["op"] = "<"
+        tightened["value"] = failing_value
+    else:
+        tightened["op"] = ">"
+        tightened["value"] = failing_value
+    return tightened

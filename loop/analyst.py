@@ -52,7 +52,7 @@ def ask_gemini(prompt):
         _log_cost(tokens.get("input_tokens", 0), tokens.get("output_tokens", 0))
         return answer
     # The model occasionally returns truncated or malformed JSON; retry a few times.
-    for attempt in range(3):
+    for attempt in range(5):
         started = time.time()
         response = _generate_with_backoff(prompt)
         _log_usage(response)
@@ -61,13 +61,13 @@ def ask_gemini(prompt):
             return json.loads(response.text)
         except json.JSONDecodeError:
             print("  [gemini] bad JSON, retrying. Tail:", repr(response.text[-200:]), flush=True)
-    raise RuntimeError("Gemini returned malformed JSON three times")
+    raise RuntimeError("Gemini returned malformed JSON five times")
 
 
 def _generate_with_backoff(prompt):
     """Rate limits (429) and server hiccups (5xx) are transient: wait and retry."""
     from google.genai import errors
-    delays = [15, 30, 60, 120]
+    delays = [15, 30, 60, 120, 180, 240]
     for attempt in range(len(delays) + 1):
         try:
             return _client.models.generate_content(
@@ -111,6 +111,18 @@ def _log_cost(input_tokens, output_tokens):
         fcntl.flock(lock_file, fcntl.LOCK_UN)
 
 
+def as_list(answer):
+    """The model may return {"rules": [...]} or a bare object instead of a list."""
+    if isinstance(answer, list):
+        return answer
+    if isinstance(answer, dict):
+        for value in answer.values():
+            if isinstance(value, list):
+                return value
+        return [answer]
+    return []
+
+
 def knobs_text(search_space):
     return "Tunable knobs and their ONLY allowed values:\n{}\n".format(json.dumps(search_space, indent=2))
 
@@ -138,7 +150,7 @@ Answer with a JSON list of objects with EXACTLY these keys:
 "predicted" (number), "confidence" (0 to 1: how sure you are the real
 value lands within 5% of your forecast).
 """.format(objective=objective, rules=rules_text, table=results_table, n=how_many)
-    return ask_gemini(prompt)
+    return as_list(ask_gemini(prompt))
 
 
 def distill_rules(search_space, results_table, ledger_text, existing_rules_text):
@@ -159,7 +171,7 @@ applies. {schema}
 Answer with a JSON list of rules.
 """.format(table=results_table, ledger=ledger_text, existing=existing_rules_text,
            schema=RULE_SCHEMA)
-    return ask_gemini(prompt)
+    return as_list(ask_gemini(prompt))
 
 
 def rescope_rule(rule, losing_context):
@@ -176,7 +188,12 @@ to match) so the rule no longer applies to cases like this one but still
 covers the example that motivated it. {schema}
 Answer with the single updated rule as a JSON object.
 """.format(rule=json.dumps(rule, indent=2), context=losing_context, schema=RULE_SCHEMA)
-    return ask_gemini(prompt)
+    answer = ask_gemini(prompt)
+    if isinstance(answer, list) and len(answer) > 0:
+        answer = answer[0]
+    if not isinstance(answer, dict):
+        return {}
+    return answer
 
 
 def textbook_rules(search_space, objective, how_many):
@@ -192,4 +209,4 @@ on SPEC CPU2017-like workloads. Conditions may only use the metrics
 ipc, L2C_mpki, LLC_mpki of the untouched baseline design. {schema}
 Answer with a JSON list of rules.
 """.format(n=how_many, objective=objective, schema=RULE_SCHEMA)
-    return ask_gemini(prompt)
+    return as_list(ask_gemini(prompt))

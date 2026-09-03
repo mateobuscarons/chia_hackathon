@@ -34,6 +34,11 @@ def add_rule(store, condition, claim, example, text):
     text:      the rule in the architect's own words, for humans.
     """
     rule_id = "RULE-{:03d}".format(len(store["rules"]) + 1)
+    # The analyst may write numbers as strings; normalise once, here.
+    condition = dict(condition)
+    condition["value"] = float(condition["value"])
+    claim = dict(claim)
+    claim["gain_pct"] = float(claim["gain_pct"])
     rule = {
         "id": rule_id,
         "condition": condition,
