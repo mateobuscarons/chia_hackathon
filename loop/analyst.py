@@ -5,6 +5,7 @@ sees results as compact text and must answer in strict JSON so the loop
 can act on it mechanically.
 """
 
+import fcntl
 import json
 import os
 import time
@@ -94,16 +95,20 @@ def _log_cost(input_tokens, output_tokens):
     price_in, price_out = PRICES[MODEL]
     cost = (input_tokens * price_in + output_tokens * price_out) / 1_000_000
 
-    if os.path.exists(USAGE_LOG):
-        with open(USAGE_LOG) as log_file:
-            log = json.load(log_file)
-    else:
-        log = {"total_cost_usd": 0.0, "calls": []}
-    log["total_cost_usd"] += cost
-    log["calls"].append({"model": MODEL, "in": input_tokens, "out": output_tokens,
-                         "cost_usd": round(cost, 6)})
-    with open(USAGE_LOG, "w") as log_file:
-        json.dump(log, log_file, indent=2)
+    # Parallel arm runs write this file at the same time: hold a lock while updating.
+    with open(USAGE_LOG + ".lock", "w") as lock_file:
+        fcntl.flock(lock_file, fcntl.LOCK_EX)
+        if os.path.exists(USAGE_LOG):
+            with open(USAGE_LOG) as log_file:
+                log = json.load(log_file)
+        else:
+            log = {"total_cost_usd": 0.0, "calls": []}
+        log["total_cost_usd"] += cost
+        log["calls"].append({"model": MODEL, "in": input_tokens, "out": output_tokens,
+                             "cost_usd": round(cost, 6)})
+        with open(USAGE_LOG, "w") as log_file:
+            json.dump(log, log_file, indent=2)
+        fcntl.flock(lock_file, fcntl.LOCK_UN)
 
 
 def knobs_text(search_space):

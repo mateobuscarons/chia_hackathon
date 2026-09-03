@@ -16,11 +16,13 @@ import copy
 import json
 import random
 import time
+from concurrent.futures import ProcessPoolExecutor
 
 from loop import analyst, loop, playbook, surrogate_gp
 from loop.champsim_problem import make_problem
 
 TARGET_FRACTION = 0.9
+PARALLEL_RUNS = 6          # parallel arm runs; more means more Gemini rate-limit retries
 
 
 def learn(store, soc_names, traces, rounds, per_round):
@@ -89,6 +91,14 @@ def random_arm(problem, budget, seed):
     for name, knobs, metrics in zip(names[:budget], knobs_list, metrics_list):
         history.append({"name": name, "knobs": knobs, "metrics": metrics})
     return history
+
+
+def run_arm_job(arm, store, soc_name, trace_path, rounds, per_round, prior_history, seed):
+    """One parallel job: run an arm and return only what the report keeps."""
+    random.seed(seed)
+    history, arm_store = run_arm(arm, store, soc_name, trace_path, rounds, per_round, prior_history, seed)
+    return {"history": compact(history, "ipc"), "full_history": history,
+            "bets": arm_store["bets"], "rules": arm_store["rules"]}
 
 
 def run_arm(arm, store, soc_name, trace_path, rounds, per_round, prior_history, seed):
@@ -170,29 +180,31 @@ def run_experiment(train_socs, test_soc, traces, rounds, per_round, seeds, outpu
                            "rounds": rounds, "per_round": per_round, "seeds": seeds},
               "learn_bets": store["bets"], "rules": store["rules"], "test": {}}
 
+    # Every (trace, arm, seed) run is independent: run them in parallel processes.
+    # Each one returns a small dict; the report is saved after every result.
+    pool = ProcessPoolExecutor(max_workers=PARALLEL_RUNS)
+    futures = []
     for trace_path in traces:
         problem = make_problem(test_soc, trace_path)
-        optimum = in_budget_optimum(problem)
-        trace_report = {"optimum": optimum, "arms": {}}
+        report["test"][problem["name"]] = {"optimum": in_budget_optimum(problem), "arms": {}}
         for arm in ARMS:
-            trace_report["arms"][arm] = {}
+            report["test"][problem["name"]]["arms"][arm] = {}
             for seed in range(seeds):
-                random.seed(seed)
-                history, arm_store = run_arm(arm, store, test_soc, trace_path,
-                                             rounds, per_round, prior_history, seed)
-                trace_report["arms"][arm][str(seed)] = {
-                    "history": compact(history, problem["objective"]),
-                    "sims_to_target": simulations_to_target(history, optimum, problem["objective"]),
-                    "bets": arm_store["bets"],
-                    "rules": arm_store["rules"],
-                }
-                print("== {} / {} seed {}: sims_to_target={}".format(
-                    arm, problem["name"], seed,
-                    trace_report["arms"][arm][str(seed)]["sims_to_target"]), flush=True)
-                # Save after every arm so a crash or timeout loses nothing.
-                report["test"][problem["name"]] = trace_report
-                with open(output_path, "w") as report_file:
-                    json.dump(report, report_file, indent=2)
+                future = pool.submit(run_arm_job, arm, store, test_soc, trace_path,
+                                     rounds, per_round, prior_history, seed)
+                futures.append((problem["name"], arm, seed, future))
+
+    for problem_name, arm, seed, future in futures:
+        run = future.result()
+        optimum = report["test"][problem_name]["optimum"]
+        run["sims_to_target"] = simulations_to_target(run["full_history"], optimum, "ipc")
+        del run["full_history"]
+        report["test"][problem_name]["arms"][arm][str(seed)] = run
+        print("== {} / {} seed {}: sims_to_target={}".format(
+            arm, problem_name, seed, run["sims_to_target"]), flush=True)
+        with open(output_path, "w") as report_file:
+            json.dump(report, report_file, indent=2)
+    pool.shutdown()
 
     report["wall_seconds"] = time.time() - started
     with open(output_path, "w") as report_file:
