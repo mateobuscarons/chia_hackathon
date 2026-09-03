@@ -79,16 +79,22 @@ def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analys
                                                  model, candidates[name], rules, hypotheses)
                     bets_by_name[name].append(
                         playbook.place_bet(store, forecaster_id, name, events[name], probability))
-            # A rule also bets on its OWN claim: "this knob delivers at least half
-            # the gain I promised". Only losing that re-scopes the rule.
+            # A rule also bets on its OWN claim, but only as a controlled comparison:
+            # the history must hold the same config with the claimed knob at its
+            # baseline value, so the gain can be attributed to that knob alone.
             for rule in rules:
                 predicted = forecast.rule_forecast(rule, candidates[name], baseline_metrics, objective)
-                if predicted is not None:
-                    half_gain = baseline_metrics[objective] + (predicted - baseline_metrics[objective]) / 2.0
-                    claim_event = "{} >= {:.4f}".format(objective, half_gain)
-                    bets_by_name[name].append(playbook.place_bet(
-                        store, rule["id"], name, claim_event,
-                        forecast.rule_confidence(rule), kind="claim"))
+                if predicted is None:
+                    continue
+                paired = paired_observation(history, candidates[name], rule["claim"]["knob"],
+                                            problem["baseline"][rule["claim"]["knob"]])
+                if paired is None:
+                    continue
+                half_gain = paired[objective] * (1.0 + rule["claim"]["gain_pct"] / 200.0)
+                claim_event = "{} >= {:.4f}".format(objective, half_gain)
+                bets_by_name[name].append(playbook.place_bet(
+                    store, rule["id"], name, claim_event,
+                    forecast.rule_confidence(rule), kind="claim"))
 
         # 2) the chosen configs run in parallel (one CHIA task each)
         knobs_list = [candidates[name] for name in chosen]
@@ -146,13 +152,16 @@ def valid_rule(rule, problem):
     try:
         condition = rule["condition"]
         claim = rule["claim"]
-        if condition["metric"] not in problem["table_metrics"]:
+        if condition["metric"] not in problem["condition_metrics"]:
             return False
         if condition["op"] not in [">=", ">", "<", "<=", "=="]:
             return False
         float(condition["value"])
         allowed = [str(value) for value in problem["search_space"][claim["knob"]]]
         if str(claim["value"]) not in allowed:
+            return False
+        # A claim about the baseline's own value says nothing and always "wins".
+        if str(claim["value"]) == str(problem["baseline"][claim["knob"]]):
             return False
         float(claim["gain_pct"])
         return isinstance(rule["text"], str)
@@ -222,6 +231,16 @@ def check_event(event, metrics):
     if operator == ">=":
         return metrics[metric_name] >= float(threshold)
     raise ValueError("unsupported event: " + event)
+
+
+def paired_observation(history, knobs, knob, baseline_value):
+    """Metrics of the already-run config equal to `knobs` except knob = baseline value."""
+    wanted = dict(knobs)
+    wanted[knob] = baseline_value
+    for entry in history:
+        if same_knobs(entry["knobs"], wanted):
+            return entry["metrics"]
+    return None
 
 
 def find_bet(store, bet_id):

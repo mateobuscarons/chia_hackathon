@@ -26,8 +26,9 @@ _client = genai.Client(vertexai=True, project=GCP_PROJECT, location="us-central1
 ROLE = "You are a computer architect running simulation experiments.\n"
 RULE_SCHEMA = """A rule is a JSON object with EXACTLY these keys:
 "text": the rule in one sentence, in your own words,
-"condition": {"metric": one of ipc / L2C_mpki / LLC_mpki, "op": ">=" or "<", "value": number}
-             - checked on the untouched baseline run of a chip+workload; it says WHEN the rule applies,
+"condition": {"metric": one of L1D_mpki / L2C_mpki / LLC_mpki, "op": ">=" or "<", "value": number}
+             - checked on the untouched baseline run of a chip+workload; it says WHEN the rule applies.
+             Conditions describe the WORKLOAD (miss rates), never the chip's speed: IPC is not allowed,
 "claim": {"knob": knob name, "value": allowed value, "gain_pct": number}
              - "using this knob value changes the objective by about gain_pct % vs the baseline"
              (a point estimate, negative if it hurts; it is scored against the real number),
@@ -165,9 +166,11 @@ Settled bets (what was predicted vs what happened):
 Rules already in the playbook (do not repeat them; sharpen or add):
 {existing}
 
-Write the rules an architect should carry to the NEXT chip. Only claim
-what the evidence supports; give each rule a condition that says when it
-applies. {schema}
+Write AT MOST 5 rules an architect should carry to the NEXT chip, which may
+have a different area budget and different feasible sizes. Only claim what
+the evidence supports; give each rule a condition that says when it applies.
+Do not repeat an existing rule with a different threshold: one claim, one rule.
+Claims about the baseline's own value (no change) are not rules. {schema}
 Answer with a JSON list of rules.
 """.format(table=results_table, ledger=ledger_text, existing=existing_rules_text,
            schema=RULE_SCHEMA)
@@ -205,8 +208,8 @@ def textbook_rules(search_space, objective, how_many):
     prompt = ROLE + knobs_text(search_space) + """
 You have NOT run any experiment. From textbook knowledge alone, write the
 {n} rules you would carry into tuning these knobs to maximize {objective}
-on SPEC CPU2017-like workloads. Conditions may only use the metrics
-ipc, L2C_mpki, LLC_mpki of the untouched baseline design. {schema}
+on SPEC CPU2017-like workloads. Conditions may only use the miss rates
+L1D_mpki, L2C_mpki, LLC_mpki of the untouched baseline design. {schema}
 Answer with a JSON list of rules.
 """.format(n=how_many, objective=objective, schema=RULE_SCHEMA)
     return as_list(ask_gemini(prompt))

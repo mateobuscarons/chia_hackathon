@@ -15,6 +15,7 @@ from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import ConstantKernel, Matern, WhiteKernel
 
 MIN_STD = 0.005
+UNSEEN_VALUE_FRACTION = 0.1   # an untried knob value might move the objective by ~10%
 
 # With few points the kernel optimizer hits its bounds; harmless, and noisy.
 warnings.filterwarnings("ignore", category=ConvergenceWarning)
@@ -81,7 +82,18 @@ def fit(history, search_space, objective, priors=None):
     loo_std = 0.0
     if len(squared_errors) > 0:
         loo_std = math.sqrt(sum(squared_errors) / len(squared_errors))
-    return {"regressor": regressor, "columns": columns, "loo_std": loo_std}
+    # Knob values with no evidence (no run, no rule) get extra uncertainty at
+    # prediction time (P4): the loop must still explore what nobody has tried.
+    seen_values = set()
+    for entry in history:
+        for knob in entry["knobs"]:
+            seen_values.add((knob, str(entry["knobs"][knob])))
+    for prior in priors:
+        for knob in prior["knobs"]:
+            seen_values.add((knob, str(prior["knobs"][knob])))
+    unseen_bonus = UNSEEN_VALUE_FRACTION * abs(sum(targets[:real_count]) / real_count)
+    return {"regressor": regressor, "columns": columns, "loo_std": loo_std,
+            "seen_values": seen_values, "unseen_bonus": unseen_bonus}
 
 
 def fit_regressor(rows, targets, noises):
@@ -97,6 +109,9 @@ def predict(model, knobs):
     row = numpy.array([encode(knobs, model["columns"])])
     mean, std = model["regressor"].predict(row, return_std=True)
     total_std = math.sqrt(float(std[0]) ** 2 + model["loo_std"] ** 2)
+    for knob in knobs:
+        if (knob, str(knobs[knob])) not in model["seen_values"]:
+            total_std += model["unseen_bonus"]
     return float(mean[0]), max(total_std, MIN_STD)
 
 

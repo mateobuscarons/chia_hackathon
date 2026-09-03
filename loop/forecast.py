@@ -100,16 +100,28 @@ def pick_most_disagreed(forecasts, how_many, best_so_far, seed=0):
 
 
 def rule_priors(rules, baseline_knobs, baseline_metrics, objective):
-    """One virtual experiment per applicable rule: the baseline with the rule's
-    knob switched to its value, at the objective the rule promises."""
-    priors = []
+    """One virtual experiment per DISTINCT claim (knob, value) among the rules that
+    apply: the baseline with that knob switched, at the confidence-weighted mean of
+    the promised gains. Rules with a losing record (confidence < 0.5) do not steer."""
+    grouped = {}
     for rule in rules:
         if rule["status"] != "active":
             continue
         if not condition_holds(rule["condition"], baseline_metrics):
             continue
+        confidence = rule_confidence(rule)
+        if confidence < 0.5:
+            continue
+        key = (rule["claim"]["knob"], str(rule["claim"]["value"]))
+        grouped.setdefault(key, []).append((rule["claim"]["gain_pct"], confidence))
+
+    priors = []
+    for (knob, value), claims in grouped.items():
+        total_weight = sum(confidence for _, confidence in claims)
+        mean_gain = sum(gain * confidence for gain, confidence in claims) / total_weight
+        best_confidence = max(confidence for _, confidence in claims)
         knobs = dict(baseline_knobs)
-        knobs[rule["claim"]["knob"]] = rule["claim"]["value"]
-        predicted = baseline_metrics[objective] * (1.0 + rule["claim"]["gain_pct"] / 100.0)
-        priors.append({"knobs": knobs, "value": predicted, "confidence": rule_confidence(rule)})
+        knobs[knob] = value
+        priors.append({"knobs": knobs, "value": baseline_metrics[objective] * (1.0 + mean_gain / 100.0),
+                       "confidence": best_confidence})
     return priors

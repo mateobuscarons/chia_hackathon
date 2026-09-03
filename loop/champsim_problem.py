@@ -107,5 +107,8 @@ def make_problem(soc_name, trace_path, allow_simulation=True, dispatch=None):
         "evaluate_many": holder.evaluate_many,
         "objective": "ipc",
         "table_metrics": ["ipc", "L2C_mpki", "LLC_mpki"],
+        # Rule conditions must describe the WORKLOAD, not the chip: miss rates
+        # travel across SoCs, IPC does not (P1, invariance).
+        "condition_metrics": ["L1D_mpki", "L2C_mpki", "LLC_mpki"],
         "holder": holder,
     }
