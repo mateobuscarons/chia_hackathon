@@ -83,13 +83,18 @@ def disagreement(entry, best_so_far):
     return spread + entry["surrogate_std"] + promise
 
 
-def pick_most_disagreed(forecasts, how_many, best_so_far):
+def pick_most_disagreed(forecasts, how_many, best_so_far, seed=0):
+    """Ties (e.g. every candidate equal after only the baseline run) are broken
+    at random with the given seed, never by config name."""
+    import random
+    names = list(forecasts.keys())
+    random.Random(seed).shuffle(names)
     scored = []
-    for name in forecasts:
-        scored.append((disagreement(forecasts[name], best_so_far), name))
+    for position, name in enumerate(names):
+        scored.append((disagreement(forecasts[name], best_so_far), -position, name))
     scored.sort(reverse=True)
     chosen = []
-    for score, name in scored[:how_many]:
+    for score, position, name in scored[:how_many]:
         chosen.append(name)
     return chosen
 

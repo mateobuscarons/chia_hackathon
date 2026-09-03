@@ -21,7 +21,7 @@ from loop import analyst, forecast, playbook
 
 
 def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analyst, tag,
-             prior_history=None):
+             prior_history=None, seed=0):
     """Returns {"history": [...], "rounds": [...]}; bets land in `store`.
 
     surrogate:   module with fit / predict / probability_at_least
@@ -58,7 +58,8 @@ def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analys
         forecasts = forecast.gather_forecasts(candidates, surrogate, model, rules,
                                               hypotheses, baseline_metrics, objective)
         best_so_far = max(entry["metrics"][objective] for entry in history)
-        chosen = forecast.pick_most_disagreed(forecasts, per_round, best_so_far)
+        chosen = forecast.pick_most_disagreed(forecasts, per_round, best_so_far,
+                                              seed=seed * 1000 + round_number)
         round_logs.append({"round": round_number, "forecasts": forecasts,
                            "hypotheses": hypotheses, "chosen": chosen})
 

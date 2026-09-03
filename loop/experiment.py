@@ -112,7 +112,7 @@ def run_arm(arm, store, soc_name, trace_path, rounds, per_round, prior_history, 
     use_analyst = arm in ["analyst", "full"]
     tag = "{}-{}-s{}".format(arm, problem["name"], seed)
     result = loop.run_loop(problem, rounds, per_round, arm_store, surrogate_gp,
-                           use_rules, use_analyst, tag, prior_history=prior)
+                           use_rules, use_analyst, tag, prior_history=prior, seed=seed)
     return result["history"], arm_store
 
 
