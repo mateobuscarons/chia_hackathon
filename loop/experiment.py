@@ -22,22 +22,52 @@ from loop import analyst, loop, playbook, surrogate_gp
 from loop.champsim_problem import make_problem
 
 TARGET_FRACTION = 0.9
-PARALLEL_RUNS = 4          # parallel arm runs; more means more Gemini rate-limit retries
+PARALLEL_RUNS = 5          # parallel arm runs (each simulates 2 configs at a time on 10 cores)
 
 
-def learn(store, soc_names, traces, rounds, per_round):
-    """Run the full loop on the training SoCs, then distill rules after each."""
-    prior_history = []
+def learn(store, soc_names, traces, rounds, per_round, space_name):
+    """Run the full loop on every training (SoC, trace) in parallel, distill rules
+    from each, and merge the playbooks into `store`. Returns the pooled history."""
+    pool = ProcessPoolExecutor(max_workers=PARALLEL_RUNS)
+    futures = []
     for soc_name in soc_names:
         for trace_path in traces:
-            problem = make_problem(soc_name, trace_path)
-            tag = "learn-" + problem["name"]
-            result = loop.run_loop(problem, rounds, per_round, store, surrogate_gp,
-                                   use_rules=True, use_analyst=True, tag=tag)
-            distill(store, problem, result["history"], tag)
-            for entry in result["history"]:
-                prior_history.append(with_soc(entry, soc_name))
+            futures.append((soc_name, pool.submit(learn_job, soc_name, trace_path, rounds, per_round, space_name)))
+    prior_history = []
+    for soc_name, future in futures:
+        job_store, history = future.result()
+        merge_playbook(store, job_store)
+        for entry in history:
+            prior_history.append(with_soc(entry, soc_name))
+    pool.shutdown()
     return prior_history
+
+
+def learn_job(soc_name, trace_path, rounds, per_round, space_name):
+    """One training problem: loop with analyst + its own fresh playbook, then distill."""
+    problem = make_problem(soc_name, trace_path, space_name=space_name)
+    job_store = {"rules": [], "bets": []}
+    tag = "learn-" + problem["name"]
+    result = loop.run_loop(problem, rounds, per_round, job_store, surrogate_gp,
+                           use_rules=True, use_analyst=True, tag=tag)
+    distill(job_store, problem, result["history"], tag)
+    return job_store, result["history"]
+
+
+def merge_playbook(store, job_store):
+    """Append another playbook's rules and bets, giving rules fresh ids."""
+    new_ids = {}
+    for rule in job_store["rules"]:
+        new_id = playbook.add_rule(store, rule["condition"], rule["claim"], rule["example"], rule["text"])
+        new_ids[rule["id"]] = new_id
+        merged = store["rules"][-1]
+        for field in ["wins", "losses", "brier_scores", "origin", "status"]:
+            merged[field] = rule[field]
+    for bet in job_store["bets"]:
+        bet = dict(bet)
+        bet["id"] = "BET-{:04d}".format(len(store["bets"]) + 1)
+        bet["forecaster"] = new_ids.get(bet["forecaster"], bet["forecaster"])
+        store["bets"].append(bet)
 
 
 def distill(store, problem, history, tag):
@@ -84,16 +114,16 @@ def random_arm(problem, budget, seed):
     return history
 
 
-def run_arm_job(arm, store, soc_name, trace_path, rounds, per_round, prior_history, seed):
+def run_arm_job(arm, store, soc_name, trace_path, rounds, per_round, prior_history, seed, space_name):
     """One parallel job: run an arm and return only what the report keeps."""
     random.seed(seed)
-    history, arm_store = run_arm(arm, store, soc_name, trace_path, rounds, per_round, prior_history, seed)
+    history, arm_store = run_arm(arm, store, soc_name, trace_path, rounds, per_round, prior_history, seed, space_name)
     return {"history": compact(history, "ipc"), "full_history": history,
             "bets": arm_store["bets"], "rules": arm_store["rules"]}
 
 
-def run_arm(arm, store, soc_name, trace_path, rounds, per_round, prior_history, seed):
-    problem = make_problem(soc_name, trace_path)
+def run_arm(arm, store, soc_name, trace_path, rounds, per_round, prior_history, seed, space_name):
+    problem = make_problem(soc_name, trace_path, space_name=space_name)
     arm_store = copy.deepcopy(store)          # every arm starts from the same playbook
     if arm == "random":
         return random_arm(problem, rounds * per_round, seed), arm_store
@@ -137,9 +167,14 @@ def simulations_to_target(history, optimum, objective):
 
 
 def in_budget_optimum(problem):
+    """True optimum from the dense sweep. None when the space was never swept
+    (Tier B): the report then scores against the best design any arm found."""
+    table = problem["holder"].sweep_table
     best = None
     for name in problem["candidates"]:
-        value = problem["evaluate"](problem["candidates"][name])["ipc"]
+        if name not in table:
+            return None
+        value = table[name]["metrics"]["ipc"]
         if best is None or value > best:
             best = value
     return best
@@ -157,17 +192,23 @@ def compact(history, objective):
 
 
 def run_experiment(train_socs, test_soc, traces, rounds, per_round, seeds, output_path,
-                   train_traces=None):
-    """train_traces defaults to `traces`; pass a different list for cross-trace transfer."""
+                   train_traces=None, space_name="A", arms=None, test_rounds=None):
+    """train_traces defaults to `traces` (cross-trace transfer passes another list).
+    space_name selects Tier A or B; arms defaults to all; test_rounds defaults to rounds."""
     if train_traces is None:
         train_traces = traces
+    if arms is None:
+        arms = ARMS
+    if test_rounds is None:
+        test_rounds = rounds
     started = time.time()
     store = {"rules": [], "bets": []}
-    prior_history = learn(store, train_socs, train_traces, rounds, per_round)
+    prior_history = learn(store, train_socs, train_traces, rounds, per_round, space_name)
     playbook.save(store, output_path.replace(".json", "_playbook.json"))
 
     report = {"settings": {"train_socs": train_socs, "test_soc": test_soc, "traces": traces,
-                           "train_traces": train_traces,
+                           "train_traces": train_traces, "space": space_name, "arms": arms,
+                           "test_rounds": test_rounds,
                            "rounds": rounds, "per_round": per_round, "seeds": seeds},
               "learn_bets": store["bets"], "rules": store["rules"], "test": {}}
 
@@ -176,13 +217,13 @@ def run_experiment(train_socs, test_soc, traces, rounds, per_round, seeds, outpu
     pool = ProcessPoolExecutor(max_workers=PARALLEL_RUNS)
     futures = []
     for trace_path in traces:
-        problem = make_problem(test_soc, trace_path)
+        problem = make_problem(test_soc, trace_path, space_name=space_name)
         report["test"][problem["name"]] = {"optimum": in_budget_optimum(problem), "arms": {}}
-        for arm in ARMS:
+        for arm in arms:
             report["test"][problem["name"]]["arms"][arm] = {}
             for seed in range(seeds):
                 future = pool.submit(run_arm_job, arm, store, test_soc, trace_path,
-                                     rounds, per_round, prior_history, seed)
+                                     test_rounds, per_round, prior_history, seed, space_name)
                 futures.append((problem["name"], arm, seed, future))
 
     report["failed_jobs"] = []
@@ -196,7 +237,9 @@ def run_experiment(train_socs, test_soc, traces, rounds, per_round, seeds, outpu
             print("!! FAILED {} / {} seed {}: {}".format(arm, problem_name, seed, repr(error)[-200:]), flush=True)
             continue
         optimum = report["test"][problem_name]["optimum"]
-        run["sims_to_target"] = simulations_to_target(run["full_history"], optimum, "ipc")
+        run["sims_to_target"] = None
+        if optimum is not None:
+            run["sims_to_target"] = simulations_to_target(run["full_history"], optimum, "ipc")
         del run["full_history"]
         report["test"][problem_name]["arms"][arm][str(seed)] = run
         print("== {} / {} seed {}: sims_to_target={}".format(

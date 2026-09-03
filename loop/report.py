@@ -7,7 +7,7 @@ import sys
 
 from loop.configs import config_name, within_budget
 from loop.champsim_problem import BASELINE_KNOBS
-from loop.plots import all_bets, forecaster_class, median, sims_to_target
+from loop.plots import all_bets, forecaster_class, median, reference_optimum, sims_to_target
 
 BASE = "champsim/champsim_config.json"
 SOCS = ["A_mobile", "B_midrange", "C_server"]
@@ -43,7 +43,7 @@ def arms_table(report):
             counts = []
             for seed in runs:
                 history = runs[seed]["history"]
-                count = sims_to_target(history, report["test"][problem_name]["optimum"])
+                count = sims_to_target(history, reference_optimum(report["test"][problem_name]))
                 counts.append(len(history) if count is None else count)
             if len(counts) == 0:
                 cells.append("running")

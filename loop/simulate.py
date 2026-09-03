@@ -5,6 +5,7 @@ the surrogate model only ever see the flat dict that run_simulation()
 returns — so swapping simulators or moving to GCP touches this file only.
 """
 
+import fcntl
 import json
 import subprocess
 import tempfile
@@ -73,6 +74,19 @@ def build_binary(config_path, champsim_root):
     if os.path.isfile(binary_path):
         return binary_path
 
+    # Parallel processes must never run config.sh/make in the same tree at once.
+    lock_path = os.path.join(champsim_root, ".build.lock")
+    with open(lock_path, "w") as lock_file:
+        fcntl.flock(lock_file, fcntl.LOCK_EX)
+        try:
+            if os.path.isfile(binary_path):     # another process built it while we waited
+                return binary_path
+            return _configure_and_make(config_path, champsim_root, executable_name, binary_path)
+        finally:
+            fcntl.flock(lock_file, fcntl.LOCK_UN)
+
+
+def _configure_and_make(config_path, champsim_root, executable_name, binary_path):
     subprocess.run(
         ["./config.sh", config_path],
         cwd=champsim_root, check=True, capture_output=True, text=True,

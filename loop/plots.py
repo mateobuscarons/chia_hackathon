@@ -32,6 +32,19 @@ def best_so_far(history, objective):
     return curve
 
 
+def reference_optimum(trace_report):
+    """Sweep optimum when known (Tier A); otherwise the best IPC any arm found (Tier B)."""
+    if trace_report["optimum"] is not None:
+        return trace_report["optimum"]
+    best = None
+    for arm in trace_report["arms"]:
+        for run in trace_report["arms"][arm].values():
+            for row in run["history"]:
+                if best is None or row["ipc"] > best:
+                    best = row["ipc"]
+    return best
+
+
 def sims_to_target(history, optimum, fraction=0.9):
     """Re-scored from the history so the metric can change without rerunning."""
     baseline = history[0]["ipc"]
@@ -68,7 +81,7 @@ def plot_curves(report, out_prefix):
             for step in range(length):
                 medians.append(median([curve[step] for curve in curves]))
             axis.plot(range(length), medians, label=arm)
-        axis.axhline(trace_report["optimum"], color="black", linestyle=":", label="optimum")
+        axis.axhline(reference_optimum(trace_report), color="black", linestyle=":", label="optimum / best known")
         axis.set_title(problem_name)
         axis.set_xlabel("simulations")
         axis.set_ylabel("best IPC so far")
@@ -85,7 +98,7 @@ def plot_sims_to_target(report, out_prefix):
         for arm in trace_report["arms"]:
             for seed in trace_report["arms"][arm]:
                 history = trace_report["arms"][arm][seed]["history"]
-                count = sims_to_target(history, trace_report["optimum"])
+                count = sims_to_target(history, reference_optimum(trace_report))
                 if count is None:
                     count = len(history)   # never reached: cap at the budget
                 values_by_arm.setdefault(arm, []).append(count)

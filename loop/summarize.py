@@ -8,20 +8,20 @@ the calibration scoreboard per forecaster class on the shared dispute bets.
 import json
 import sys
 
-from loop.plots import all_bets, forecaster_class, median, sims_to_target
+from loop.plots import all_bets, forecaster_class, median, reference_optimum, sims_to_target
 
 
 def summarize(report):
     for problem_name in report["test"]:
         trace_report = report["test"][problem_name]
-        print("== {} | optimum {:.4f}".format(problem_name, trace_report["optimum"]))
+        print("== {} | optimum {:.4f}".format(problem_name, reference_optimum(trace_report)))
         print("   {:<17} {:>22} {:>7}  {}".format("arm", "sims to 90% gain", "median", "best ipc per seed"))
         for arm in trace_report["arms"]:
             counts = []
             bests = []
             for seed in trace_report["arms"][arm]:
                 history = trace_report["arms"][arm][seed]["history"]
-                count = sims_to_target(history, trace_report["optimum"])
+                count = sims_to_target(history, reference_optimum(trace_report))
                 if count is None:
                     count = len(history)
                 counts.append(count)

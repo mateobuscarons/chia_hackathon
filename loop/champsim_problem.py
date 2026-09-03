@@ -3,9 +3,12 @@
 This is the only place where the loop learns it is tuning caches.
 """
 
+import fcntl
+import json
 import os
+from concurrent.futures import ThreadPoolExecutor
 
-from loop.configs import (SEARCH_SPACE, all_configurations, build_config, config_name,
+from loop.configs import (KNOB_LOCATION, SPACES, all_configurations, build_config, config_name,
                           make_config, within_budget)
 from loop.simulate import build_binary, run_simulation
 from loop.sweep import sweep_path, load_sweep
@@ -33,13 +36,19 @@ class ChampSimProblem:
                       in parallel on whatever workers advertise "champsim".
     """
 
-    def __init__(self, soc_name, trace_path, allow_simulation, dispatch):
+    def __init__(self, soc_name, trace_path, allow_simulation, dispatch, space_name):
         self.soc_name = soc_name
         self.trace_path = trace_path
         self.allow_simulation = allow_simulation
         self.dispatch = dispatch
-        self.sweep_table = load_sweep(sweep_path(soc_name, trace_path))
+        # Tier A reads the dense sweep; Tier B grows a cache shared by all processes.
+        self.table_path = sweep_path(soc_name, trace_path)
+        if space_name != "A":
+            self.table_path = self.table_path.replace("results/sweep_", "results/tier{}_".format(space_name))
+        self.sweep_table = load_sweep(self.table_path)
         self.simulations_run = 0
+        # A round's configs simulate at the same time (threads; each is a subprocess).
+        self.local_pool = ThreadPoolExecutor(max_workers=4)
 
     def evaluate(self, knobs):
         return self.evaluate_many([knobs])[0]
@@ -47,6 +56,7 @@ class ChampSimProblem:
     def evaluate_many(self, knobs_list):
         results = []
         pending = []                       # (index, knobs, future) for configs not in the table
+        self.sweep_table = load_sweep(self.table_path)      # pick up other processes' results
         for index, knobs in enumerate(knobs_list):
             self.simulations_run += 1
             name = config_name(knobs, self.soc_name)
@@ -61,13 +71,28 @@ class ChampSimProblem:
             if self.dispatch == "chia":
                 pending.append((index, self.dispatch_chia(knobs)))
             else:
-                results[index] = self.simulate_here(knobs)
+                pending.append((index, self.local_pool.submit(self.simulate_here, knobs)))
 
-        if len(pending) > 0:
-            from chia.base.ChiaFunction import get
-            for index, future in pending:
+        for index, future in pending:
+            if self.dispatch == "chia":
+                from chia.base.ChiaFunction import get
                 results[index] = get(future)
+            else:
+                results[index] = future.result()
+            self.remember(knobs_list[index], results[index])
         return results
+
+    def remember(self, knobs, metrics):
+        """Append one result to the shared table under a lock (many processes write it)."""
+        name = config_name(knobs, self.soc_name)
+        self.sweep_table[name] = {"knobs": knobs, "metrics": metrics}
+        with open(self.table_path + ".lock", "w") as lock_file:
+            fcntl.flock(lock_file, fcntl.LOCK_EX)
+            table = load_sweep(self.table_path)
+            table[name] = {"knobs": knobs, "metrics": metrics}
+            with open(self.table_path, "w") as table_file:
+                json.dump(table, table_file, indent=2)
+            fcntl.flock(lock_file, fcntl.LOCK_UN)
 
     def simulate_here(self, knobs):
         config_path = make_config(knobs, self.soc_name, BASE_CONFIG, GENERATED_DIR)
@@ -85,14 +110,23 @@ class ChampSimProblem:
                                     _chia_tag=config["executable_name"])
 
 
-def make_problem(soc_name, trace_path, allow_simulation=True, dispatch=None):
+def make_problem(soc_name, trace_path, allow_simulation=True, dispatch=None, space_name="A"):
     if dispatch is None:
         dispatch = DEFAULT_DISPATCH
     trace_name = os.path.basename(trace_path).split(".")[1].split("_")[0]
-    holder = ChampSimProblem(soc_name, trace_path, allow_simulation, dispatch)
+    holder = ChampSimProblem(soc_name, trace_path, allow_simulation, dispatch, space_name)
+    space = SPACES[space_name]
+    # The baseline is the chip as profiled: Tier-B knobs (ways, L1D, extra
+    # prefetchers) start at the SoC profile's own values, read back from the config.
+    profiled = build_config(BASELINE_KNOBS, soc_name, BASE_CONFIG)
+    baseline = dict(BASELINE_KNOBS)
+    for knob in space:
+        if knob not in baseline:
+            section, field = KNOB_LOCATION[knob]
+            baseline[knob] = profiled[section][field]
 
     candidates = {}
-    for knobs in all_configurations():
+    for knobs in all_configurations(space):
         name = config_name(knobs, soc_name)
         crashed = name in holder.sweep_table and holder.sweep_table[name]["metrics"] is None
         if within_budget(knobs, soc_name, BASE_CONFIG) and not crashed:
@@ -100,9 +134,9 @@ def make_problem(soc_name, trace_path, allow_simulation=True, dispatch=None):
 
     return {
         "name": soc_name + "/" + trace_name,
-        "search_space": SEARCH_SPACE,
+        "search_space": space,
         "candidates": candidates,
-        "baseline": BASELINE_KNOBS,
+        "baseline": baseline,
         "evaluate": holder.evaluate,
         "evaluate_many": holder.evaluate_many,
         "objective": "ipc",
