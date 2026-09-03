@@ -50,9 +50,26 @@ def distill(store, problem, history, tag):
                                       "\n".join(ledger_lines[-60:]),
                                       loop.format_rules(store["rules"]))
     for rule in new_rules:
+        if not well_formed(rule, problem):
+            print("[{}] skipped malformed rule: {}".format(tag, json.dumps(rule)[:160]), flush=True)
+            continue
         rule_id = playbook.add_rule(store, rule["condition"], rule["claim"],
                                     rule["example"], rule["text"])
         print("[{}] distilled {}: {}".format(tag, rule_id, rule["text"]), flush=True)
+
+
+def well_formed(rule, problem):
+    """The analyst must name a real metric, a real knob and one of its allowed values."""
+    try:
+        metric_ok = rule["condition"]["metric"] in problem["table_metrics"]
+        float(rule["condition"]["value"])
+        knob = rule["claim"]["knob"]
+        allowed = [str(value) for value in problem["search_space"][knob]]
+        value_ok = str(rule["claim"]["value"]) in allowed
+        float(rule["claim"]["gain_pct"])
+        return metric_ok and value_ok and isinstance(rule.get("text"), str)
+    except (KeyError, TypeError, ValueError):
+        return False
 
 
 def with_soc(entry, soc_name):
@@ -82,7 +99,8 @@ def run_arm(arm, store, soc_name, trace_path, rounds, per_round, prior_history, 
     if arm == "textbook":
         arm_store = {"rules": [], "bets": []}
         for rule in analyst.textbook_rules(problem["search_space"], problem["objective"], 6):
-            playbook.add_rule(arm_store, rule["condition"], rule["claim"], rule["example"], rule["text"])
+            if well_formed(rule, problem):
+                playbook.add_rule(arm_store, rule["condition"], rule["claim"], rule["example"], rule["text"])
     prior = []
     if arm == "surrogate_pooled":
         prior = prior_history

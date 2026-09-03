@@ -16,11 +16,20 @@ PRIOR_WEIGHT = 2         # how many imaginary bets that prior is worth
 def condition_holds(condition, baseline_metrics):
     """condition: {"metric": "LLC_mpki", "op": ">=", "value": 20}."""
     value = baseline_metrics[condition["metric"]]
-    if condition["op"] == ">=":
-        return value >= condition["value"]
-    if condition["op"] == "<":
-        return value < condition["value"]
-    raise ValueError("unsupported condition op: " + condition["op"])
+    op = condition["op"]
+    threshold = float(condition["value"])
+    # The analyst is asked for ">=" or "<" but sometimes writes the others.
+    if op == ">=":
+        return value >= threshold
+    if op == ">":
+        return value > threshold
+    if op == "<":
+        return value < threshold
+    if op == "<=":
+        return value <= threshold
+    if op == "==":
+        return value == threshold
+    raise ValueError("unsupported condition op: " + op)
 
 
 def rule_forecast(rule, knobs, baseline_metrics, objective):
