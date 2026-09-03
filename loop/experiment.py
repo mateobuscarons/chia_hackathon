@@ -54,6 +54,20 @@ def learn_job(soc_name, trace_path, rounds, per_round, space_name):
     return job_store, result["history"]
 
 
+def training_runs(soc_names, traces, space_name):
+    """Every simulated config of the training SoCs, tagged with its SoC (pooled prior)."""
+    runs = []
+    for soc_name in soc_names:
+        for trace_path in traces:
+            problem = make_problem(soc_name, trace_path, allow_simulation=False, space_name=space_name)
+            table = problem["holder"].sweep_table
+            for name in table:
+                if table[name]["metrics"] is not None:
+                    runs.append(with_soc({"name": name, "knobs": table[name]["knobs"],
+                                          "metrics": table[name]["metrics"]}, soc_name))
+    return runs
+
+
 def merge_playbook(store, job_store):
     """Append another playbook's rules and bets, giving rules fresh ids."""
     new_ids = {}
@@ -192,9 +206,12 @@ def compact(history, objective):
 
 
 def run_experiment(train_socs, test_soc, traces, rounds, per_round, seeds, output_path,
-                   train_traces=None, space_name="A", arms=None, test_rounds=None):
+                   train_traces=None, space_name="A", arms=None, test_rounds=None,
+                   playbook_path=None, first_seed=0):
     """train_traces defaults to `traces` (cross-trace transfer passes another list).
-    space_name selects Tier A or B; arms defaults to all; test_rounds defaults to rounds."""
+    space_name selects Tier A or B; arms defaults to all; test_rounds defaults to rounds.
+    playbook_path reuses an already-learned playbook (more seeds, same knowledge);
+    the pooled arm then gets every training run in the Tier tables as prior data."""
     if train_traces is None:
         train_traces = traces
     if arms is None:
@@ -202,8 +219,12 @@ def run_experiment(train_socs, test_soc, traces, rounds, per_round, seeds, outpu
     if test_rounds is None:
         test_rounds = rounds
     started = time.time()
-    store = {"rules": [], "bets": []}
-    prior_history = learn(store, train_socs, train_traces, rounds, per_round, space_name)
+    if playbook_path is None:
+        store = {"rules": [], "bets": []}
+        prior_history = learn(store, train_socs, train_traces, rounds, per_round, space_name)
+    else:
+        store = playbook.load(playbook_path)
+        prior_history = training_runs(train_socs, train_traces, space_name)
     playbook.save(store, output_path.replace(".json", "_playbook.json"))
 
     report = {"settings": {"train_socs": train_socs, "test_soc": test_soc, "traces": traces,
@@ -221,7 +242,7 @@ def run_experiment(train_socs, test_soc, traces, rounds, per_round, seeds, outpu
         report["test"][problem["name"]] = {"optimum": in_budget_optimum(problem), "arms": {}}
         for arm in arms:
             report["test"][problem["name"]]["arms"][arm] = {}
-            for seed in range(seeds):
+            for seed in range(first_seed, first_seed + seeds):
                 future = pool.submit(run_arm_job, arm, store, test_soc, trace_path,
                                      test_rounds, per_round, prior_history, seed, space_name)
                 futures.append((problem["name"], arm, seed, future))

@@ -1,4 +1,4 @@
-"""One-screen summary of an experiment report. Usage: python -m loop.summarize results/experiment_X.json
+"""One-screen summary of an experiment. Usage: python -m loop.summarize results/experiment_X.json [more files]
 
 Prints, per test problem, the simulations each arm needed to capture 90% of
 the achievable gain (per seed, then median) and the best IPC it found; then
@@ -45,6 +45,22 @@ def summarize(report):
             klass, len(bets), brier / len(bets), wins / len(bets)))
 
 
+def load_merged(paths):
+    """Several runs of the same experiment (different seeds) read as one report."""
+    merged = None
+    for path in paths:
+        with open(path) as report_file:
+            report = json.load(report_file)
+        if merged is None:
+            merged = report
+            continue
+        for problem_name in report["test"]:
+            merged["test"].setdefault(problem_name, {"optimum": None, "arms": {}})
+            for arm in report["test"][problem_name]["arms"]:
+                merged["test"][problem_name]["arms"].setdefault(arm, {}).update(
+                    report["test"][problem_name]["arms"][arm])
+    return merged
+
+
 if __name__ == "__main__":
-    with open(sys.argv[1]) as report_file:
-        summarize(json.load(report_file))
+    summarize(load_merged(sys.argv[1:]))
