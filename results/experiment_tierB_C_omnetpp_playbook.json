@@ -1,0 +1,926 @@
+{
+  "rules": [
+    {
+      "id": "RULE-001",
+      "condition": {
+        "metric": "L2C_mpki",
+        "op": ">=",
+        "value": 31.0
+      },
+      "claim": {
+        "knob": "l2_prefetcher",
+        "value": "spp_dev",
+        "gain_pct": 31.79
+      },
+      "example": "A_mobile/mcf: 0.1343 -> 0.1769",
+      "text": "When L2 cache miss rate is high, enabling the SPP_DEV prefetcher for L2 cache can significantly improve IPC.",
+      "origin": [],
+      "wins": 0,
+      "losses": 0,
+      "brier_scores": [],
+      "status": "active"
+    },
+    {
+      "id": "RULE-002",
+      "condition": {
+        "metric": "L2C_mpki",
+        "op": ">=",
+        "value": 26.0
+      },
+      "claim": {
+        "knob": "l2_ways",
+        "value": 8,
+        "gain_pct": -1.34
+      },
+      "example": "A_mobile/mcf: 0.1343 -> 0.1325",
+      "text": "When L2 cache miss rate is high, increasing L2 cache ways from 4 to 8 may slightly decrease IPC.",
+      "origin": [],
+      "wins": 0,
+      "losses": 0,
+      "brier_scores": [],
+      "status": "active"
+    },
+    {
+      "id": "RULE-003",
+      "condition": {
+        "metric": "L2C_mpki",
+        "op": "<",
+        "value": 20.0
+      },
+      "claim": {
+        "knob": "llc_replacement",
+        "value": "drrip",
+        "gain_pct": 5.58
+      },
+      "example": "A_mobile/mcf: 0.1650 -> 0.1742",
+      "text": "When L2 cache miss rate is around 19-20, using the VA_AMPM_LITE prefetcher for L2 and DRRIP replacement for LLC can boost IPC, especially with a 128-set L1D cache.",
+      "origin": [],
+      "wins": 0,
+      "losses": 0,
+      "brier_scores": [],
+      "status": "active"
+    },
+    {
+      "id": "RULE-004",
+      "condition": {
+        "metric": "L2C_mpki",
+        "op": "<",
+        "value": 16.0
+      },
+      "claim": {
+        "knob": "l2_prefetcher",
+        "value": "va_ampm_lite",
+        "gain_pct": 21.36
+      },
+      "example": "A_mobile/mcf: 0.1738 -> 0.2123",
+      "text": "When L2 cache miss rate is low and LLC miss rate is moderate, using VA_AMPM_LITE for L2 prefetching and DRRIP replacement for LLC can provide substantial IPC improvement.",
+      "origin": [],
+      "wins": 0,
+      "losses": 0,
+      "brier_scores": [],
+      "status": "active"
+    },
+    {
+      "id": "RULE-005",
+      "condition": {
+        "metric": "LLC_mpki",
+        "op": "<",
+        "value": 10.0
+      },
+      "claim": {
+        "knob": "l1d_ways",
+        "value": 12,
+        "gain_pct": 20.73
+      },
+      "example": "A_mobile/mcf: 0.1742 -> 0.2103",
+      "text": "For configurations with low L2C MPKI and moderate LLC MPKI, changing L1D ways from 8 to 12 along with VA_AMPM_LITE for L2 prefetching and DRRIP for LLC replacement can be highly effective.",
+      "origin": [],
+      "wins": 0,
+      "losses": 0,
+      "brier_scores": [],
+      "status": "active"
+    },
+    {
+      "id": "RULE-006",
+      "condition": {
+        "metric": "L2C_mpki",
+        "op": ">=",
+        "value": 50.0
+      },
+      "claim": {
+        "knob": "l2_prefetcher",
+        "value": "spp_dev",
+        "gain_pct": 16.56
+      },
+      "example": "A_mobile_l1d_prefetcher-no_l1d_sets-64_l1d_ways-8_l2_prefetcher-no_l2_sets-1024_l2_ways-4_llc_prefetcher-no_llc_replacement-lru_llc_sets-2048_llc_ways-8 (ipc=0.1867) -> A_mobile_l1d_prefetcher-no_l1d_sets-64_l1d_ways-8_l2_prefetcher-spp_dev_l2_sets-1024_l2_ways-4_llc_prefetcher-next_line_llc_replacement-drrip_llc_sets-2048_llc_ways-8 (ipc=0.2176)",
+      "text": "When L2 cache misses are moderate to high, enabling the SPP_DEV prefetcher for L2 cache is beneficial for IPC.",
+      "origin": [],
+      "wins": 0,
+      "losses": 0,
+      "brier_scores": [],
+      "status": "active"
+    },
+    {
+      "id": "RULE-007",
+      "condition": {
+        "metric": "LLC_mpki",
+        "op": "<",
+        "value": 40.0
+      },
+      "claim": {
+        "knob": "llc_ways",
+        "value": 16,
+        "gain_pct": 0.5
+      },
+      "example": "A_mobile_l1d_prefetcher-next_line_l1d_sets-32_l1d_ways-12_l2_prefetcher-no_l2_sets-256_l2_ways-16_llc_prefetcher-next_line_llc_replacement-lru_llc_sets-2048_llc_ways-8 (ipc=0.2003) vs A_mobile_l1d_prefetcher-next_line_l1d_sets-32_l1d_ways-12_l2_prefetcher-no_l2_sets-256_l2_ways-4_llc_prefetcher-next_line_llc_replacement-srrip_llc_sets-2048_llc_ways-8 (ipc=0.1596, does not directly show this rule due to other changes, this example is weak)",
+      "text": "When the LLC miss rate is low, increasing LLC ways from 8 to 16 can slightly improve IPC.",
+      "origin": [],
+      "wins": 0,
+      "losses": 0,
+      "brier_scores": [],
+      "status": "active"
+    },
+    {
+      "id": "RULE-008",
+      "condition": {
+        "metric": "L2C_mpki",
+        "op": ">=",
+        "value": 40.0
+      },
+      "claim": {
+        "knob": "llc_replacement",
+        "value": "ship",
+        "gain_pct": 0.0
+      },
+      "example": "A_mobile_l1d_prefetcher-next_line_l1d_sets-128_l1d_ways-8_l2_prefetcher-spp_dev_l2_sets-512_l2_ways-16_llc_prefetcher-next_line_llc_replacement-drrip_llc_sets-1024_llc_ways-8 (ipc=0.2244) vs A_mobile_l1d_prefetcher-next_line_l1d_sets-128_l1d_ways-8_l2_prefetcher-spp_dev_l2_sets-512_l2_ways-16_llc_prefetcher-next_line_llc_replacement-ship_llc_sets-1024_llc_ways-8 (ipc=0.2244)",
+      "text": "For configurations with a next_line L1D prefetcher and LLC next_line prefetcher, the SHIP LLC replacement policy can provide better IPC than DRRIP when L2C_mpki is moderate.",
+      "origin": [],
+      "wins": 0,
+      "losses": 0,
+      "brier_scores": [],
+      "status": "active"
+    },
+    {
+      "id": "RULE-009",
+      "condition": {
+        "metric": "L2C_mpki",
+        "op": ">=",
+        "value": 50.0
+      },
+      "claim": {
+        "knob": "l2_prefetcher",
+        "value": "spp_dev",
+        "gain_pct": 15.34
+      },
+      "example": "A_mobile_l1d_prefetcher-no_l1d_sets-128_l1d_ways-8_l2_prefetcher-no_l2_sets-512_l2_ways-16_llc_prefetcher-next_line_llc_replacement-ship_llc_sets-1024_llc_ways-8 (ipc=0.1944) -> A_mobile_l1d_prefetcher-next_line_l1d_sets-128_l1d_ways-8_l2_prefetcher-spp_dev_l2_sets-512_l2_ways-16_llc_prefetcher-next_line_llc_replacement-ship_llc_sets-1024_llc_ways-8 (ipc=0.2244)",
+      "text": "When L2 cache miss rates are high, using a next_line L1D prefetcher with a spp_dev L2 prefetcher consistently results in better IPC, even if LLC prefetcher is next_line and LLC replacement is SHIP.",
+      "origin": [],
+      "wins": 0,
+      "losses": 0,
+      "brier_scores": [],
+      "status": "active"
+    },
+    {
+      "id": "RULE-010",
+      "condition": {
+        "metric": "LLC_mpki",
+        "op": ">=",
+        "value": 11.64
+      },
+      "claim": {
+        "knob": "llc_replacement",
+        "value": "ship",
+        "gain_pct": 31.36
+      },
+      "example": "B_midrange/mcf: 0.3118 -> 0.4095",
+      "text": "For workloads with moderate LLC miss rates, using the VA_AMPM_LITE prefetcher for L2 and the SHIP replacement policy for LLC, combined with increasing LLC sets and ways, significantly improves IPC.",
+      "origin": [],
+      "wins": 0,
+      "losses": 0,
+      "brier_scores": [],
+      "status": "active"
+    },
+    {
+      "id": "RULE-011",
+      "condition": {
+        "metric": "LLC_mpki",
+        "op": ">=",
+        "value": 13.0
+      },
+      "claim": {
+        "knob": "llc_replacement",
+        "value": "ship",
+        "gain_pct": 34.57
+      },
+      "example": "B_midrange/mcf: 0.2864 -> 0.3854",
+      "text": "When LLC miss rates are high, using a next_line prefetcher for L2, combined with a SHIP LLC replacement policy and higher LLC ways, boosts IPC.",
+      "origin": [],
+      "wins": 0,
+      "losses": 0,
+      "brier_scores": [],
+      "status": "active"
+    },
+    {
+      "id": "RULE-012",
+      "condition": {
+        "metric": "L2C_mpki",
+        "op": ">=",
+        "value": 24.17
+      },
+      "claim": {
+        "knob": "l2_prefetcher",
+        "value": "spp_dev",
+        "gain_pct": 52.19
+      },
+      "example": "B_midrange/mcf: 0.2462 -> 0.3747",
+      "text": "For workloads with high L2 miss rates, the SPP_DEV prefetcher for L2, coupled with a SHIP replacement policy for LLC and next_line L1D prefetcher, can lead to substantial IPC gains.",
+      "origin": [],
+      "wins": 0,
+      "losses": 0,
+      "brier_scores": [],
+      "status": "active"
+    },
+    {
+      "id": "RULE-013",
+      "condition": {
+        "metric": "LLC_mpki",
+        "op": "<",
+        "value": 9.0
+      },
+      "claim": {
+        "knob": "l1d_prefetcher",
+        "value": "next_line",
+        "gain_pct": 26.24
+      },
+      "example": "B_midrange/mcf: 0.2836 -> 0.3571",
+      "text": "For workloads with very low LLC miss rates, enabling next_line prefetchers for both L1D and LLC can improve IPC when combined with a DLRRIP LLC replacement policy and sufficient LLC sets.",
+      "origin": [],
+      "wins": 0,
+      "losses": 0,
+      "brier_scores": [],
+      "status": "active"
+    },
+    {
+      "id": "RULE-014",
+      "condition": {
+        "metric": "L2C_mpki",
+        "op": ">=",
+        "value": 23.69
+      },
+      "claim": {
+        "knob": "l2_prefetcher",
+        "value": "va_ampm_lite",
+        "gain_pct": 4.79
+      },
+      "example": "B_midrange/mcf: 0.3908 -> 0.4095",
+      "text": "When L2 miss rates are very high, consider using the VA_AMPM_LITE prefetcher for L2 and the SHIP replacement policy for LLC, as this combination has shown good IPC improvements.",
+      "origin": [],
+      "wins": 0,
+      "losses": 0,
+      "brier_scores": [],
+      "status": "active"
+    },
+    {
+      "id": "RULE-015",
+      "condition": {
+        "metric": "L2C_mpki",
+        "op": ">=",
+        "value": 45.0
+      },
+      "claim": {
+        "knob": "l2_prefetcher",
+        "value": "spp_dev",
+        "gain_pct": 23.18
+      },
+      "example": "B_midrange: 0.4621 -> 0.5692",
+      "text": "For workloads with moderately high L2 cache miss rates, consider enabling the SPP_DEV prefetcher for the L2 cache, as this can significantly improve performance.",
+      "origin": [],
+      "wins": 0,
+      "losses": 0,
+      "brier_scores": [],
+      "status": "active"
+    },
+    {
+      "id": "RULE-016",
+      "condition": {
+        "metric": "L2C_mpki",
+        "op": ">=",
+        "value": 45.0
+      },
+      "claim": {
+        "knob": "l1d_sets",
+        "value": 128,
+        "gain_pct": 23.18
+      },
+      "example": "B_midrange: 0.4621 -> 0.5692",
+      "text": "When the L2 cache miss rate is high, increasing L1D sets can be beneficial, especially when combined with an SPP_DEV L2 prefetcher.",
+      "origin": [],
+      "wins": 0,
+      "losses": 0,
+      "brier_scores": [],
+      "status": "active"
+    },
+    {
+      "id": "RULE-017",
+      "condition": {
+        "metric": "LLC_mpki",
+        "op": ">=",
+        "value": 50.0
+      },
+      "claim": {
+        "knob": "llc_prefetcher",
+        "value": "next_line",
+        "gain_pct": 16.71
+      },
+      "example": "B_midrange: 0.4621 -> 0.5389",
+      "text": "For workloads with high LLC miss rates, enabling next_line prefetching at the LLC can provide a performance boost, especially with a DRRIP replacement policy.",
+      "origin": [],
+      "wins": 0,
+      "losses": 0,
+      "brier_scores": [],
+      "status": "active"
+    },
+    {
+      "id": "RULE-018",
+      "condition": {
+        "metric": "LLC_mpki",
+        "op": ">=",
+        "value": 50.0
+      },
+      "claim": {
+        "knob": "llc_replacement",
+        "value": "drrip",
+        "gain_pct": 15.56
+      },
+      "example": "B_midrange: 0.4621 -> 0.5343",
+      "text": "When LLC miss rates are high, using a DRRIP replacement policy for the LLC can help improve IPC, especially when combined with VA_AMPM_LITE L2 prefetching.",
+      "origin": [],
+      "wins": 0,
+      "losses": 0,
+      "brier_scores": [],
+      "status": "active"
+    },
+    {
+      "id": "RULE-019",
+      "condition": {
+        "metric": "LLC_mpki",
+        "op": ">=",
+        "value": 55.0
+      },
+      "claim": {
+        "knob": "llc_replacement",
+        "value": "ship",
+        "gain_pct": 23.18
+      },
+      "example": "B_midrange: 0.4621 -> 0.5692",
+      "text": "Using a SHIP replacement policy at the LLC can be beneficial for IPC, especially for workloads with a high LLC miss rate and when combined with SPP_DEV L2 prefetching.",
+      "origin": [],
+      "wins": 0,
+      "losses": 0,
+      "brier_scores": [],
+      "status": "active"
+    }
+  ],
+  "bets": [
+    {
+      "id": "BET-0001",
+      "forecaster": "SURROGATE",
+      "experiment": "A_mobile_l1d_prefetcher-no_l1d_sets-64_l1d_ways-8_l2_prefetcher-spp_dev_l2_sets-1024_l2_ways-4_llc_prefetcher-no_llc_replacement-lru_llc_sets-2048_llc_ways-8",
+      "event": "ipc >= 0.1921",
+      "probability": 0.0005944511916491368,
+      "kind": "dispute",
+      "outcome": false
+    },
+    {
+      "id": "BET-0002",
+      "forecaster": "learn-A_mobile/mcf-HYP-r1-2",
+      "experiment": "A_mobile_l1d_prefetcher-no_l1d_sets-64_l1d_ways-8_l2_prefetcher-spp_dev_l2_sets-1024_l2_ways-4_llc_prefetcher-no_llc_replacement-lru_llc_sets-2048_llc_ways-8",
+      "event": "ipc >= 0.1921",
+      "probability": 0.75,
+      "kind": "dispute",
+      "outcome": false
+    },
+    {
+      "id": "BET-0003",
+      "forecaster": "SURROGATE",
+      "experiment": "A_mobile_l1d_prefetcher-no_l1d_sets-64_l1d_ways-8_l2_prefetcher-no_l2_sets-1024_l2_ways-8_llc_prefetcher-no_llc_replacement-lru_llc_sets-2048_llc_ways-8",
+      "event": "ipc >= 0.1771",
+      "probability": 0.008173435251679795,
+      "kind": "dispute",
+      "outcome": false
+    },
+    {
+      "id": "BET-0004",
+      "forecaster": "learn-A_mobile/mcf-HYP-r1-1",
+      "experiment": "A_mobile_l1d_prefetcher-no_l1d_sets-64_l1d_ways-8_l2_prefetcher-no_l2_sets-1024_l2_ways-8_llc_prefetcher-no_llc_replacement-lru_llc_sets-2048_llc_ways-8",
+      "event": "ipc >= 0.1771",
+      "probability": 0.7,
+      "kind": "dispute",
+      "outcome": false
+    },
+    {
+      "id": "BET-0005",
+      "forecaster": "SURROGATE",
+      "experiment": "A_mobile_l1d_prefetcher-no_l1d_sets-64_l1d_ways-8_l2_prefetcher-spp_dev_l2_sets-1024_l2_ways-4_llc_prefetcher-next_line_llc_replacement-drrip_llc_sets-2048_llc_ways-8",
+      "event": "ipc >= 0.1694",
+      "probability": 0.22525779882010033,
+      "kind": "dispute",
+      "outcome": false
+    },
+    {
+      "id": "BET-0006",
+      "forecaster": "learn-A_mobile/mcf-HYP-r3-2",
+      "experiment": "A_mobile_l1d_prefetcher-no_l1d_sets-64_l1d_ways-8_l2_prefetcher-spp_dev_l2_sets-1024_l2_ways-4_llc_prefetcher-next_line_llc_replacement-drrip_llc_sets-2048_llc_ways-8",
+      "event": "ipc >= 0.1694",
+      "probability": 0.6,
+      "kind": "dispute",
+      "outcome": false
+    },
+    {
+      "id": "BET-0007",
+      "forecaster": "SURROGATE",
+      "experiment": "A_mobile_l1d_prefetcher-next_line_l1d_sets-128_l1d_ways-8_l2_prefetcher-va_ampm_lite_l2_sets-2048_l2_ways-4_llc_prefetcher-no_llc_replacement-drrip_llc_sets-1024_llc_ways-16",
+      "event": "ipc >= 0.1606",
+      "probability": 0.3469395097758712,
+      "kind": "dispute",
+      "outcome": true
+    },
+    {
+      "id": "BET-0008",
+      "forecaster": "learn-A_mobile/mcf-HYP-r4-2",
+      "experiment": "A_mobile_l1d_prefetcher-next_line_l1d_sets-128_l1d_ways-8_l2_prefetcher-va_ampm_lite_l2_sets-2048_l2_ways-4_llc_prefetcher-no_llc_replacement-drrip_llc_sets-1024_llc_ways-16",
+      "event": "ipc >= 0.1606",
+      "probability": 0.6,
+      "kind": "dispute",
+      "outcome": true
+    },
+    {
+      "id": "BET-0009",
+      "forecaster": "SURROGATE",
+      "experiment": "A_mobile_l1d_prefetcher-no_l1d_sets-64_l1d_ways-8_l2_prefetcher-spp_dev_l2_sets-2048_l2_ways-4_llc_prefetcher-no_llc_replacement-lru_llc_sets-2048_llc_ways-8",
+      "event": "ipc >= 0.1701",
+      "probability": 0.2642964193647436,
+      "kind": "dispute",
+      "outcome": true
+    },
+    {
+      "id": "BET-0010",
+      "forecaster": "learn-A_mobile/mcf-HYP-r5-1",
+      "experiment": "A_mobile_l1d_prefetcher-no_l1d_sets-64_l1d_ways-8_l2_prefetcher-spp_dev_l2_sets-2048_l2_ways-4_llc_prefetcher-no_llc_replacement-lru_llc_sets-2048_llc_ways-8",
+      "event": "ipc >= 0.1701",
+      "probability": 0.8,
+      "kind": "dispute",
+      "outcome": true
+    },
+    {
+      "id": "BET-0011",
+      "forecaster": "SURROGATE",
+      "experiment": "A_mobile_l1d_prefetcher-next_line_l1d_sets-128_l1d_ways-12_l2_prefetcher-va_ampm_lite_l2_sets-2048_l2_ways-8_llc_prefetcher-no_llc_replacement-drrip_llc_sets-1024_llc_ways-16",
+      "event": "ipc >= 0.1749",
+      "probability": 0.37794402639859337,
+      "kind": "dispute",
+      "outcome": true
+    },
+    {
+      "id": "BET-0012",
+      "forecaster": "learn-A_mobile/mcf-HYP-r6-2",
+      "experiment": "A_mobile_l1d_prefetcher-next_line_l1d_sets-128_l1d_ways-12_l2_prefetcher-va_ampm_lite_l2_sets-2048_l2_ways-8_llc_prefetcher-no_llc_replacement-drrip_llc_sets-1024_llc_ways-16",
+      "event": "ipc >= 0.1749",
+      "probability": 0.7,
+      "kind": "dispute",
+      "outcome": true
+    },
+    {
+      "id": "BET-0013",
+      "forecaster": "SURROGATE",
+      "experiment": "A_mobile_l1d_prefetcher-next_line_l1d_sets-128_l1d_ways-8_l2_prefetcher-no_l2_sets-2048_l2_ways-4_llc_prefetcher-next_line_llc_replacement-drrip_llc_sets-1024_llc_ways-16",
+      "event": "ipc >= 0.1693",
+      "probability": 0.36832235748991304,
+      "kind": "dispute",
+      "outcome": false
+    },
+    {
+      "id": "BET-0014",
+      "forecaster": "learn-A_mobile/mcf-HYP-r7-2",
+      "experiment": "A_mobile_l1d_prefetcher-next_line_l1d_sets-128_l1d_ways-8_l2_prefetcher-no_l2_sets-2048_l2_ways-4_llc_prefetcher-next_line_llc_replacement-drrip_llc_sets-1024_llc_ways-16",
+      "event": "ipc >= 0.1693",
+      "probability": 0.7,
+      "kind": "dispute",
+      "outcome": false
+    },
+    {
+      "id": "BET-0015",
+      "forecaster": "SURROGATE",
+      "experiment": "A_mobile_l1d_prefetcher-no_l1d_sets-32_l1d_ways-12_l2_prefetcher-va_ampm_lite_l2_sets-2048_l2_ways-8_llc_prefetcher-no_llc_replacement-drrip_llc_sets-1024_llc_ways-16",
+      "event": "ipc >= 0.2010",
+      "probability": 0.37360760973469365,
+      "kind": "dispute",
+      "outcome": true
+    },
+    {
+      "id": "BET-0016",
+      "forecaster": "learn-A_mobile/mcf-HYP-r8-2",
+      "experiment": "A_mobile_l1d_prefetcher-no_l1d_sets-32_l1d_ways-12_l2_prefetcher-va_ampm_lite_l2_sets-2048_l2_ways-8_llc_prefetcher-no_llc_replacement-drrip_llc_sets-1024_llc_ways-16",
+      "event": "ipc >= 0.2010",
+      "probability": 0.7,
+      "kind": "dispute",
+      "outcome": true
+    },
+    {
+      "id": "BET-0017",
+      "forecaster": "SURROGATE",
+      "experiment": "A_mobile_l1d_prefetcher-no_l1d_sets-64_l1d_ways-12_l2_prefetcher-va_ampm_lite_l2_sets-2048_l2_ways-8_llc_prefetcher-no_llc_replacement-drrip_llc_sets-1024_llc_ways-16",
+      "event": "ipc >= 0.2140",
+      "probability": 0.30908192636630116,
+      "kind": "dispute",
+      "outcome": true
+    },
+    {
+      "id": "BET-0018",
+      "forecaster": "learn-A_mobile/mcf-HYP-r9-1",
+      "experiment": "A_mobile_l1d_prefetcher-no_l1d_sets-64_l1d_ways-12_l2_prefetcher-va_ampm_lite_l2_sets-2048_l2_ways-8_llc_prefetcher-no_llc_replacement-drrip_llc_sets-1024_llc_ways-16",
+      "event": "ipc >= 0.2140",
+      "probability": 0.8,
+      "kind": "dispute",
+      "outcome": true
+    },
+    {
+      "id": "BET-0019",
+      "forecaster": "SURROGATE",
+      "experiment": "A_mobile_l1d_prefetcher-no_l1d_sets-128_l1d_ways-12_l2_prefetcher-va_ampm_lite_l2_sets-2048_l2_ways-8_llc_prefetcher-no_llc_replacement-drrip_llc_sets-1024_llc_ways-16",
+      "event": "ipc >= 0.2178",
+      "probability": 0.35956651799171235,
+      "kind": "dispute",
+      "outcome": true
+    },
+    {
+      "id": "BET-0020",
+      "forecaster": "learn-A_mobile/mcf-HYP-r10-1",
+      "experiment": "A_mobile_l1d_prefetcher-no_l1d_sets-128_l1d_ways-12_l2_prefetcher-va_ampm_lite_l2_sets-2048_l2_ways-8_llc_prefetcher-no_llc_replacement-drrip_llc_sets-1024_llc_ways-16",
+      "event": "ipc >= 0.2178",
+      "probability": 0.8,
+      "kind": "dispute",
+      "outcome": true
+    },
+    {
+      "id": "BET-0021",
+      "forecaster": "SURROGATE",
+      "experiment": "A_mobile_l1d_prefetcher-no_l1d_sets-64_l1d_ways-8_l2_prefetcher-spp_dev_l2_sets-1024_l2_ways-4_llc_prefetcher-next_line_llc_replacement-drrip_llc_sets-2048_llc_ways-8",
+      "event": "ipc >= 0.2684",
+      "probability": 0.08855347938939395,
+      "kind": "dispute",
+      "outcome": false
+    },
+    {
+      "id": "BET-0022",
+      "forecaster": "learn-A_mobile/lbm-HYP-r1-2",
+      "experiment": "A_mobile_l1d_prefetcher-no_l1d_sets-64_l1d_ways-8_l2_prefetcher-spp_dev_l2_sets-1024_l2_ways-4_llc_prefetcher-next_line_llc_replacement-drrip_llc_sets-2048_llc_ways-8",
+      "event": "ipc >= 0.2684",
+      "probability": 0.6,
+      "kind": "dispute",
+      "outcome": false
+    },
+    {
+      "id": "BET-0023",
+      "forecaster": "SURROGATE",
+      "experiment": "A_mobile_l1d_prefetcher-next_line_l1d_sets-128_l1d_ways-8_l2_prefetcher-spp_dev_l2_sets-1024_l2_ways-16_llc_prefetcher-next_line_llc_replacement-ship_llc_sets-1024_llc_ways-8",
+      "event": "ipc >= 0.2178",
+      "probability": 0.23663331221550377,
+      "kind": "dispute",
+      "outcome": true
+    },
+    {
+      "id": "BET-0024",
+      "forecaster": "learn-A_mobile/lbm-HYP-r4-1",
+      "experiment": "A_mobile_l1d_prefetcher-next_line_l1d_sets-128_l1d_ways-8_l2_prefetcher-spp_dev_l2_sets-1024_l2_ways-16_llc_prefetcher-next_line_llc_replacement-ship_llc_sets-1024_llc_ways-8",
+      "event": "ipc >= 0.2178",
+      "probability": 0.8,
+      "kind": "dispute",
+      "outcome": true
+    },
+    {
+      "id": "BET-0025",
+      "forecaster": "SURROGATE",
+      "experiment": "A_mobile_l1d_prefetcher-next_line_l1d_sets-128_l1d_ways-8_l2_prefetcher-spp_dev_l2_sets-512_l2_ways-8_llc_prefetcher-next_line_llc_replacement-ship_llc_sets-1024_llc_ways-8",
+      "event": "ipc >= 0.2234",
+      "probability": 0.3055980488929575,
+      "kind": "dispute",
+      "outcome": false
+    },
+    {
+      "id": "BET-0026",
+      "forecaster": "learn-A_mobile/lbm-HYP-r5-1",
+      "experiment": "A_mobile_l1d_prefetcher-next_line_l1d_sets-128_l1d_ways-8_l2_prefetcher-spp_dev_l2_sets-512_l2_ways-8_llc_prefetcher-next_line_llc_replacement-ship_llc_sets-1024_llc_ways-8",
+      "event": "ipc >= 0.2234",
+      "probability": 0.7,
+      "kind": "dispute",
+      "outcome": false
+    },
+    {
+      "id": "BET-0027",
+      "forecaster": "SURROGATE",
+      "experiment": "A_mobile_l1d_prefetcher-next_line_l1d_sets-128_l1d_ways-8_l2_prefetcher-spp_dev_l2_sets-512_l2_ways-16_llc_prefetcher-next_line_llc_replacement-drrip_llc_sets-1024_llc_ways-8",
+      "event": "ipc >= 0.2148",
+      "probability": 0.44338153675936165,
+      "kind": "dispute",
+      "outcome": true
+    },
+    {
+      "id": "BET-0028",
+      "forecaster": "learn-A_mobile/lbm-HYP-r5-2",
+      "experiment": "A_mobile_l1d_prefetcher-next_line_l1d_sets-128_l1d_ways-8_l2_prefetcher-spp_dev_l2_sets-512_l2_ways-16_llc_prefetcher-next_line_llc_replacement-drrip_llc_sets-1024_llc_ways-8",
+      "event": "ipc >= 0.2148",
+      "probability": 0.6,
+      "kind": "dispute",
+      "outcome": true
+    },
+    {
+      "id": "BET-0029",
+      "forecaster": "SURROGATE",
+      "experiment": "A_mobile_l1d_prefetcher-next_line_l1d_sets-128_l1d_ways-12_l2_prefetcher-ip_stride_l2_sets-2048_l2_ways-8_llc_prefetcher-next_line_llc_replacement-drrip_llc_sets-1024_llc_ways-16",
+      "event": "ipc >= 0.2169",
+      "probability": 0.2930083743329821,
+      "kind": "dispute",
+      "outcome": false
+    },
+    {
+      "id": "BET-0030",
+      "forecaster": "learn-A_mobile/lbm-HYP-r6-2",
+      "experiment": "A_mobile_l1d_prefetcher-next_line_l1d_sets-128_l1d_ways-12_l2_prefetcher-ip_stride_l2_sets-2048_l2_ways-8_llc_prefetcher-next_line_llc_replacement-drrip_llc_sets-1024_llc_ways-16",
+      "event": "ipc >= 0.2169",
+      "probability": 0.6,
+      "kind": "dispute",
+      "outcome": false
+    },
+    {
+      "id": "BET-0031",
+      "forecaster": "SURROGATE",
+      "experiment": "A_mobile_l1d_prefetcher-next_line_l1d_sets-128_l1d_ways-12_l2_prefetcher-next_line_l2_sets-512_l2_ways-16_llc_prefetcher-next_line_llc_replacement-ship_llc_sets-1024_llc_ways-8",
+      "event": "ipc >= 0.2110",
+      "probability": 0.4062475167846318,
+      "kind": "dispute",
+      "outcome": true
+    },
+    {
+      "id": "BET-0032",
+      "forecaster": "learn-A_mobile/lbm-HYP-r7-2",
+      "experiment": "A_mobile_l1d_prefetcher-next_line_l1d_sets-128_l1d_ways-12_l2_prefetcher-next_line_l2_sets-512_l2_ways-16_llc_prefetcher-next_line_llc_replacement-ship_llc_sets-1024_llc_ways-8",
+      "event": "ipc >= 0.2110",
+      "probability": 0.6,
+      "kind": "dispute",
+      "outcome": true
+    },
+    {
+      "id": "BET-0033",
+      "forecaster": "SURROGATE",
+      "experiment": "A_mobile_l1d_prefetcher-next_line_l1d_sets-128_l1d_ways-8_l2_prefetcher-ip_stride_l2_sets-1024_l2_ways-16_llc_prefetcher-next_line_llc_replacement-drrip_llc_sets-1024_llc_ways-8",
+      "event": "ipc >= 0.2208",
+      "probability": 0.33275929270127214,
+      "kind": "dispute",
+      "outcome": false
+    },
+    {
+      "id": "BET-0034",
+      "forecaster": "learn-A_mobile/lbm-HYP-r8-2",
+      "experiment": "A_mobile_l1d_prefetcher-next_line_l1d_sets-128_l1d_ways-8_l2_prefetcher-ip_stride_l2_sets-1024_l2_ways-16_llc_prefetcher-next_line_llc_replacement-drrip_llc_sets-1024_llc_ways-8",
+      "event": "ipc >= 0.2208",
+      "probability": 0.7,
+      "kind": "dispute",
+      "outcome": false
+    },
+    {
+      "id": "BET-0035",
+      "forecaster": "SURROGATE",
+      "experiment": "A_mobile_l1d_prefetcher-next_line_l1d_sets-128_l1d_ways-8_l2_prefetcher-ip_stride_l2_sets-1024_l2_ways-8_llc_prefetcher-next_line_llc_replacement-drrip_llc_sets-1024_llc_ways-8",
+      "event": "ipc >= 0.2124",
+      "probability": 0.4438666660243836,
+      "kind": "dispute",
+      "outcome": false
+    },
+    {
+      "id": "BET-0036",
+      "forecaster": "learn-A_mobile/lbm-HYP-r10-2",
+      "experiment": "A_mobile_l1d_prefetcher-next_line_l1d_sets-128_l1d_ways-8_l2_prefetcher-ip_stride_l2_sets-1024_l2_ways-8_llc_prefetcher-next_line_llc_replacement-drrip_llc_sets-1024_llc_ways-8",
+      "event": "ipc >= 0.2124",
+      "probability": 0.7,
+      "kind": "dispute",
+      "outcome": false
+    },
+    {
+      "id": "BET-0037",
+      "forecaster": "SURROGATE",
+      "experiment": "B_midrange_l1d_prefetcher-next_line_l1d_sets-128_l1d_ways-12_l2_prefetcher-spp_dev_l2_sets-2048_l2_ways-8_llc_prefetcher-next_line_llc_replacement-ship_llc_sets-2048_llc_ways-16",
+      "event": "ipc >= 0.3360",
+      "probability": 0.2658391085613636,
+      "kind": "dispute",
+      "outcome": true
+    },
+    {
+      "id": "BET-0038",
+      "forecaster": "learn-B_midrange/mcf-HYP-r3-1",
+      "experiment": "B_midrange_l1d_prefetcher-next_line_l1d_sets-128_l1d_ways-12_l2_prefetcher-spp_dev_l2_sets-2048_l2_ways-8_llc_prefetcher-next_line_llc_replacement-ship_llc_sets-2048_llc_ways-16",
+      "event": "ipc >= 0.3360",
+      "probability": 0.9,
+      "kind": "dispute",
+      "outcome": true
+    },
+    {
+      "id": "BET-0039",
+      "forecaster": "SURROGATE",
+      "experiment": "B_midrange_l1d_prefetcher-no_l1d_sets-128_l1d_ways-12_l2_prefetcher-next_line_l2_sets-2048_l2_ways-8_llc_prefetcher-no_llc_replacement-ship_llc_sets-2048_llc_ways-16",
+      "event": "ipc >= 0.3332",
+      "probability": 0.3884781591409465,
+      "kind": "dispute",
+      "outcome": true
+    },
+    {
+      "id": "BET-0040",
+      "forecaster": "learn-B_midrange/mcf-HYP-r4-2",
+      "experiment": "B_midrange_l1d_prefetcher-no_l1d_sets-128_l1d_ways-12_l2_prefetcher-next_line_l2_sets-2048_l2_ways-8_llc_prefetcher-no_llc_replacement-ship_llc_sets-2048_llc_ways-16",
+      "event": "ipc >= 0.3332",
+      "probability": 0.7,
+      "kind": "dispute",
+      "outcome": true
+    },
+    {
+      "id": "BET-0041",
+      "forecaster": "SURROGATE",
+      "experiment": "B_midrange_l1d_prefetcher-no_l1d_sets-64_l1d_ways-12_l2_prefetcher-va_ampm_lite_l2_sets-512_l2_ways-8_llc_prefetcher-no_llc_replacement-ship_llc_sets-4096_llc_ways-8",
+      "event": "ipc >= 0.4025",
+      "probability": 0.3800599145469674,
+      "kind": "dispute",
+      "outcome": false
+    },
+    {
+      "id": "BET-0042",
+      "forecaster": "learn-B_midrange/mcf-HYP-r6-1",
+      "experiment": "B_midrange_l1d_prefetcher-no_l1d_sets-64_l1d_ways-12_l2_prefetcher-va_ampm_lite_l2_sets-512_l2_ways-8_llc_prefetcher-no_llc_replacement-ship_llc_sets-4096_llc_ways-8",
+      "event": "ipc >= 0.4025",
+      "probability": 0.8,
+      "kind": "dispute",
+      "outcome": false
+    },
+    {
+      "id": "BET-0043",
+      "forecaster": "SURROGATE",
+      "experiment": "B_midrange_l1d_prefetcher-no_l1d_sets-64_l1d_ways-12_l2_prefetcher-next_line_l2_sets-512_l2_ways-16_llc_prefetcher-no_llc_replacement-ship_llc_sets-4096_llc_ways-8",
+      "event": "ipc >= 0.3871",
+      "probability": 0.45748674222192187,
+      "kind": "dispute",
+      "outcome": false
+    },
+    {
+      "id": "BET-0044",
+      "forecaster": "learn-B_midrange/mcf-HYP-r6-2",
+      "experiment": "B_midrange_l1d_prefetcher-no_l1d_sets-64_l1d_ways-12_l2_prefetcher-next_line_l2_sets-512_l2_ways-16_llc_prefetcher-no_llc_replacement-ship_llc_sets-4096_llc_ways-8",
+      "event": "ipc >= 0.3871",
+      "probability": 0.7,
+      "kind": "dispute",
+      "outcome": false
+    },
+    {
+      "id": "BET-0045",
+      "forecaster": "SURROGATE",
+      "experiment": "B_midrange_l1d_prefetcher-no_l1d_sets-128_l1d_ways-12_l2_prefetcher-no_l2_sets-512_l2_ways-8_llc_prefetcher-no_llc_replacement-ship_llc_sets-2048_llc_ways-16",
+      "event": "ipc >= 0.3732",
+      "probability": 0.36303044169504806,
+      "kind": "dispute",
+      "outcome": false
+    },
+    {
+      "id": "BET-0046",
+      "forecaster": "learn-B_midrange/mcf-HYP-r7-2",
+      "experiment": "B_midrange_l1d_prefetcher-no_l1d_sets-128_l1d_ways-12_l2_prefetcher-no_l2_sets-512_l2_ways-8_llc_prefetcher-no_llc_replacement-ship_llc_sets-2048_llc_ways-16",
+      "event": "ipc >= 0.3732",
+      "probability": 0.7,
+      "kind": "dispute",
+      "outcome": false
+    },
+    {
+      "id": "BET-0047",
+      "forecaster": "SURROGATE",
+      "experiment": "B_midrange_l1d_prefetcher-no_l1d_sets-128_l1d_ways-12_l2_prefetcher-va_ampm_lite_l2_sets-512_l2_ways-16_llc_prefetcher-no_llc_replacement-ship_llc_sets-4096_llc_ways-8",
+      "event": "ipc >= 0.4044",
+      "probability": 0.3551315046220128,
+      "kind": "dispute",
+      "outcome": true
+    },
+    {
+      "id": "BET-0048",
+      "forecaster": "learn-B_midrange/mcf-HYP-r10-1",
+      "experiment": "B_midrange_l1d_prefetcher-no_l1d_sets-128_l1d_ways-12_l2_prefetcher-va_ampm_lite_l2_sets-512_l2_ways-16_llc_prefetcher-no_llc_replacement-ship_llc_sets-4096_llc_ways-8",
+      "event": "ipc >= 0.4044",
+      "probability": 0.8,
+      "kind": "dispute",
+      "outcome": true
+    },
+    {
+      "id": "BET-0049",
+      "forecaster": "SURROGATE",
+      "experiment": "B_midrange_l1d_prefetcher-no_l1d_sets-128_l1d_ways-12_l2_prefetcher-no_l2_sets-1024_l2_ways-8_llc_prefetcher-no_llc_replacement-ship_llc_sets-4096_llc_ways-8",
+      "event": "ipc >= 0.3656",
+      "probability": 0.3473514150609379,
+      "kind": "dispute",
+      "outcome": false
+    },
+    {
+      "id": "BET-0050",
+      "forecaster": "learn-B_midrange/mcf-HYP-r10-2",
+      "experiment": "B_midrange_l1d_prefetcher-no_l1d_sets-128_l1d_ways-12_l2_prefetcher-no_l2_sets-1024_l2_ways-8_llc_prefetcher-no_llc_replacement-ship_llc_sets-4096_llc_ways-8",
+      "event": "ipc >= 0.3656",
+      "probability": 0.7,
+      "kind": "dispute",
+      "outcome": false
+    },
+    {
+      "id": "BET-0051",
+      "forecaster": "SURROGATE",
+      "experiment": "B_midrange_l1d_prefetcher-no_l1d_sets-128_l1d_ways-12_l2_prefetcher-va_ampm_lite_l2_sets-2048_l2_ways-4_llc_prefetcher-next_line_llc_replacement-ship_llc_sets-1024_llc_ways-16",
+      "event": "ipc >= 0.5558",
+      "probability": 0.5834647473162875,
+      "kind": "dispute",
+      "outcome": false
+    },
+    {
+      "id": "BET-0052",
+      "forecaster": "learn-B_midrange/lbm-HYP-r6-2",
+      "experiment": "B_midrange_l1d_prefetcher-no_l1d_sets-128_l1d_ways-12_l2_prefetcher-va_ampm_lite_l2_sets-2048_l2_ways-4_llc_prefetcher-next_line_llc_replacement-ship_llc_sets-1024_llc_ways-16",
+      "event": "ipc >= 0.5558",
+      "probability": 0.4,
+      "kind": "dispute",
+      "outcome": false
+    },
+    {
+      "id": "BET-0053",
+      "forecaster": "SURROGATE",
+      "experiment": "B_midrange_l1d_prefetcher-no_l1d_sets-64_l1d_ways-12_l2_prefetcher-spp_dev_l2_sets-2048_l2_ways-4_llc_prefetcher-next_line_llc_replacement-ship_llc_sets-1024_llc_ways-16",
+      "event": "ipc >= 0.5524",
+      "probability": 0.46510525849861317,
+      "kind": "dispute",
+      "outcome": true
+    },
+    {
+      "id": "BET-0054",
+      "forecaster": "learn-B_midrange/lbm-HYP-r7-1",
+      "experiment": "B_midrange_l1d_prefetcher-no_l1d_sets-64_l1d_ways-12_l2_prefetcher-spp_dev_l2_sets-2048_l2_ways-4_llc_prefetcher-next_line_llc_replacement-ship_llc_sets-1024_llc_ways-16",
+      "event": "ipc >= 0.5524",
+      "probability": 0.8,
+      "kind": "dispute",
+      "outcome": true
+    },
+    {
+      "id": "BET-0055",
+      "forecaster": "SURROGATE",
+      "experiment": "B_midrange_l1d_prefetcher-no_l1d_sets-32_l1d_ways-12_l2_prefetcher-spp_dev_l2_sets-2048_l2_ways-4_llc_prefetcher-next_line_llc_replacement-ship_llc_sets-1024_llc_ways-16",
+      "event": "ipc >= 0.5690",
+      "probability": 0.41029012794855213,
+      "kind": "dispute",
+      "outcome": true
+    },
+    {
+      "id": "BET-0056",
+      "forecaster": "learn-B_midrange/lbm-HYP-r8-1",
+      "experiment": "B_midrange_l1d_prefetcher-no_l1d_sets-32_l1d_ways-12_l2_prefetcher-spp_dev_l2_sets-2048_l2_ways-4_llc_prefetcher-next_line_llc_replacement-ship_llc_sets-1024_llc_ways-16",
+      "event": "ipc >= 0.5690",
+      "probability": 0.8,
+      "kind": "dispute",
+      "outcome": true
+    },
+    {
+      "id": "BET-0057",
+      "forecaster": "SURROGATE",
+      "experiment": "B_midrange_l1d_prefetcher-no_l1d_sets-32_l1d_ways-12_l2_prefetcher-spp_dev_l2_sets-2048_l2_ways-4_llc_prefetcher-next_line_llc_replacement-ship_llc_sets-2048_llc_ways-16",
+      "event": "ipc >= 0.5661",
+      "probability": 0.34919728304996855,
+      "kind": "dispute",
+      "outcome": false
+    },
+    {
+      "id": "BET-0058",
+      "forecaster": "learn-B_midrange/lbm-HYP-r9-1",
+      "experiment": "B_midrange_l1d_prefetcher-no_l1d_sets-32_l1d_ways-12_l2_prefetcher-spp_dev_l2_sets-2048_l2_ways-4_llc_prefetcher-next_line_llc_replacement-ship_llc_sets-2048_llc_ways-16",
+      "event": "ipc >= 0.5661",
+      "probability": 0.8,
+      "kind": "dispute",
+      "outcome": false
+    },
+    {
+      "id": "BET-0059",
+      "forecaster": "SURROGATE",
+      "experiment": "B_midrange_l1d_prefetcher-next_line_l1d_sets-128_l1d_ways-12_l2_prefetcher-va_ampm_lite_l2_sets-512_l2_ways-4_llc_prefetcher-no_llc_replacement-drrip_llc_sets-2048_llc_ways-16",
+      "event": "ipc >= 0.5289",
+      "probability": 0.3059900211856287,
+      "kind": "dispute",
+      "outcome": false
+    },
+    {
+      "id": "BET-0060",
+      "forecaster": "learn-B_midrange/lbm-HYP-r9-2",
+      "experiment": "B_midrange_l1d_prefetcher-next_line_l1d_sets-128_l1d_ways-12_l2_prefetcher-va_ampm_lite_l2_sets-512_l2_ways-4_llc_prefetcher-no_llc_replacement-drrip_llc_sets-2048_llc_ways-16",
+      "event": "ipc >= 0.5289",
+      "probability": 0.65,
+      "kind": "dispute",
+      "outcome": false
+    }
+  ]
+}
