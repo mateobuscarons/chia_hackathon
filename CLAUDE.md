@@ -37,7 +37,8 @@ GCP: project `project-c23a6080-f5d0-4871-9cb`, ADC auth (`gcloud auth applicatio
 
 **Next steps, in order.**
 1. GCP hard-tier proof of concept: user runs the 6 commands in `cluster/README.md` (login, create VM, scp, bootstrap, `python -m loop.smoke C` on the VM, then `python -m loop.run C tierC`). ~4 h, ~$15 compute + ~$2 LLM. Fetch results, `python -m loop.summarize`, read the playbook. Delete the VM.
-2. If the PoC passes (full/rules beat BO on the suite): scale to 8 workloads / 5 seeds for the paper (needs user OK; ~$20).
+2. If the PoC passes (full/rules beat BO on the suite): scale to 8 workloads / 5 seeds for the paper (needs user OK; ~$25-30 compute on 32 vCPUs, ~20 h; request a CPU quota increase first).
+2b. **Stronger analyst model** (user request, Sep 7): rerun with a pricier model than `gemini-2.5-flash` (e.g. Gemini 2.5 Pro; `MODEL`/`PRICES` in `loop/analyst.py`) as an ablation next to the flash runs, comparing hypothesis win-rate/Brier and designs-to-target. LLM spend to date is ~7 USD for the whole project; the user is happy to spend well beyond $2-5 per run on this. Keep the cost estimate before launch.
 3. Paper (`paper/main.tex`, 4 pages, deadline Sep 20): story = verified rules + calibrated ledger; autopsy of v2/v3 failures as the mechanism's motivation; honest limitations (capacity rules untestable on small-budget chips; conditions are chip-dependent MPKI; 5M warmup).
 4. Repo consolidation toward 4-5 core files (user request): merge `early.py` into `summarize.py`, `distill_tables.py` into `experiment.py`, `run_chia.py`+`chia_nodes.py` stay as the CHIA block; then README table.
 5. CHIA upstream PR (gs:// resolver, config-space ChampSim node, ledger blocks).
