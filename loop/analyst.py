@@ -50,8 +50,8 @@ A JSON list of rules. A rule is a JSON object with EXACTLY these keys:
 - "text": the rule in one sentence, in your own words.
 - "conditions": a list of 1 or 2 clauses, all of which must hold for the rule to apply. Each clause is
   {"metric": one of {metrics}, "op": ">=" or "<", "value": number}. Clauses are checked on the
-  untouched baseline run of a chip+workload and say WHEN the rule applies. They describe the
-  WORKLOAD (miss rates, hit ratios), never the chip's speed, so IPC is not a condition metric.
+  workload's fingerprint (chip-independent) and say WHEN the rule applies. They describe the
+  WORKLOAD, never the chip's speed, so IPC is not a condition metric.
 - "claim": {"knob": knob name, "value": allowed value OR "up" / "down" for a numeric knob,
   "direction": "helps" or "hurts", "gain_pct": positive number}. It reads: switching this ONE knob
   to this value (or one step up/down from the baseline for a numeric knob) helps/hurts the objective
@@ -207,7 +207,7 @@ that best tests it and pre-register a point forecast of its {objective}.
 
 
 def distill_rules(search_space, results_table, ledger_text, existing_rules_text, condition_metrics,
-                  effects_text=""):
+                  effects_text="", descriptors_text="(not available)"):
     """Turn a finished chip's evidence into transferable rules. Returns a list of rules.
     effects_text: the measured one-knob effects (controlled pairs), largest first;
     the LLM writes the condition and the words over numbers that are already true."""
@@ -218,6 +218,14 @@ def distill_rules(search_space, results_table, ledger_text, existing_rules_text,
 ## Measured one-knob effects on this chip
 Pairs of designs that differ in that knob only; mean change of the objective, largest first.
 {effects}
+
+## Workload fingerprint (chip-independent)
+Measured once per workload on one fixed reference machine (no prefetchers, LRU) at
+three cache capacities: miss rates and hit ratios at the medium capacity, and the
+fraction of L2 / LLC misses removed by a 4x capacity step (capacity sensitivity).
+Every chip sees the same numbers for the same workload, so a condition written on
+them means the same thing on the next chip. Conditions use ONLY these metrics.
+{descriptors}
 
 ## Settled bets (what was predicted vs what happened)
 {ledger}
@@ -235,7 +243,8 @@ measured, not yours to state; an effect near zero is not worth a rule. Claims ab
 the baseline's own value (no change) are not rules.
 
 {schema}""".format(table=results_table, effects=effects_text or "(none measured yet)", ledger=ledger_text,
-                   existing=existing_rules_text, schema=rule_schema(condition_metrics))
+                   existing=existing_rules_text, descriptors=descriptors_text,
+                   schema=rule_schema(condition_metrics))
     return as_list(ask_gemini(prompt, temperature=DISTILL_TEMPERATURE, thinking_budget=DISTILL_THINKING_BUDGET))
 
 

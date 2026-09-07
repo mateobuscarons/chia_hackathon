@@ -26,6 +26,19 @@ BASELINE_KNOBS = {"l2_sets": 1024, "llc_sets": 2048,
 # "local" or "chia"; run_chia.py flips this so experiment.py needs no changes.
 DEFAULT_DISPATCH = "local"
 
+# Workload fingerprint (Sep 7): rule conditions used to be read off the target
+# chip's own baseline run, so a threshold learned on a small-cache chip ("L2 MPKI
+# < 18") silently failed on a big-cache chip where the same effect existed. The
+# fingerprint measures every workload ONCE on the SAME reference machine (stock
+# ChampSim core, no prefetchers, LRU) at three L2/LLC capacities, so its numbers
+# describe the program, not the chip. Conditions may only use these metrics.
+FINGERPRINT_SOC = "B_midrange"
+FINGERPRINT_PROBES = {"small": {"l2_sets": 512, "llc_sets": 1024},
+                      "medium": {"l2_sets": 1024, "llc_sets": 2048},
+                      "large": {"l2_sets": 2048, "llc_sets": 4096}}
+FINGERPRINT_METRICS = ["L1D_mpki", "L2C_mpki", "LLC_mpki", "L2C_hit_ratio", "LLC_hit_ratio",
+                       "LLC_over_L2C_mpki", "L2_capacity_sensitivity", "LLC_capacity_sensitivity"]
+
 
 def enrich_metrics(metrics):
     """Add derived descriptors to a result row (in place; safe to call twice).
@@ -154,20 +167,74 @@ class ChampSimProblem:
                                     _chia_tag=config["executable_name"])
 
 
+def profiled_baseline(soc_name, space_name):
+    """The chip as profiled: BASELINE_KNOBS plus every other knob of the space at
+    the SoC profile's own value, read back from the built config."""
+    profiled = build_config(BASELINE_KNOBS, soc_name, BASE_CONFIG, space_name)
+    baseline = dict(BASELINE_KNOBS)
+    for knob in SPACES[space_name]:
+        if knob not in baseline:
+            section, field = KNOB_LOCATION[knob]
+            baseline[knob] = profiled[section][field]
+    return baseline
+
+
+def workload_fingerprint(trace_path, allow_simulation, dispatch, space_name):
+    """Chip-independent descriptors of one workload: the reference machine's
+    metrics at the medium probe, plus how much of the L2 / LLC misses a 4x
+    capacity step (small -> large) removes. Three simulations per workload,
+    cached in the reference SoC's result table like any other design."""
+    holder = ChampSimProblem(FINGERPRINT_SOC, trace_path, allow_simulation, dispatch, space_name)
+    reference = profiled_baseline(FINGERPRINT_SOC, space_name)
+    for knob in ["l1d_prefetcher", "l2_prefetcher", "llc_prefetcher"]:
+        if knob in reference:
+            reference[knob] = "no"
+    if "llc_replacement" in reference:
+        reference["llc_replacement"] = "lru"
+    probe_names = []
+    probe_knobs = []
+    for probe_name, sizes in FINGERPRINT_PROBES.items():
+        knobs = dict(reference)
+        for knob, value in sizes.items():
+            knobs[knob] = value
+        probe_names.append(probe_name)
+        probe_knobs.append(knobs)
+    metrics_list = holder.evaluate_many(probe_knobs)
+    probes = dict(zip(probe_names, metrics_list))
+
+    fingerprint = {}
+    medium = probes["medium"]
+    for metric in ["L1D_mpki", "L2C_mpki", "LLC_mpki", "L2C_hit_ratio", "LLC_hit_ratio", "LLC_over_L2C_mpki"]:
+        fingerprint[metric] = medium.get(metric, 0.0)
+    for level, metric in [("L2", "L2C_mpki"), ("LLC", "LLC_mpki")]:
+        small_value = probes["small"].get(metric, 0.0)
+        large_value = probes["large"].get(metric, 0.0)
+        sensitivity = 0.0
+        if small_value > 0:
+            sensitivity = (small_value - large_value) / small_value
+        fingerprint[level + "_capacity_sensitivity"] = sensitivity
+    return fingerprint
+
+
 def make_problem(soc_name, trace_path, allow_simulation=True, dispatch=None, space_name="A"):
     if dispatch is None:
         dispatch = DEFAULT_DISPATCH
     trace_name = os.path.basename(trace_path).split(".")[1].split("_")[0]
     holder = ChampSimProblem(soc_name, trace_path, allow_simulation, dispatch, space_name)
     space = SPACES[space_name]
-    # The baseline is the chip as profiled: Tier-B knobs (ways, L1D, extra
-    # prefetchers) start at the SoC profile's own values, read back from the config.
-    profiled = build_config(BASELINE_KNOBS, soc_name, BASE_CONFIG, space_name)
-    baseline = dict(BASELINE_KNOBS)
-    for knob in space:
-        if knob not in baseline:
-            section, field = KNOB_LOCATION[knob]
-            baseline[knob] = profiled[section][field]
+    baseline = profiled_baseline(soc_name, space_name)
+
+    # Conditions live on the workload fingerprint. Tier A reads dense sweep tables
+    # with simulation disabled and has no probes: it keeps the old chip-relative
+    # descriptors (the baseline run's own metrics, filled in by the loop).
+    descriptors = None
+    condition_metrics = ["L1D_mpki", "L2C_mpki", "LLC_mpki",
+                         "L2C_hit_ratio", "LLC_hit_ratio", "LLC_over_L2C_mpki"]
+    try:
+        descriptors = workload_fingerprint(trace_path, allow_simulation, dispatch, space_name)
+        condition_metrics = list(FINGERPRINT_METRICS)
+    except KeyError:
+        pass
 
     candidates = {}
     for knobs in all_configurations(space):
@@ -185,10 +252,10 @@ def make_problem(soc_name, trace_path, allow_simulation=True, dispatch=None, spa
         "evaluate_many": holder.evaluate_many,
         "objective": "ipc",
         "table_metrics": ["ipc", "L1D_mpki", "L2C_mpki", "LLC_mpki", "LLC_hit_ratio"],
-        # Rule conditions must describe the WORKLOAD, not the chip: miss rates and
-        # hit ratios travel across SoCs, IPC does not (P1, invariance).
-        "condition_metrics": ["L1D_mpki", "L2C_mpki", "LLC_mpki",
-                              "L2C_hit_ratio", "LLC_hit_ratio", "LLC_over_L2C_mpki"],
+        # Rule conditions must describe the WORKLOAD, not the chip: they are checked
+        # on `descriptors` (the fingerprint), never on the chip's own runs.
+        "condition_metrics": condition_metrics,
+        "descriptors": descriptors,
         "holder": holder,
     }
 
@@ -245,9 +312,20 @@ def make_suite_problem(soc_name, trace_paths, allow_simulation=True, dispatch=No
     for short in short_names:
         table_metrics.append(short + ":ipc")
     table_metrics = table_metrics + ["L2C_mpki", "LLC_mpki", "LLC_hit_ratio"]
-    condition_metrics = list(SUITE_AGGREGATE_METRICS)
-    for metric in SUITE_AGGREGATE_METRICS:
+    # Suite descriptors: mean and max of each workload's fingerprint metric.
+    base_metrics = list(first["condition_metrics"])
+    condition_metrics = list(base_metrics)
+    for metric in base_metrics:
         condition_metrics.append("max_" + metric)
+    descriptors = None
+    if first["descriptors"] is not None:
+        descriptors = {}
+        for metric in base_metrics:
+            values = []
+            for problem in single_problems:
+                values.append(problem["descriptors"][metric])
+            descriptors[metric] = sum(values) / len(values)
+            descriptors["max_" + metric] = max(values)
 
     return {
         "name": soc_name + "/suite-" + "+".join(short_names),
@@ -259,6 +337,7 @@ def make_suite_problem(soc_name, trace_paths, allow_simulation=True, dispatch=No
         "objective": "ipc",
         "table_metrics": table_metrics,
         "condition_metrics": condition_metrics,
+        "descriptors": descriptors,
         "holder": first["holder"],
         "holders": [problem["holder"] for problem in single_problems],
     }

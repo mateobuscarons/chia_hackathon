@@ -124,10 +124,14 @@ def distill(store, problem, history, tag):
     # it spends its rules on the largest effects (Sep 7 autopsy: it ignored a +33%).
     evidence = measured_designs(problem)
     effects_text = forecast.format_effects(forecast.one_knob_effects(evidence, problem["objective"]))
+    descriptors_text = "(not available)"
+    if problem.get("descriptors") is not None:
+        descriptors_text = json.dumps(problem["descriptors"], indent=1)
     proposals = analyst.distill_rules(problem["search_space"], table,
                                       "\n".join(ledger_lines[-60:]),
                                       loop.format_rules(store["rules"]),
-                                      problem["condition_metrics"], effects_text=effects_text)
+                                      problem["condition_metrics"], effects_text=effects_text,
+                                      descriptors_text=descriptors_text)
     return loop.verify_claims(store, proposals, problem, history, tag, VERIFY_SIMS_PER_PROBLEM,
                               evidence=evidence)
 

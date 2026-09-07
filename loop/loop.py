@@ -70,6 +70,11 @@ def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analys
     baseline_name = name_of(problem, problem["baseline"])
     baseline_metrics = problem["evaluate"](problem["baseline"])
     reference = baseline_metrics[objective]
+    # Conditions are checked on the workload fingerprint (chip-independent); the
+    # chip's own baseline run stays the reference for values and forecasts.
+    descriptors = problem.get("descriptors")
+    if descriptors is None:
+        descriptors = baseline_metrics
     history = [{"name": baseline_name, "knobs": problem["baseline"], "metrics": baseline_metrics,
                 "reference": reference}]
     del candidates[baseline_name]
@@ -88,7 +93,7 @@ def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analys
     silent_tested = set()          # silent rules that already had their one claim test here
     round_logs = []
     for round_number in range(1, rounds + 1):
-        rules = forecast.speaking_rules(all_rules, baseline_metrics)
+        rules = forecast.speaking_rules(all_rules, descriptors)
         hypotheses = []
         if use_analyst:
             hypotheses = ask_hypotheses(problem, history, rules, candidates, per_round,
@@ -121,7 +126,7 @@ def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analys
             # the rule silent, as its condition said.
             if len(chosen) == 0 and per_round > 1 and use_rules:
                 untested_silent = []
-                for rule in forecast.silent_rules(all_rules, baseline_metrics):
+                for rule in forecast.silent_rules(all_rules, descriptors):
                     if rule["id"] not in silent_tested:
                         untested_silent.append(rule)
                 owed_silent = forecast.untested_claim_tests(untested_silent, history, problem["baseline"],
@@ -261,7 +266,7 @@ def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analys
                         analyst_record["losses"] += 1
                 if silent_test_rule is not None and bet["forecaster"] == silent_test_rule["id"]:
                     if leaned_yes == happened:
-                        widen_rule(silent_test_rule, baseline_metrics, problem["name"], name)
+                        widen_rule(silent_test_rule, descriptors, problem["name"], name)
                         print("[{}] widened {} after its claim test won here: {}".format(
                             tag, silent_test_rule["id"], json.dumps(silent_test_rule["conditions"])), flush=True)
                     else:
@@ -290,7 +295,7 @@ def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analys
             won = wins_here.get(rule["id"], 0)
             lost_claim = rule.get("claim_losses", 0) > 0 and lost > 0
             if (lost >= RESCOPE_AFTER_LOSSES and lost > won) or lost_claim:
-                rescope(rule, problem, baseline_metrics, history[-1]["name"], history[-1]["metrics"],
+                rescope(rule, problem, descriptors, history[-1]["name"], history[-1]["metrics"],
                         wins=won, losses=lost)
                 rescoped_here.add(rule["id"])
                 print("[{}] re-scoped {} after {}-{} here: {}".format(
@@ -459,10 +464,11 @@ def find_bet(store, bet_id):
     raise KeyError(bet_id)
 
 
-def rescope(rule, problem, baseline_metrics, name, metrics, wins=0, losses=0):
-    """Ask the analyst to sharpen the condition; keep the old one in the rule's trail."""
-    context = "problem: {}\nbaseline metrics: {}\nrecord on this problem: {} wins, {} losses\nlast experiment {}: {}".format(
-        problem["name"], json.dumps(baseline_metrics), wins, losses, name, json.dumps(metrics))
+def rescope(rule, problem, descriptors, name, metrics, wins=0, losses=0):
+    """Ask the analyst to sharpen the condition; keep the old one in the rule's trail.
+    `descriptors`: the workload fingerprint the conditions are checked against."""
+    context = "problem: {}\nworkload descriptors (conditions are checked on these): {}\nrecord on this problem: {} wins, {} losses\nlast experiment {}: {}".format(
+        problem["name"], json.dumps(descriptors), wins, losses, name, json.dumps(metrics))
     updated = analyst.rescope_rule(rule, context, problem["condition_metrics"])
     candidate = dict(rule)
     if isinstance(updated.get("conditions"), list):
@@ -473,7 +479,7 @@ def rescope(rule, problem, baseline_metrics, name, metrics, wins=0, losses=0):
         candidate["conditions"] = [updated.get("condition")]
     candidate["text"] = updated.get("text")
     if (candidate["condition"] is not None and valid_rule(candidate, problem)
-            and not forecast.rule_applies(candidate, baseline_metrics)):
+            and not forecast.rule_applies(candidate, descriptors)):
         new_clauses = []
         for clause in rule_clauses_of(candidate):
             clean = dict(clause)
@@ -485,7 +491,7 @@ def rescope(rule, problem, baseline_metrics, name, metrics, wins=0, losses=0):
         # The analyst's re-scope was invalid or still covers the failing case:
         # tighten the first clause mechanically so this baseline no longer qualifies.
         old_clauses = forecast.rule_clauses(rule)
-        new_clauses = [tightened_condition(old_clauses[0], baseline_metrics)] + old_clauses[1:]
+        new_clauses = [tightened_condition(old_clauses[0], descriptors)] + old_clauses[1:]
         new_text = rule["text"] + " [narrowed: {} {} {:.3g}]".format(
             new_clauses[0]["metric"], new_clauses[0]["op"], new_clauses[0]["value"])
         how = "mechanical"
@@ -495,12 +501,12 @@ def rescope(rule, problem, baseline_metrics, name, metrics, wins=0, losses=0):
     rule["text"] = new_text
 
 
-def widen_rule(rule, baseline_metrics, problem_name, test_name):
+def widen_rule(rule, descriptors, problem_name, test_name):
     """A silent rule's claim test won on this chip: widen its condition so it
     applies here too, keeping the old clauses in the rule's trail. The mirror of
     re-scoping: losers get narrower, verified winners get wider."""
     old_clauses = forecast.rule_clauses(rule)
-    new_clauses = forecast.widened_clauses(old_clauses, baseline_metrics)
+    new_clauses = forecast.widened_clauses(old_clauses, descriptors)
     rule["origin"].append({"widened_from": old_clauses,
                            "because": "claim test {} won on {}".format(test_name, problem_name),
                            "how": "mechanical"})
