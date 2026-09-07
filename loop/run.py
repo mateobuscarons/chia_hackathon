@@ -51,6 +51,8 @@ if __name__ == "__main__":
         arms = sys.argv[4].split(",")
     # SEEDS=1 runs seed 0 only (a quick look before committing to the whole run).
     seeds = int(os.environ.get("SEEDS", tier["seeds"]))
+    # FIRST_SEED=1 SEEDS=2 adds seeds 1-2 to a run that already has seed 0 (same playbook).
+    first_seed = int(os.environ.get("FIRST_SEED", "0"))
     output_path = "results/experiment_{}_C.json".format(tag)
     started = time.time()
     print("tier {} ({}) -> {} | playbook: {} | arms: {}".format(
@@ -59,5 +61,5 @@ if __name__ == "__main__":
                               rounds=tier["learn_rounds"], per_round=tier["per_round"], seeds=seeds,
                               output_path=output_path, train_traces=tier["train_traces"],
                               space_name=tier["space"], arms=arms, test_rounds=tier["test_rounds"],
-                              playbook_path=playbook_path, suite=tier["suite"])
+                              playbook_path=playbook_path, suite=tier["suite"], first_seed=first_seed)
     print("done in {:.1f} h".format((time.time() - started) / 3600.0), flush=True)
