@@ -89,6 +89,42 @@ def speaking_rules(rules, baseline_metrics):
     return speaking
 
 
+def silent_rules(rules, baseline_metrics):
+    """Credible rules whose condition does NOT hold on this chip. They neither
+    forecast nor warm-start the surrogate here, but each may claim ONE test on
+    this chip (see loop.run_loop): the simulator, not the threshold the LLM wrote
+    on another chip, decides whether the effect exists here."""
+    silent = []
+    for rule in rules:
+        if not rule_is_credible(rule):
+            continue
+        if rule_applies(rule, baseline_metrics):
+            continue
+        silent.append(rule)
+    return silent
+
+
+def widened_clauses(clauses, baseline_metrics):
+    """The mirror of tightening: every clause that fails on this chip is moved
+    just past this chip's value so the rule applies here; clauses that already
+    hold are kept. Used when a silent rule's claim test wins on this chip."""
+    widened = []
+    for clause in clauses:
+        if clause_holds(clause, baseline_metrics):
+            widened.append(dict(clause))
+            continue
+        chip_value = baseline_metrics[clause["metric"]]
+        new_clause = dict(clause)
+        if clause["op"] in [">=", ">"]:
+            new_clause["op"] = ">="
+            new_clause["value"] = chip_value
+        else:
+            new_clause["op"] = "<"
+            new_clause["value"] = chip_value + abs(chip_value) * 0.001 + 1e-6
+        widened.append(new_clause)
+    return widened
+
+
 def sibling_knobs(knobs, knob, baseline_value):
     """The candidate with one knob put back to its baseline value."""
     sibling = dict(knobs)

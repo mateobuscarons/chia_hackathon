@@ -85,6 +85,7 @@ def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analys
     # The stall scan is part of OUR mechanism: baselines (bo, bo_pooled) stay textbook.
     stall_scan_enabled = EXPLORE_ON_STALL and (use_rules or use_analyst)
     last_round_improved = True     # no stall scan in round 1
+    silent_tested = set()          # silent rules that already had their one claim test here
     round_logs = []
     for round_number in range(1, rounds + 1):
         rules = forecast.speaking_rules(all_rules, baseline_metrics)
@@ -111,6 +112,26 @@ def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analys
                 test_name, rule_id = owed[0]
                 chosen.append(test_name)
                 claim_test_of[test_name] = rule_id
+            # Silent rules: a credible rule whose condition fails on this chip still
+            # gets ONE claim test here (its threshold came from another chip's metric
+            # regime; Sep 7 seed 1: the LLC-prefetcher rule was right on C but silent).
+            # A won test widens the condition to include this chip; a lost one leaves
+            # the rule silent, as its condition said.
+            silent_test_rule = None
+            silent_test_name = None
+            if len(chosen) == 0 and per_round > 1 and use_rules:
+                untested_silent = []
+                for rule in forecast.silent_rules(all_rules, baseline_metrics):
+                    if rule["id"] not in silent_tested:
+                        untested_silent.append(rule)
+                owed_silent = forecast.untested_claim_tests(untested_silent, history, problem["baseline"],
+                                                            candidates, problem["search_space"], objective)
+                if len(owed_silent) > 0:
+                    silent_test_name, rule_id = owed_silent[0]
+                    chosen.append(silent_test_name)
+                    claim_test_of[silent_test_name] = "silent-rule test " + rule_id
+                    silent_tested.add(rule_id)
+                    silent_test_rule = rule_by_id(all_rules, rule_id)
             # (d) Right of reply: a silenced analyst (credibility below the floor) keeps
             # one simulated design per round to bet on, so it can earn its voice back.
             # Without it one lost bet silenced it for good (Sep 7 autopsy).
@@ -200,6 +221,23 @@ def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analys
                 bets_by_name[name].append(playbook.place_bet(
                     store, rule["id"], name, claim_event, probability, kind="claim"))
 
+        # A silent rule bets on its own claim test exactly like a speaking rule would.
+        if silent_test_rule is not None:
+            claim = silent_test_rule["claim"]
+            sibling = forecast.claim_sibling(claim, candidates[silent_test_name], problem["baseline"],
+                                             problem["search_space"])
+            sibling_metrics = forecast.find_measured(history, sibling)
+            if sibling_metrics is not None:
+                gain = forecast.effective_gain(silent_test_rule, history, problem["baseline"],
+                                               problem["search_space"], objective)
+                half_gain = sibling_metrics[objective] * (1.0 + gain / 200.0)
+                probability = forecast.rule_confidence(silent_test_rule)
+                if gain < 0:
+                    probability = 1.0 - probability
+                bets_by_name[silent_test_name].append(playbook.place_bet(
+                    store, silent_test_rule["id"], silent_test_name,
+                    "{} >= {:.4f}".format(objective, half_gain), probability, kind="claim"))
+
         # 2) the chosen configs run in parallel (one CHIA task each)
         knobs_list = [candidates[name] for name in chosen]
         metrics_list = problem["evaluate_many"](knobs_list)
@@ -221,6 +259,14 @@ def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analys
                         analyst_record["wins"] += 1
                     else:
                         analyst_record["losses"] += 1
+                if silent_test_rule is not None and bet["forecaster"] == silent_test_rule["id"]:
+                    if leaned_yes == happened:
+                        widen_rule(silent_test_rule, baseline_metrics, problem["name"], name)
+                        print("[{}] widened {} after its claim test won here: {}".format(
+                            tag, silent_test_rule["id"], json.dumps(silent_test_rule["conditions"])), flush=True)
+                    else:
+                        print("[{}] {} stays silent here: claim test lost".format(
+                            tag, silent_test_rule["id"]), flush=True)
                 rule = rule_by_id(rules, bet["forecaster"])
                 if rule is None:
                     continue
@@ -233,7 +279,7 @@ def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analys
                 if claim_test_of[name].startswith("RULE"):
                     label = label + " | claim test for " + claim_test_of[name]
                 else:
-                    label = label + " | " + claim_test_of[name]
+                    label = label + " | " + claim_test_of[name]     # reply / stall scan / silent-rule test
             print("[{}] round {} | {} | {}={:.4f} | {}".format(
                 tag, round_number, name, objective, metrics[objective], label), flush=True)
 
@@ -447,6 +493,24 @@ def rescope(rule, problem, baseline_metrics, name, metrics, wins=0, losses=0):
     rule["conditions"] = new_clauses
     rule["condition"] = new_clauses[0]
     rule["text"] = new_text
+
+
+def widen_rule(rule, baseline_metrics, problem_name, test_name):
+    """A silent rule's claim test won on this chip: widen its condition so it
+    applies here too, keeping the old clauses in the rule's trail. The mirror of
+    re-scoping: losers get narrower, verified winners get wider."""
+    old_clauses = forecast.rule_clauses(rule)
+    new_clauses = forecast.widened_clauses(old_clauses, baseline_metrics)
+    rule["origin"].append({"widened_from": old_clauses,
+                           "because": "claim test {} won on {}".format(test_name, problem_name),
+                           "how": "mechanical"})
+    rule["conditions"] = new_clauses
+    rule["condition"] = new_clauses[0]
+    changed = []
+    for old_clause, new_clause in zip(old_clauses, new_clauses):
+        if old_clause != new_clause:
+            changed.append("{} {} {:.3g}".format(new_clause["metric"], new_clause["op"], new_clause["value"]))
+    rule["text"] = rule["text"] + " [widened: {}]".format(", ".join(changed))
 
 
 def tightened_condition(condition, baseline_metrics):
