@@ -34,7 +34,20 @@ SEARCH_SPACE_B = {
     "llc_replacement": ["lru", "srrip", "drrip", "ship"],
 }
 
-SPACES = {"A": SEARCH_SPACE, "B": SEARCH_SPACE_B}
+# Tier C: the hard, realistic tier. Tier B's knobs plus miss-handling depth at
+# L2 and LLC (MSHRs gate memory-level parallelism and interact with prefetchers),
+# and cache LATENCY DERIVED FROM SIZE by ChampSim's own formula instead of the
+# stock fixed values: a bigger cache is slower, so capacity is no longer free.
+# 207,360 designs before the area budget. PLACEHOLDER values, team to review.
+SEARCH_SPACE_C = dict(SEARCH_SPACE_B)
+SEARCH_SPACE_C["l2_mshr"] = [16, 32, 64]
+SEARCH_SPACE_C["llc_mshr"] = [32, 64, 128]
+
+SPACES = {"A": SEARCH_SPACE, "B": SEARCH_SPACE_B, "C": SEARCH_SPACE_C}
+
+# Per space: does ChampSim derive each cache's latency from its size?
+LATENCY_FROM_SIZE = {"A": False, "B": False, "C": True}
+LATENCY_CACHES = ["L1D", "L2C", "LLC"]
 
 # Where each knob lives in the ChampSim config JSON: (section, field).
 KNOB_LOCATION = {
@@ -42,6 +55,7 @@ KNOB_LOCATION = {
     "l2_sets": ("L2C", "sets"), "l2_ways": ("L2C", "ways"), "l2_prefetcher": ("L2C", "prefetcher"),
     "llc_sets": ("LLC", "sets"), "llc_ways": ("LLC", "ways"), "llc_prefetcher": ("LLC", "prefetcher"),
     "llc_replacement": ("LLC", "replacement"),
+    "l2_mshr": ("L2C", "mshr_size"), "llc_mshr": ("LLC", "mshr_size"),
 }
 
 _base_config_cache = {}
@@ -67,6 +81,11 @@ def config_name(knobs, soc_name):
     Tier-A knobs keep the original short format (the sweep tables use it);
     any other knob set gets a generic knob=value listing.
     """
+    # The pooled-surrogate arms tag knobs with "soc"; it is not a ChampSim knob
+    # and must not change the name, or the result cache is never hit.
+    if "soc" in knobs:
+        knobs = dict(knobs)
+        del knobs["soc"]
     tier_a_knobs = set(SEARCH_SPACE.keys())
     if set(knobs.keys()) == tier_a_knobs:
         return "{}_l2s{}_pf-{}_llcs{}_rp-{}".format(
@@ -79,7 +98,7 @@ def config_name(knobs, soc_name):
     return soc_name + "_" + "_".join(parts)
 
 
-def build_config(knobs, soc_name, base_config_path):
+def build_config(knobs, soc_name, base_config_path, space_name=None):
     """The full ChampSim config dict for one SoC + knobs (nothing written)."""
     if base_config_path not in _base_config_cache:
         with open(base_config_path) as base_file:
@@ -92,6 +111,11 @@ def build_config(knobs, soc_name, base_config_path):
             continue            # pooled-surrogate tag, not a ChampSim field
         section, field = KNOB_LOCATION[knob]
         config[section][field] = knobs[knob]
+    if space_name is not None and LATENCY_FROM_SIZE.get(space_name, False):
+        # Drop the fixed latencies: ChampSim then uses round((sets*ways)^0.343 * 0.416).
+        for cache_name in LATENCY_CACHES:
+            if "latency" in config[cache_name]:
+                del config[cache_name]["latency"]
     return config
 
 
@@ -105,15 +129,21 @@ def cache_area_kb(config):
     return total_bytes / 1024.0
 
 
-def within_budget(knobs, soc_name, base_config_path):
+def within_budget(knobs, soc_name, base_config_path, space_name=None):
     """Hard constraint: a config is a candidate only if it fits the SoC's area budget."""
-    config = build_config(knobs, soc_name, base_config_path)
+    if "l2_ways" in knobs and "llc_ways" in knobs:
+        # Fast path (hundreds of thousands of designs): area from the knobs alone.
+        block_bytes = 64
+        total_bytes = knobs["l2_sets"] * knobs["l2_ways"] * block_bytes
+        total_bytes += knobs["llc_sets"] * knobs["llc_ways"] * block_bytes
+        return total_bytes / 1024.0 <= AREA_BUDGET_KB[soc_name]
+    config = build_config(knobs, soc_name, base_config_path, space_name)
     return cache_area_kb(config) <= AREA_BUDGET_KB[soc_name]
 
 
-def make_config(knobs, soc_name, base_config_path, output_dir):
+def make_config(knobs, soc_name, base_config_path, output_dir, space_name=None):
     """Write the ChampSim config JSON for one SoC + knobs; return its path."""
-    config = build_config(knobs, soc_name, base_config_path)
+    config = build_config(knobs, soc_name, base_config_path, space_name)
     name = config["executable_name"]
 
     os.makedirs(output_dir, exist_ok=True)

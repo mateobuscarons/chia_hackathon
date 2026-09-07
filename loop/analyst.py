@@ -26,12 +26,20 @@ _client = genai.Client(vertexai=True, project=GCP_PROJECT, location="us-central1
 ROLE = "You are a computer architect running simulation experiments.\n"
 RULE_SCHEMA = """A rule is a JSON object with EXACTLY these keys:
 "text": the rule in one sentence, in your own words,
-"condition": {"metric": one of L1D_mpki / L2C_mpki / LLC_mpki, "op": ">=" or "<", "value": number}
-             - checked on the untouched baseline run of a chip+workload; it says WHEN the rule applies.
-             Conditions describe the WORKLOAD (miss rates), never the chip's speed: IPC is not allowed,
-"claim": {"knob": knob name, "value": allowed value, "gain_pct": number}
-             - "using this knob value changes the objective by about gain_pct % vs the baseline"
-             (a point estimate, negative if it hurts; it is scored against the real number),
+"conditions": a list of 1 or 2 clauses, all of which must hold for the rule to apply. Each clause is
+             {"metric": one of {metrics}, "op": ">=" or "<", "value": number}.
+             Clauses are checked on the untouched baseline run of a chip+workload; they say WHEN the rule
+             applies. Conditions describe the WORKLOAD (miss rates, hit ratios), never the chip's speed:
+             IPC is not allowed,
+"claim": {"knob": knob name, "value": allowed value OR "up" / "down" for a numeric knob, "gain_pct": number}
+             - "switching this ONE knob to this value changes the objective by about gain_pct %";
+             for numeric knobs (sets, ways) prefer a DIRECTION: "up" means "one step larger than the
+             baseline helps by gain_pct %". Directions transfer to chips with other area budgets; a
+             fixed size may not even be allowed there.
+             The loop will MEASURE gain_pct with a controlled comparison (only that knob changed) before
+             the rule is admitted, and reject the rule if the measured effect is small or has the other
+             sign. So claim only what a one-knob change achieves; do not credit one knob for a gain that
+             came from changing several,
 "example": the run(s) that motivated it, e.g. "B_midrange/mcf: 0.31 -> 0.41".
 """
 
@@ -128,6 +136,10 @@ def knobs_text(search_space):
     return "Tunable knobs and their ONLY allowed values:\n{}\n".format(json.dumps(search_space, indent=2))
 
 
+def rule_schema(condition_metrics):
+    return RULE_SCHEMA.replace("{metrics}", " / ".join(condition_metrics))
+
+
 def propose_hypotheses(search_space, objective, results_table, rules_text, how_many):
     """Competing bottleneck hypotheses, each with a point forecast for one experiment.
 
@@ -154,7 +166,7 @@ value lands within 5% of your forecast).
     return as_list(ask_gemini(prompt))
 
 
-def distill_rules(search_space, results_table, ledger_text, existing_rules_text):
+def distill_rules(search_space, results_table, ledger_text, existing_rules_text, condition_metrics):
     """Turn a finished chip's evidence into transferable rules. Returns a list of rules."""
     prompt = ROLE + knobs_text(search_space) + """
 All simulation results on this chip and workload:
@@ -173,11 +185,11 @@ Do not repeat an existing rule with a different threshold: one claim, one rule.
 Claims about the baseline's own value (no change) are not rules. {schema}
 Answer with a JSON list of rules.
 """.format(table=results_table, ledger=ledger_text, existing=existing_rules_text,
-           schema=RULE_SCHEMA)
+           schema=rule_schema(condition_metrics))
     return as_list(ask_gemini(prompt))
 
 
-def rescope_rule(rule, losing_context):
+def rescope_rule(rule, losing_context, condition_metrics=None):
     """A rule lost a bet: sharpen its condition so it stops applying where it fails."""
     prompt = ROLE + """
 This playbook rule just lost a bet:
@@ -186,11 +198,13 @@ This playbook rule just lost a bet:
 Where it failed (baseline metrics of that chip+workload, and the outcome):
 {context}
 
-Do NOT delete the rule. Re-scope it: change ONLY "condition" (and "text"
+Do NOT delete the rule. Re-scope it: change ONLY "conditions" (and "text"
 to match) so the rule no longer applies to cases like this one but still
-covers the example that motivated it. {schema}
+covers the example that motivated it. You may add a second clause on another
+metric if one threshold cannot separate the two cases. {schema}
 Answer with the single updated rule as a JSON object.
-""".format(rule=json.dumps(rule, indent=2), context=losing_context, schema=RULE_SCHEMA)
+""".format(rule=json.dumps(rule, indent=2), context=losing_context,
+           schema=rule_schema(condition_metrics or ["L1D_mpki", "L2C_mpki", "LLC_mpki"]))
     answer = ask_gemini(prompt)
     if isinstance(answer, list) and len(answer) > 0:
         answer = answer[0]
@@ -199,7 +213,7 @@ Answer with the single updated rule as a JSON object.
     return answer
 
 
-def textbook_rules(search_space, objective, how_many):
+def textbook_rules(search_space, objective, how_many, condition_metrics):
     """Baseline arm: rules from prior knowledge only, before seeing any result.
 
     The delta between these and the loop's rules measures what the loop adds,
@@ -208,8 +222,8 @@ def textbook_rules(search_space, objective, how_many):
     prompt = ROLE + knobs_text(search_space) + """
 You have NOT run any experiment. From textbook knowledge alone, write the
 {n} rules you would carry into tuning these knobs to maximize {objective}
-on SPEC CPU2017-like workloads. Conditions may only use the miss rates
-L1D_mpki, L2C_mpki, LLC_mpki of the untouched baseline design. {schema}
+on SPEC CPU2017-like workloads. Conditions may only use the listed metrics
+of the untouched baseline design. {schema}
 Answer with a JSON list of rules.
-""".format(n=how_many, objective=objective, schema=RULE_SCHEMA)
+""".format(n=how_many, objective=objective, schema=rule_schema(condition_metrics))
     return as_list(ask_gemini(prompt))

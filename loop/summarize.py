@@ -11,23 +11,56 @@ import sys
 from loop.plots import all_bets, forecaster_class, median, reference_optimum, sims_to_target
 
 
+def area_under_curve(history, objective="ipc"):
+    """Mean best-so-far gain over the baseline across the run (reference-free;
+    rewards getting good early)."""
+    baseline = history[0][objective]
+    best = None
+    total = 0.0
+    for row in history[1:]:
+        if best is None or row[objective] > best:
+            best = row[objective]
+        total += (best / baseline - 1.0)
+    if len(history) <= 1:
+        return 0.0
+    return 100.0 * total / (len(history) - 1)
+
+
 def summarize(report):
     for problem_name in report["test"]:
         trace_report = report["test"][problem_name]
-        print("== {} | optimum {:.4f}".format(problem_name, reference_optimum(trace_report)))
-        print("   {:<17} {:>22} {:>7}  {}".format("arm", "sims to 90% gain", "median", "best ipc per seed"))
+        optimum = reference_optimum(trace_report)
+        print("== {} | reference best {:.4f} (best design any arm found unless a dense sweep exists)".format(
+            problem_name, optimum))
+        print("   {:<17} {:>26} {:>7} {:>6}  {:>10} {:>8}  {}".format(
+            "arm", "designs to 90% gain", "median", "hit", "final best", "auc %", "best per seed"))
         for arm in trace_report["arms"]:
             counts = []
             bests = []
+            aucs = []
+            reached = 0
             for seed in trace_report["arms"][arm]:
                 history = trace_report["arms"][arm][seed]["history"]
-                count = sims_to_target(history, reference_optimum(trace_report))
+                count = sims_to_target(history, optimum)
                 if count is None:
+                    # Never reached: censored at the budget (reported as > budget).
                     count = len(history)
+                else:
+                    reached += 1
                 counts.append(count)
                 bests.append(max(row["ipc"] for row in history))
-            print("   {:<17} {:>22} {:>7}  {}".format(
-                arm, str(counts), median(counts), " ".join("{:.4f}".format(b) for b in bests)))
+                aucs.append(area_under_curve(history))
+            seeds = len(counts)
+            shown = []
+            for count, best in zip(counts, bests):
+                if best >= history[0]["ipc"] + 0.9 * (optimum - history[0]["ipc"]):
+                    shown.append(str(count))
+                else:
+                    shown.append(">" + str(count - 1))
+            print("   {:<17} {:>26} {:>7} {:>6}  {:>10.4f} {:>8.2f}  {}".format(
+                arm, "[" + ", ".join(shown) + "]", median(counts), "{}/{}".format(reached, seeds),
+                sum(bests) / len(bests), sum(aucs) / len(aucs),
+                " ".join("{:.4f}".format(b) for b in bests)))
 
     print("== calibration on shared dispute bets")
     for klass in ["surrogate", "rules", "hypotheses"]:

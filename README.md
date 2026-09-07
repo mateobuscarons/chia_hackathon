@@ -15,31 +15,29 @@ takes any `evaluate(config) -> metrics`); ChampSim is just the first problem.
 
 | file | role |
 |---|---|
-| `loop/loop.py` | the generic round: fit surrogate, hypotheses, bets, run most-disputed configs, settle, re-scope |
-| `loop/playbook.py` | rules + bet ledger, one auditable JSON; Brier scoring |
-| `loop/forecast.py` | rules and hypotheses as forecasters; disagreement-based selection |
-| `loop/surrogate.py`, `loop/surrogate_gp.py` | additive (interpretable) and Gaussian-process surrogates |
+| `loop/loop.py` | the generic round: fit surrogate (with rule/hypothesis priors), pick by expected improvement + one claim test, bet, run, settle, re-scope; `verify_claims` measures every proposed rule before admission |
+| `loop/forecast.py` | rules as delta claims (value or direction), rule scope, controlled pairs, credibility, priors, EI selection |
+| `loop/playbook.py` | rules + bet ledger, one auditable JSON; Brier scoring; rejected rules |
+| `loop/surrogate_gp.py` | GP in log-speedup units (ordinal + one-hot encoding, ARD Matern), vectorised prediction |
 | `loop/analyst.py` | every LLM call (hypotheses, distill, re-scope, textbook rules); cost log |
-| `loop/champsim_problem.py` | ChampSim glue: SoC + trace -> `problem` dict; sweep-table lookup or simulate |
-| `loop/configs.py`, `loop/socs.py` | Tier-A search space, SoC profiles, area budget (placeholders, team-reviewed) |
-| `loop/simulate.py`, `loop/sweep.py` | local ChampSim build/run; dense reference sweep (ground truth) |
-| `loop/chia_nodes.py`, `loop/run_chia.py`, `cluster/` | CHIA nodes (build, simulate, Vertex analyst) and entry point |
-| `loop/experiment.py`, `loop/plots.py`, `loop/summarize.py`, `loop/audit.py` | transfer experiment (7 arms, Tier A/B), figures, one-screen table, rule autopsy |
-| `loop/smoke.py` | whole experiment on a tiny budget; the gate before any launch |
-| `upstream/` | patches and notes for PRs back to CHIA |
+| `loop/champsim_problem.py` | ChampSim glue: SoC + trace(s) -> `problem` dict; single-workload or suite (geomean); result-table cache |
+| `loop/configs.py`, `loop/socs.py` | search spaces A/B/C, SoC profiles, area budget, latency-from-size (placeholders, team-reviewed) |
+| `loop/simulate.py`, `loop/sweep.py` | ChampSim build (parallel trees) and run; table load/save; dense reference sweep |
+| `loop/experiment.py` | learn on A+B, distill+verify, test arms on C (random, bo, bo_pooled, surrogate, textbook, rules, analyst, full) |
+| `loop/run.py`, `loop/smoke.py` | one command per tier (`B`, `C`); tiny end-to-end gate before any launch |
+| `loop/summarize.py`, `loop/early.py`, `loop/plots.py` | tables (censored medians, hit fraction, final best, AUC), early signs of a running experiment, figures |
+| `loop/distill_tables.py` | re-distill a playbook from every measured design of the training problems |
+| `loop/chia_nodes.py`, `loop/run_chia.py`, `cluster/` | CHIA nodes (build, simulate, Vertex analyst), CHIA entry point, GCP recipes |
+| `upstream/` | patches and notes for PRs back to CHIA / ChampSim |
 
 ## Run
 
 ```bash
-# Tier-A ground truth (once per SoC x trace; ~1 h each on a laptop)
-python -m loop.sweep B_midrange traces/605.mcf_s-665B.champsimtrace.xz
-# gate before any long run
-python -m loop.smoke A     # or: python -m loop.smoke B
-# the experiment, plain Python
-python -m loop.experiment traces/605.mcf_s-665B.champsimtrace.xz
-# the experiment as a CHIA loop (local Ray, or a `chia up` cluster with "auto")
-python -m loop.run_chia local traces/605.mcf_s-665B.champsimtrace.xz
-python -m loop.plots results/experiment_<stamp>.json
-python -m loop.summarize results/experiment_<stamp>.json
+python -m loop.smoke B            # gate before any launch (Tier B, real simulations, ~15 min)
+python -m loop.run B v5           # Tier B experiment: learn A+B, test C, 5 arms, 3 seeds
+python -m loop.run B v5 results/experiment_v4_playbook.json full   # reuse a playbook, one arm
+python -m loop.run C tierC        # Tier C hard tier (suite objective) - run on GCP, see cluster/README.md
+python -m loop.early results/experiment_v5_C.json results/v5_C.log  # while it runs
+python -m loop.summarize results/experiment_v5_C.json               # when it is done
 ```
-Setup (ChampSim, CHIA, traces, GCP auth) is in `CLAUDE.md`.
+Setup (ChampSim, CHIA, traces, GCP auth) is in `CLAUDE.md`; the one-VM cloud recipe in `cluster/README.md`.

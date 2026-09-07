@@ -22,37 +22,57 @@ def save(store, path):
         json.dump(store, playbook_file, indent=2)
 
 
-def add_rule(store, condition, claim, example, text):
+def add_rule(store, condition, claim, example, text, conditions=None, verification=None):
     """Add a rule and return its id. New rules start with an empty record.
 
-    condition: {"metric": "LLC_mpki", "op": ">=", "value": 20} - checked on
-               the SoC/trace baseline run, decides whether the rule speaks.
-    claim:     {"knob": "l2_prefetcher", "value": "spp_dev", "gain_pct": 15}
-               - "this knob value changes the objective by about X% vs baseline"
-               (a point estimate: it is scored against the real number).
-    example:   the run that motivated the rule, e.g. "B_midrange/mcf: 0.31->0.41".
-    text:      the rule in the architect's own words, for humans.
+    condition:  {"metric": "LLC_mpki", "op": ">=", "value": 20} - checked on
+                the SoC/trace baseline run, decides whether the rule speaks.
+    conditions: optional list of such clauses, ANDed (condition = the first one).
+    claim:      {"knob": "l2_prefetcher", "value": "spp_dev", "gain_pct": 15}
+                - "switching this knob to this value changes the objective by
+                about X%". gain_pct is MEASURED from a controlled comparison
+                (see loop.verify_claims), never copied from the LLM.
+    example:    the controlled comparison that motivated the rule.
+    text:       the rule in the architect's own words, for humans.
+    verification: how the claim was measured ({"pairs": n, "llm_gain_pct": x}).
     """
     rule_id = "RULE-{:03d}".format(len(store["rules"]) + 1)
     # The analyst may write numbers as strings; normalise once, here.
-    condition = dict(condition)
-    condition["value"] = float(condition["value"])
+    if conditions is None:
+        conditions = [condition]
+    clean_clauses = []
+    for clause in conditions:
+        clean = dict(clause)
+        clean["value"] = float(clean["value"])
+        clean_clauses.append(clean)
     claim = dict(claim)
     claim["gain_pct"] = float(claim["gain_pct"])
     rule = {
         "id": rule_id,
-        "condition": condition,
+        "condition": clean_clauses[0],
+        "conditions": clean_clauses,
         "claim": claim,
         "example": example,
         "text": text,
+        "verification": verification,
         "origin": [],
         "wins": 0,
         "losses": 0,
+        "claim_wins": 0,
+        "claim_losses": 0,
         "brier_scores": [],
         "status": "active",
     }
     store["rules"].append(rule)
     return rule_id
+
+
+def reject_rule(store, rule, reason):
+    """A proposed rule that failed verification is kept for the audit trail,
+    but never forecasts or bets."""
+    rejected = dict(rule)
+    rejected["reason"] = reason
+    store.setdefault("rejected_rules", []).append(rejected)
 
 
 def place_bet(store, forecaster_id, experiment, event, probability, kind="dispute"):
@@ -91,14 +111,21 @@ def settle_bet(store, bet_id, event_happened):
     leaned_yes = bet["probability"] >= 0.5
     won = (leaned_yes == event_happened)
 
-    # A rule's record tracks its own claims, not the shared dispute questions.
+    # A rule's record counts EVERY bet it placed: the shared dispute questions
+    # and its own claims. (v2 counted claims only; claims need a paired run and
+    # almost never happen on a new chip, so losing rules kept full confidence.)
     for rule in store["rules"]:
-        if rule["id"] == bet["forecaster"] and bet["kind"] == "claim":
+        if rule["id"] == bet["forecaster"]:
             rule["brier_scores"].append(brier)
             if won:
                 rule["wins"] += 1
             else:
                 rule["losses"] += 1
+            if bet["kind"] == "claim":
+                if won:
+                    rule["claim_wins"] = rule.get("claim_wins", 0) + 1
+                else:
+                    rule["claim_losses"] = rule.get("claim_losses", 0) + 1
     return brier
 
 

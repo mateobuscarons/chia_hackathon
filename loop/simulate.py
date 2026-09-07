@@ -7,7 +7,9 @@ returns — so swapping simulators or moving to GCP touches this file only.
 
 import fcntl
 import json
+import shutil
 import subprocess
+import time
 import tempfile
 import os
 
@@ -59,6 +61,27 @@ def run_simulation(binary_path, trace_path, warmup_instructions, simulation_inst
     return metrics
 
 
+def tree_paths(champsim_root):
+    """The ChampSim trees available for building: <root>, <root>_1, ... as long as
+    they exist (copies made at setup; env CHAMPSIM_TREES caps how many are used).
+    Builds hold a whole tree, so N trees = N builds at once."""
+    trees = [champsim_root]
+    limit = int(os.environ.get("CHAMPSIM_TREES", "64"))
+    index = 1
+    while index < limit and os.path.isdir("{}_{}".format(champsim_root, index)):
+        trees.append("{}_{}".format(champsim_root, index))
+        index += 1
+    return trees
+
+
+def shared_binary_path(champsim_root, executable_name):
+    """Binaries from every tree are collected here, so a design built once is
+    never built again whichever tree is free."""
+    shared_dir = os.path.join(os.path.dirname(os.path.abspath(champsim_root)), "champsim_bin")
+    os.makedirs(shared_dir, exist_ok=True)
+    return os.path.join(shared_dir, executable_name)
+
+
 def build_binary(config_path, champsim_root):
     """Compile ChampSim for one config JSON; return the path to the binary."""
     config_path = os.path.abspath(config_path)
@@ -67,23 +90,46 @@ def build_binary(config_path, champsim_root):
         config = json.load(config_file)
     executable_name = config["executable_name"]
 
-    binary_path = os.path.join(champsim_root, "bin", executable_name)
-
     # A build takes ~2 minutes. In this project one executable_name always
     # means one exact config, so an existing binary can be reused as-is.
-    if os.path.isfile(binary_path):
-        return binary_path
+    shared_path = shared_binary_path(champsim_root, executable_name)
+    if os.path.isfile(shared_path):
+        return shared_path
+    legacy_path = os.path.join(champsim_root, "bin", executable_name)
+    if os.path.isfile(legacy_path):
+        return legacy_path
 
-    # Parallel processes must never run config.sh/make in the same tree at once.
-    lock_path = os.path.join(champsim_root, ".build.lock")
-    with open(lock_path, "w") as lock_file:
-        fcntl.flock(lock_file, fcntl.LOCK_EX)
-        try:
-            if os.path.isfile(binary_path):     # another process built it while we waited
-                return binary_path
-            return _configure_and_make(config_path, champsim_root, executable_name, binary_path)
-        finally:
-            fcntl.flock(lock_file, fcntl.LOCK_UN)
+    # Parallel processes must never run config.sh/make in the same tree at once:
+    # take the first free tree (non-blocking), else wait for one.
+    trees = tree_paths(champsim_root)
+    lock_files = []
+    for tree in trees:
+        lock_files.append(open(os.path.join(tree, ".build.lock"), "w"))
+    chosen_tree = None
+    chosen_lock = None
+    while chosen_tree is None:
+        for tree, lock_file in zip(trees, lock_files):
+            try:
+                fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                chosen_tree = tree
+                chosen_lock = lock_file
+                break
+            except BlockingIOError:
+                continue
+        if chosen_tree is None:
+            time.sleep(2)
+    try:
+        if os.path.isfile(shared_path):     # another process built it while we waited
+            return shared_path
+        tree_binary = os.path.join(chosen_tree, "bin", executable_name)
+        _configure_and_make(config_path, chosen_tree, executable_name, tree_binary)
+        shutil.copy2(tree_binary, shared_path + ".tmp")
+        os.replace(shared_path + ".tmp", shared_path)
+        return shared_path
+    finally:
+        fcntl.flock(chosen_lock, fcntl.LOCK_UN)
+        for lock_file in lock_files:
+            lock_file.close()
 
 
 def _configure_and_make(config_path, champsim_root, executable_name, binary_path):
@@ -98,7 +144,7 @@ def _configure_and_make(config_path, champsim_root, executable_name, binary_path
     if os.path.isfile(stale_object):
         os.remove(stale_object)
 
-    cpu_count = os.cpu_count()
+    cpu_count = max(2, os.cpu_count() // int(os.environ.get("CHAMPSIM_BUILD_SHARE", "1")))
     for attempt in range(2):
         make_result = subprocess.run(
             ["make", "-j" + str(cpu_count)],

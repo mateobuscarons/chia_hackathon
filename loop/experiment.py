@@ -2,8 +2,10 @@
 
 Arms on the target SoC (same simulation cap for all):
   random          - shuffle the candidates, run them in order
-  surrogate       - GP search from scratch (cold start)
-  surrogate_pooled- GP warm-started with every A/B run (statistical transfer)
+  bo              - textbook Bayesian optimisation: GP + expected improvement (cold start)
+  bo_pooled       - the same BO warm-started with every A/B run (statistical transfer)
+  surrogate       - our disagreement selector with the GP alone (ablation, no rules)
+  surrogate_pooled- the same, GP warm-started with every A/B run
   textbook        - GP + rules the LLM wrote BEFORE seeing any result
   rules           - GP + rules distilled from A/B (rule transfer, no LLM in the loop)
   analyst         - GP + LLM hypotheses, no rules (LLM cold start)
@@ -19,10 +21,20 @@ import time
 from concurrent.futures import ProcessPoolExecutor
 
 from loop import analyst, loop, playbook, surrogate_gp
-from loop.champsim_problem import make_problem
+import os
+
+from loop.champsim_problem import aggregate_suite, enrich_metrics, make_problem, make_suite_problem, trace_short_name
 
 TARGET_FRACTION = 0.9
-PARALLEL_RUNS = 5          # parallel arm runs (each simulates 2 configs at a time on 10 cores)
+# Parallel arm runs (each simulates per_round designs x suite size at a time).
+PARALLEL_RUNS = int(os.environ.get("PARALLEL_RUNS", "5"))
+
+
+def problem_for(soc_name, traces, space_name, allow_simulation=True):
+    """`traces` is one trace path (single-workload problem) or a list (suite)."""
+    if isinstance(traces, list):
+        return make_suite_problem(soc_name, traces, allow_simulation=allow_simulation, space_name=space_name)
+    return make_problem(soc_name, traces, allow_simulation=allow_simulation, space_name=space_name)
 
 
 def learn(store, soc_names, traces, rounds, per_round, space_name):
@@ -43,15 +55,23 @@ def learn(store, soc_names, traces, rounds, per_round, space_name):
     return prior_history
 
 
+# Controlled comparisons the distiller may run to measure a proposed rule's claim.
+VERIFY_SIMS_PER_PROBLEM = 5
+
+
 def learn_job(soc_name, trace_path, rounds, per_round, space_name):
-    """One training problem: loop with analyst + its own fresh playbook, then distill."""
-    problem = make_problem(soc_name, trace_path, space_name=space_name)
+    """One training problem: loop with analyst + its own fresh playbook, then distill
+    (claims measured by controlled comparison before a rule is admitted)."""
+    problem = problem_for(soc_name, trace_path, space_name)
     job_store = {"rules": [], "bets": []}
     tag = "learn-" + problem["name"]
     result = loop.run_loop(problem, rounds, per_round, job_store, surrogate_gp,
                            use_rules=True, use_analyst=True, tag=tag)
-    distill(job_store, problem, result["history"], tag)
-    return job_store, result["history"]
+    history = result["history"]
+    extra_runs = distill(job_store, problem, history, tag)
+    for entry in extra_runs:
+        entry["reference"] = history[0]["reference"]
+    return job_store, history + extra_runs
 
 
 def training_runs(soc_names, traces, space_name):
@@ -59,24 +79,30 @@ def training_runs(soc_names, traces, space_name):
     runs = []
     for soc_name in soc_names:
         for trace_path in traces:
-            problem = make_problem(soc_name, trace_path, allow_simulation=False, space_name=space_name)
-            table = problem["holder"].sweep_table
-            for name in table:
-                if table[name]["metrics"] is not None:
-                    runs.append(with_soc({"name": name, "knobs": table[name]["knobs"],
-                                          "metrics": table[name]["metrics"]}, soc_name))
+            problem = problem_for(soc_name, trace_path, space_name, allow_simulation=False)
+            designs = measured_designs(problem)
+            # Each run carries its own problem's baseline so the surrogate can learn
+            # in "speedup over baseline" units across chips.
+            reference = problem["evaluate"](problem["baseline"])[problem["objective"]]
+            for design in designs:
+                design["reference"] = reference
+                runs.append(with_soc(design, soc_name))
     return runs
 
 
 def merge_playbook(store, job_store):
-    """Append another playbook's rules and bets, giving rules fresh ids."""
+    """Append another playbook's rules, rejected rules and bets, giving rules fresh ids."""
     new_ids = {}
     for rule in job_store["rules"]:
-        new_id = playbook.add_rule(store, rule["condition"], rule["claim"], rule["example"], rule["text"])
+        new_id = playbook.add_rule(store, rule["condition"], rule["claim"], rule["example"], rule["text"],
+                                   conditions=rule.get("conditions"), verification=rule.get("verification"))
         new_ids[rule["id"]] = new_id
         merged = store["rules"][-1]
-        for field in ["wins", "losses", "brier_scores", "origin", "status"]:
-            merged[field] = rule[field]
+        for field in ["wins", "losses", "claim_wins", "claim_losses", "brier_scores", "origin", "status"]:
+            if field in rule:
+                merged[field] = rule[field]
+    for rejected in job_store.get("rejected_rules", []):
+        store.setdefault("rejected_rules", []).append(rejected)
     for bet in job_store["bets"]:
         bet = dict(bet)
         bet["id"] = "BET-{:04d}".format(len(store["bets"]) + 1)
@@ -92,16 +118,45 @@ def distill(store, problem, history, tag):
             ledger_lines.append("{} bet '{}' on {} with p={:.2f}: {}".format(
                 bet["forecaster"], bet["event"], bet["experiment"], bet["probability"],
                 "happened" if bet["outcome"] else "did not happen"))
-    new_rules = analyst.distill_rules(problem["search_space"], table,
+    proposals = analyst.distill_rules(problem["search_space"], table,
                                       "\n".join(ledger_lines[-60:]),
-                                      loop.format_rules(store["rules"]))
-    for rule in new_rules:
-        if not well_formed(rule, problem):
-            print("[{}] skipped malformed rule: {}".format(tag, json.dumps(rule)[:160]), flush=True)
+                                      loop.format_rules(store["rules"]),
+                                      problem["condition_metrics"])
+    # The LLM proposes; the simulator measures every claim before admission, using
+    # every design ever measured on this problem as evidence (not just this run).
+    evidence = measured_designs(problem)
+    return loop.verify_claims(store, proposals, problem, history, tag, VERIFY_SIMS_PER_PROBLEM,
+                              evidence=evidence)
+
+
+def measured_designs(problem):
+    """Every design ever measured on this problem. For a suite: designs measured
+    on EVERY workload of the suite, with suite-aggregated metrics."""
+    holders = problem.get("holders", [problem["holder"]])
+    first_table = holders[0].sweep_table
+    designs = []
+    for name in first_table:
+        if first_table[name]["metrics"] is None or "soc" in first_table[name]["knobs"]:
             continue
-        rule_id = playbook.add_rule(store, rule["condition"], rule["claim"],
-                                    rule["example"], rule["text"])
-        print("[{}] distilled {}: {}".format(tag, rule_id, rule["text"]), flush=True)
+        per_trace = []
+        complete = True
+        for holder in holders:
+            entry = holder.sweep_table.get(name)
+            if entry is None or entry["metrics"] is None:
+                complete = False
+                break
+            per_trace.append(enrich_metrics(dict(entry["metrics"])))
+        if not complete:
+            continue
+        if len(holders) == 1:
+            metrics = per_trace[0]
+        else:
+            short_names = []
+            for holder in holders:
+                short_names.append(trace_short_name(holder.trace_path))
+            metrics = aggregate_suite(per_trace, short_names)
+        designs.append({"name": name, "knobs": first_table[name]["knobs"], "metrics": metrics})
+    return designs
 
 
 def well_formed(rule, problem):
@@ -137,17 +192,23 @@ def run_arm_job(arm, store, soc_name, trace_path, rounds, per_round, prior_histo
 
 
 def run_arm(arm, store, soc_name, trace_path, rounds, per_round, prior_history, seed, space_name):
-    problem = make_problem(soc_name, trace_path, space_name=space_name)
+    problem = problem_for(soc_name, trace_path, space_name)
     arm_store = copy.deepcopy(store)          # every arm starts from the same playbook
+    arm_store["bets"] = []                    # ...but with its own empty ledger (learn bets live in report["learn_bets"])
     if arm == "random":
         return random_arm(problem, rounds * per_round, seed), arm_store
     if arm == "textbook":
+        # Textbook rules are admitted UNVERIFIED on purpose: this arm measures what
+        # prior knowledge alone is worth; the loop's rules must beat it.
         arm_store = {"rules": [], "bets": []}
-        for rule in analyst.textbook_rules(problem["search_space"], problem["objective"], 6):
+        for rule in analyst.textbook_rules(problem["search_space"], problem["objective"], 6,
+                                           problem["condition_metrics"]):
             if well_formed(rule, problem):
-                playbook.add_rule(arm_store, rule["condition"], rule["claim"], rule["example"], rule["text"])
+                clauses = loop.rule_clauses_of(rule)
+                playbook.add_rule(arm_store, clauses[0], rule["claim"], rule["example"], rule["text"],
+                                  conditions=clauses, verification={"pairs": 0, "llm_gain_pct": rule["claim"]["gain_pct"]})
     prior = []
-    if arm == "surrogate_pooled":
+    if arm in ["surrogate_pooled", "bo_pooled"]:
         prior = prior_history
         problem["search_space"] = dict(problem["search_space"], soc=["A_mobile", "B_midrange", "C_server"])
         for name in problem["candidates"]:
@@ -155,9 +216,16 @@ def run_arm(arm, store, soc_name, trace_path, rounds, per_round, prior_history, 
         problem["baseline"] = dict(problem["baseline"], soc=soc_name)
     use_rules = arm in ["textbook", "rules", "full"]
     use_analyst = arm in ["analyst", "full"]
+    # v4: every model-driven arm selects by expected improvement; the difference
+    # between arms is what warms the surrogate and who bets. The two "surrogate"
+    # arms keep the v2/v3 disagreement selector as an ablation.
+    selector = "ei"
+    if arm in ["surrogate", "surrogate_pooled"]:
+        selector = "disagreement"
     tag = "{}-{}-s{}".format(arm, problem["name"], seed)
     result = loop.run_loop(problem, rounds, per_round, arm_store, surrogate_gp,
-                           use_rules, use_analyst, tag, prior_history=prior, seed=seed)
+                           use_rules, use_analyst, tag, prior_history=prior, seed=seed,
+                           selector=selector)
     return result["history"], arm_store
 
 
@@ -183,6 +251,8 @@ def simulations_to_target(history, optimum, objective):
 def in_budget_optimum(problem):
     """True optimum from the dense sweep. None when the space was never swept
     (Tier B): the report then scores against the best design any arm found."""
+    if "holders" in problem:
+        return None            # suites are never densely swept
     table = problem["holder"].sweep_table
     best = None
     for name in problem["candidates"]:
@@ -194,7 +264,7 @@ def in_budget_optimum(problem):
     return best
 
 
-ARMS = ["random", "surrogate", "surrogate_pooled", "textbook", "rules", "analyst", "full"]
+ARMS = ["random", "bo", "bo_pooled", "surrogate", "surrogate_pooled", "textbook", "rules", "analyst", "full"]
 
 
 def compact(history, objective):
@@ -207,13 +277,19 @@ def compact(history, objective):
 
 def run_experiment(train_socs, test_soc, traces, rounds, per_round, seeds, output_path,
                    train_traces=None, space_name="A", arms=None, test_rounds=None,
-                   playbook_path=None, first_seed=0):
-    """train_traces defaults to `traces` (cross-trace transfer passes another list).
+                   playbook_path=None, first_seed=0, suite=False):
+    """suite=True: all `traces` form ONE problem per SoC (geomean objective);
+    otherwise each trace is its own problem.
+    train_traces defaults to `traces` (cross-trace transfer passes another list).
     space_name selects Tier A or B; arms defaults to all; test_rounds defaults to rounds.
     playbook_path reuses an already-learned playbook (more seeds, same knowledge);
     the pooled arm then gets every training run in the Tier tables as prior data."""
     if train_traces is None:
         train_traces = traces
+    if suite:
+        # One problem per SoC, made of every trace.
+        traces = [list(traces)]
+        train_traces = [list(train_traces)]
     if arms is None:
         arms = ARMS
     if test_rounds is None:
@@ -228,17 +304,18 @@ def run_experiment(train_socs, test_soc, traces, rounds, per_round, seeds, outpu
     playbook.save(store, output_path.replace(".json", "_playbook.json"))
 
     report = {"settings": {"train_socs": train_socs, "test_soc": test_soc, "traces": traces,
-                           "train_traces": train_traces, "space": space_name, "arms": arms,
+                           "train_traces": train_traces, "space": space_name, "arms": arms, "suite": suite,
                            "test_rounds": test_rounds,
                            "rounds": rounds, "per_round": per_round, "seeds": seeds},
-              "learn_bets": store["bets"], "rules": store["rules"], "test": {}}
+              "learn_bets": store["bets"], "rules": store["rules"],
+              "rejected_rules": store.get("rejected_rules", []), "test": {}}
 
     # Every (trace, arm, seed) run is independent: run them in parallel processes.
     # Each one returns a small dict; the report is saved after every result.
     pool = ProcessPoolExecutor(max_workers=PARALLEL_RUNS)
     futures = []
     for trace_path in traces:
-        problem = make_problem(test_soc, trace_path, space_name=space_name)
+        problem = problem_for(test_soc, trace_path, space_name)
         report["test"][problem["name"]] = {"optimum": in_budget_optimum(problem), "arms": {}}
         for arm in arms:
             report["test"][problem["name"]]["arms"][arm] = {}

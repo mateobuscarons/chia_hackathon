@@ -10,6 +10,7 @@ Usage: python -m loop.sweep <soc_name> <trace_path>
 
 import json
 import os
+import time
 import sys
 from concurrent.futures import ThreadPoolExecutor
 
@@ -30,15 +31,26 @@ def sweep_path(soc_name, trace_path):
 
 
 def load_sweep(path):
+    """Many processes read this table while one rewrites it; a reader may catch a
+    half-written file. Retry briefly instead of crashing the arm."""
     if not os.path.exists(path):
         return {}
+    for attempt in range(10):
+        try:
+            with open(path) as sweep_file:
+                return json.load(sweep_file)
+        except json.JSONDecodeError:
+            time.sleep(0.2)
     with open(path) as sweep_file:
         return json.load(sweep_file)
 
 
 def save_sweep(table, path):
-    with open(path, "w") as sweep_file:
+    """Atomic: write next to the target, then rename, so readers never see a partial file."""
+    temporary_path = path + ".tmp.{}".format(os.getpid())
+    with open(temporary_path, "w") as sweep_file:
         json.dump(table, sweep_file, indent=2)
+    os.replace(temporary_path, path)
 
 
 def run_sweep(soc_name, trace_path):
