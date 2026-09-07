@@ -99,6 +99,23 @@ def build_binary(config_path, champsim_root):
     if os.path.isfile(legacy_path):
         return legacy_path
 
+    # A suite evaluates one design on several workloads at once, so the same
+    # binary is requested by several threads together. One lock per binary makes
+    # them queue: the first builds, the rest find the finished file below.
+    binary_lock = open(shared_path + ".lock", "w")
+    fcntl.flock(binary_lock, fcntl.LOCK_EX)
+    try:
+        return _build_binary_locked(config_path, champsim_root, executable_name, shared_path)
+    finally:
+        fcntl.flock(binary_lock, fcntl.LOCK_UN)
+        binary_lock.close()
+
+
+def _build_binary_locked(config_path, champsim_root, executable_name, shared_path):
+    """Build in a free tree and publish the binary; the caller holds the per-binary lock."""
+    if os.path.isfile(shared_path):     # built by whoever held the lock before us
+        return shared_path
+
     # Parallel processes must never run config.sh/make in the same tree at once:
     # take the first free tree (non-blocking), else wait for one.
     trees = tree_paths(champsim_root)
@@ -123,8 +140,9 @@ def build_binary(config_path, champsim_root):
             return shared_path
         tree_binary = os.path.join(chosen_tree, "bin", executable_name)
         _configure_and_make(config_path, chosen_tree, executable_name, tree_binary)
-        shutil.copy2(tree_binary, shared_path + ".tmp")
-        os.replace(shared_path + ".tmp", shared_path)
+        temp_path = "{}.{}.tmp".format(shared_path, os.getpid())
+        shutil.copy2(tree_binary, temp_path)
+        os.replace(temp_path, shared_path)
         return shared_path
     finally:
         fcntl.flock(chosen_lock, fcntl.LOCK_UN)
