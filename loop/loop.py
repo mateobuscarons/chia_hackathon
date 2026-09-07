@@ -104,6 +104,8 @@ def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analys
 
         chosen = []
         claim_test_of = {}
+        silent_test_rule = None      # set only by the EI selector below
+        silent_test_name = None
         if selector == "ei":
             # One slot for the most valuable owed claim test, the rest by expected improvement.
             owed = forecast.untested_claim_tests(rules, history, problem["baseline"], candidates,
@@ -117,8 +119,6 @@ def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analys
             # regime; Sep 7 seed 1: the LLC-prefetcher rule was right on C but silent).
             # A won test widens the condition to include this chip; a lost one leaves
             # the rule silent, as its condition said.
-            silent_test_rule = None
-            silent_test_name = None
             if len(chosen) == 0 and per_round > 1 and use_rules:
                 untested_silent = []
                 for rule in forecast.silent_rules(all_rules, baseline_metrics):
