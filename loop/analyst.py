@@ -27,26 +27,58 @@ PRICES = {"gemini-2.5-flash": (0.30, 2.50),
 _client = genai.Client(vertexai=True, project=GCP_PROJECT, location="us-central1",
                       http_options={"timeout": 120_000})
 
-ROLE = "You are a computer architect running simulation experiments.\n"
-RULE_SCHEMA = """A rule is a JSON object with EXACTLY these keys:
-"text": the rule in one sentence, in your own words,
-"conditions": a list of 1 or 2 clauses, all of which must hold for the rule to apply. Each clause is
-             {"metric": one of {metrics}, "op": ">=" or "<", "value": number}.
-             Clauses are checked on the untouched baseline run of a chip+workload; they say WHEN the rule
-             applies. Conditions describe the WORKLOAD (miss rates, hit ratios), never the chip's speed:
-             IPC is not allowed,
-"claim": {"knob": knob name, "value": allowed value OR "up" / "down" for a numeric knob,
-          "direction": "helps" or "hurts", "gain_pct": positive number}
-             - "switching this ONE knob to this value (or one step up/down from the baseline for a
-             numeric knob) helps/hurts the objective by about gain_pct %". "direction" is the sign of
-             the effect: "helps" = objective goes up, "hurts" = objective goes down; gain_pct is the
-             size of the effect, always positive. Prefer directions ("up"/"down") for sizes and ways:
-             they transfer to chips with other area budgets, where a fixed size may not be allowed.
-             The loop MEASURES the effect with a controlled comparison (only that knob changed) before
-             the rule is admitted, and rejects the rule if the measured effect is small or goes the
-             other way than "direction" says. Claim only what a one-knob change achieves; never credit
-             one knob for a gain that came from changing several,
-"example": the run(s) that motivated it, e.g. "B_midrange/mcf: 0.31 -> 0.41".
+# System instruction (persona + the one behavioural constraint that matters).
+# Everything task-specific goes in the user prompt, context first, task last.
+ROLE = ("You are a computer architect running simulation experiments. You propose "
+        "and explain; a simulator measures everything, so state only what one "
+        "experiment can test. Answer only with the JSON that is asked for.")
+
+# Temperature and thinking budget per call type. Distillation and re-scoping
+# are consistency tasks (numbers, signs, exact schema): low temperature, more
+# thinking. Hypotheses need some diversity: default-ish temperature.
+DISTILL_TEMPERATURE = 0.3
+HYPOTHESIS_TEMPERATURE = 0.7
+THINKING_BUDGET = 2048
+DISTILL_THINKING_BUDGET = 8192
+
+# One fictional, deliberately generic example per output type: the guide says
+# always show the shape, and one example cannot be copied as content. The knob
+# and metric names below do not exist in any search space, so a copied example
+# is rejected by the validator.
+RULE_SCHEMA = """## Output format
+A JSON list of rules. A rule is a JSON object with EXACTLY these keys:
+- "text": the rule in one sentence, in your own words.
+- "conditions": a list of 1 or 2 clauses, all of which must hold for the rule to apply. Each clause is
+  {"metric": one of {metrics}, "op": ">=" or "<", "value": number}. Clauses are checked on the
+  untouched baseline run of a chip+workload and say WHEN the rule applies. They describe the
+  WORKLOAD (miss rates, hit ratios), never the chip's speed, so IPC is not a condition metric.
+- "claim": {"knob": knob name, "value": allowed value OR "up" / "down" for a numeric knob,
+  "direction": "helps" or "hurts", "gain_pct": positive number}. It reads: switching this ONE knob
+  to this value (or one step up/down from the baseline for a numeric knob) helps/hurts the objective
+  by about gain_pct %. "direction" is the sign of the effect, "gain_pct" its size (always positive).
+  Prefer "up"/"down" for sizes and ways: directions transfer to chips with other area budgets, where
+  a fixed size may not be allowed. The loop measures every claim with a controlled comparison
+  before the rule is admitted.
+- "example": the run(s) that motivated it, e.g. "chip_x/workload_y: 0.31 -> 0.41".
+
+A good rule reads like this (fictional knob and metric, for the shape only):
+{"text": "When the workload misses the mid-level cache heavily, one more step of widget_ways pays off",
+ "conditions": [{"metric": "metric_a", "op": ">=", "value": 12.0}],
+ "claim": {"knob": "widget_ways", "value": "up", "direction": "helps", "gain_pct": 4.0},
+ "example": "chip_x/workload_y: 0.310 -> 0.322"}
+"""
+
+HYPOTHESIS_SCHEMA = """## Output format
+A JSON list of objects with EXACTLY these keys:
+- "hypothesis": one sentence naming the bottleneck and why this experiment tests it.
+- "knobs": the experiment, one allowed value per knob (every knob listed above).
+- "predicted": your point forecast of the objective for that experiment (number).
+- "confidence": 0 to 1, how sure you are the measured value lands within 5% of "predicted".
+
+One object looks like this (fictional knob names, for the shape only):
+{"hypothesis": "The mid-level cache is capacity-bound, so a larger widget_size should cut its misses",
+ "knobs": {"widget_size": 2048, "widget_ways": 8, "gadget_policy": "plain"},
+ "predicted": 0.71, "confidence": 0.6}
 """
 
 
@@ -59,17 +91,18 @@ def use_chia_node(node):
     _chia_node = node
 
 
-def ask_gemini(prompt):
-    """One LLM call, JSON-mode, parsed. All analyst functions go through here."""
+def ask_gemini(prompt, temperature=HYPOTHESIS_TEMPERATURE, thinking_budget=THINKING_BUDGET):
+    """One LLM call, JSON-mode, parsed. All analyst functions go through here.
+    ROLE goes in as the system instruction; `prompt` is the user turn."""
     if _chia_node is not None:
-        answer = _chia_node.ask(prompt)
+        answer = _chia_node.ask(ROLE + "\n\n" + prompt)
         tokens = _chia_node.llm._last_metadata
         _log_cost(tokens.get("input_tokens", 0), tokens.get("output_tokens", 0))
         return answer
     # The model occasionally returns truncated or malformed JSON; retry a few times.
     for attempt in range(5):
         started = time.time()
-        response = _generate_with_backoff(prompt)
+        response = _generate_with_backoff(prompt, temperature, thinking_budget)
         _log_usage(response)
         print("  [gemini] {:.1f}s".format(time.time() - started), flush=True)
         try:
@@ -79,7 +112,7 @@ def ask_gemini(prompt):
     raise RuntimeError("Gemini returned malformed JSON five times")
 
 
-def _generate_with_backoff(prompt):
+def _generate_with_backoff(prompt, temperature, thinking_budget):
     """Rate limits (429) and server hiccups (5xx) are transient: wait and retry."""
     from google.genai import errors
     delays = [15, 30, 60, 120, 180, 240]
@@ -87,10 +120,12 @@ def _generate_with_backoff(prompt):
         try:
             return _client.models.generate_content(
                 model=MODEL, contents=prompt,
-                # Flash "thinks" before answering and those tokens count against the
-                # output cap; without a thinking budget it starves its own answer.
-                config={"response_mime_type": "application/json", "max_output_tokens": 16384,
-                        "thinking_config": {"thinking_budget": 2048}},
+                # The model "thinks" before answering and those tokens count against
+                # the output cap; without a thinking budget it starves its own answer.
+                config={"system_instruction": ROLE,
+                        "response_mime_type": "application/json", "max_output_tokens": 16384,
+                        "temperature": temperature,
+                        "thinking_config": {"thinking_budget": thinking_budget}},
             )
         except errors.APIError as error:
             retryable = error.code == 429 or error.code >= 500
@@ -139,7 +174,7 @@ def as_list(answer):
 
 
 def knobs_text(search_space):
-    return "Tunable knobs and their ONLY allowed values:\n{}\n".format(json.dumps(search_space, indent=2))
+    return "## Knobs\nTunable knobs and their ONLY allowed values:\n{}\n".format(json.dumps(search_space, indent=2))
 
 
 def rule_schema(condition_metrics):
@@ -151,25 +186,24 @@ def propose_hypotheses(search_space, objective, results_table, rules_text, how_m
 
     Returns a list of {hypothesis, knobs, predicted, confidence}.
     """
-    prompt = ROLE + knobs_text(search_space) + """
-The objective to maximize is: {objective}.
-Playbook rules learned on earlier chips (may or may not apply here):
+    prompt = knobs_text(search_space) + """
+## Objective
+Maximize {objective}.
+
+## Playbook rules learned on earlier chips (may or may not apply here)
 {rules}
 
-Simulation results so far on THIS chip and workload (one row per experiment):
+## Simulation results so far on THIS chip and workload (one row per experiment)
 {table}
 
-Propose {n} COMPETING hypotheses about the current performance bottleneck.
-They must disagree: if one is right, another should be wrong. For each,
-pick the single untested experiment (one value per knob) that best tests it,
-and pre-register a point forecast of its {objective}.
+## Task
+Propose {n} COMPETING hypotheses about the current performance bottleneck: if one
+is right, another should be wrong. For each, pick the single untested experiment
+that best tests it and pre-register a point forecast of its {objective}.
 
-Answer with a JSON list of objects with EXACTLY these keys:
-"hypothesis" (one sentence), "knobs" (one allowed value per knob),
-"predicted" (number), "confidence" (0 to 1: how sure you are the real
-value lands within 5% of your forecast).
-""".format(objective=objective, rules=rules_text, table=results_table, n=how_many)
-    return as_list(ask_gemini(prompt))
+{schema}""".format(objective=objective, rules=rules_text, table=results_table, n=how_many,
+                   schema=HYPOTHESIS_SCHEMA)
+    return as_list(ask_gemini(prompt, temperature=HYPOTHESIS_TEMPERATURE))
 
 
 def distill_rules(search_space, results_table, ledger_text, existing_rules_text, condition_metrics,
@@ -177,54 +211,51 @@ def distill_rules(search_space, results_table, ledger_text, existing_rules_text,
     """Turn a finished chip's evidence into transferable rules. Returns a list of rules.
     effects_text: the measured one-knob effects (controlled pairs), largest first;
     the LLM writes the condition and the words over numbers that are already true."""
-    prompt = ROLE + knobs_text(search_space) + """
-All simulation results on this chip and workload:
+    prompt = knobs_text(search_space) + """
+## All simulation results on this chip and workload
 {table}
 
-Measured one-knob effects on this chip (pairs of designs that differ in that knob
-only; mean change of the objective, largest effects first):
+## Measured one-knob effects on this chip
+Pairs of designs that differ in that knob only; mean change of the objective, largest first.
 {effects}
 
-Settled bets (what was predicted vs what happened):
+## Settled bets (what was predicted vs what happened)
 {ledger}
 
-Rules already in the playbook (do not repeat them; sharpen or add):
+## Rules already in the playbook (sharpen or add; one claim, one rule)
 {existing}
 
-Write AT MOST 5 rules an architect should carry to the NEXT chip, which may
-have a different area budget and different feasible sizes. Work down the list of
-measured effects from the largest: every effect of a few percent or more that has
-no rule yet deserves one before any smaller effect does. Your job is the
-CONDITION (which workload behaviour, in the metrics above, makes the effect
-appear) and the wording; the size of the effect is measured, not yours to state.
-One knob per rule: a rule whose text or claim changes two knobs is invalid. An
-effect near zero is not a rule; do not write rules that say a knob does not
-matter. Do not repeat an existing rule with a different threshold: one claim,
-one rule. Claims about the baseline's own value (no change) are not rules.
-{schema}
-Answer with a JSON list of rules.
-""".format(table=results_table, effects=effects_text or "(none measured yet)", ledger=ledger_text,
-           existing=existing_rules_text, schema=rule_schema(condition_metrics))
-    return as_list(ask_gemini(prompt))
+## Task
+Write AT MOST 5 rules an architect should carry to the NEXT chip, which may have a
+different area budget and different feasible sizes. Work down the measured effects
+from the largest: each rule takes one effect of a few percent or more that has no
+rule yet, names the ONE knob it changes, and gives the condition (which workload
+behaviour, in the metrics above, makes that effect appear). The effect's size is
+measured, not yours to state; an effect near zero is not worth a rule. Claims about
+the baseline's own value (no change) are not rules.
+
+{schema}""".format(table=results_table, effects=effects_text or "(none measured yet)", ledger=ledger_text,
+                   existing=existing_rules_text, schema=rule_schema(condition_metrics))
+    return as_list(ask_gemini(prompt, temperature=DISTILL_TEMPERATURE, thinking_budget=DISTILL_THINKING_BUDGET))
 
 
 def rescope_rule(rule, losing_context, condition_metrics=None):
     """A rule lost a bet: sharpen its condition so it stops applying where it fails."""
-    prompt = ROLE + """
-This playbook rule just lost a bet:
+    prompt = """## The rule that just lost a bet
 {rule}
 
-Where it failed (baseline metrics of that chip+workload, and the outcome):
+## Where it failed (baseline metrics of that chip+workload, and the outcome)
 {context}
 
-Do NOT delete the rule. Re-scope it: change ONLY "conditions" (and "text"
-to match) so the rule no longer applies to cases like this one but still
-covers the example that motivated it. You may add a second clause on another
-metric if one threshold cannot separate the two cases. {schema}
-Answer with the single updated rule as a JSON object.
-""".format(rule=json.dumps(rule, indent=2), context=losing_context,
-           schema=rule_schema(condition_metrics or ["L1D_mpki", "L2C_mpki", "LLC_mpki"]))
-    answer = ask_gemini(prompt)
+## Task
+Keep the rule; re-scope it. Change ONLY "conditions" (and "text" to match) so the
+rule no longer applies to cases like this one but still covers the example that
+motivated it. A second clause on another metric is allowed when one threshold
+cannot separate the two cases. Answer with the single updated rule as a JSON object.
+
+{schema}""".format(rule=json.dumps(rule, indent=2), context=losing_context,
+                   schema=rule_schema(condition_metrics or ["L1D_mpki", "L2C_mpki", "LLC_mpki"]))
+    answer = ask_gemini(prompt, temperature=DISTILL_TEMPERATURE, thinking_budget=DISTILL_THINKING_BUDGET)
     if isinstance(answer, list) and len(answer) > 0:
         answer = answer[0]
     if not isinstance(answer, dict):
@@ -238,11 +269,12 @@ def textbook_rules(search_space, objective, how_many, condition_metrics):
     The delta between these and the loop's rules measures what the loop adds,
     and defends against "the LLM already knew this".
     """
-    prompt = ROLE + knobs_text(search_space) + """
-You have NOT run any experiment. From textbook knowledge alone, write the
-{n} rules you would carry into tuning these knobs to maximize {objective}
-on SPEC CPU2017-like workloads. Conditions may only use the listed metrics
-of the untouched baseline design. {schema}
-Answer with a JSON list of rules.
-""".format(n=how_many, objective=objective, schema=rule_schema(condition_metrics))
-    return as_list(ask_gemini(prompt))
+    prompt = knobs_text(search_space) + """
+## Task
+You have NOT run any experiment. From textbook knowledge alone, write the {n}
+rules you would carry into tuning these knobs to maximize {objective} on SPEC
+CPU2017-like workloads. Conditions may only use the listed metrics of the
+untouched baseline design.
+
+{schema}""".format(n=how_many, objective=objective, schema=rule_schema(condition_metrics))
+    return as_list(ask_gemini(prompt, temperature=DISTILL_TEMPERATURE))
