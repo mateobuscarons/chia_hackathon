@@ -31,15 +31,17 @@ RULE_SCHEMA = """A rule is a JSON object with EXACTLY these keys:
              Clauses are checked on the untouched baseline run of a chip+workload; they say WHEN the rule
              applies. Conditions describe the WORKLOAD (miss rates, hit ratios), never the chip's speed:
              IPC is not allowed,
-"claim": {"knob": knob name, "value": allowed value OR "up" / "down" for a numeric knob, "gain_pct": number}
-             - "switching this ONE knob to this value changes the objective by about gain_pct %";
-             for numeric knobs (sets, ways) prefer a DIRECTION: "up" means "one step larger than the
-             baseline helps by gain_pct %". Directions transfer to chips with other area budgets; a
-             fixed size may not even be allowed there.
-             The loop will MEASURE gain_pct with a controlled comparison (only that knob changed) before
-             the rule is admitted, and reject the rule if the measured effect is small or has the other
-             sign. So claim only what a one-knob change achieves; do not credit one knob for a gain that
-             came from changing several,
+"claim": {"knob": knob name, "value": allowed value OR "up" / "down" for a numeric knob,
+          "direction": "helps" or "hurts", "gain_pct": positive number}
+             - "switching this ONE knob to this value (or one step up/down from the baseline for a
+             numeric knob) helps/hurts the objective by about gain_pct %". "direction" is the sign of
+             the effect: "helps" = objective goes up, "hurts" = objective goes down; gain_pct is the
+             size of the effect, always positive. Prefer directions ("up"/"down") for sizes and ways:
+             they transfer to chips with other area budgets, where a fixed size may not be allowed.
+             The loop MEASURES the effect with a controlled comparison (only that knob changed) before
+             the rule is admitted, and rejects the rule if the measured effect is small or goes the
+             other way than "direction" says. Claim only what a one-knob change achieves; never credit
+             one knob for a gain that came from changing several,
 "example": the run(s) that motivated it, e.g. "B_midrange/mcf: 0.31 -> 0.41".
 """
 

@@ -295,6 +295,8 @@ def valid_rule(rule, problem):
             if str(claim["value"]) == str(problem["baseline"][claim["knob"]]):
                 return False
         float(claim["gain_pct"])
+        if "direction" in claim and claim["direction"] not in ["helps", "hurts"]:
+            return False
         return isinstance(rule["text"], str)
     except (KeyError, TypeError, ValueError):
         return False
@@ -469,7 +471,7 @@ def verify_claims(store, proposals, problem, history, tag, max_sims, evidence=No
             print("[{}] rejected (untestable) rule: {}".format(tag, proposal["text"][:120]), flush=True)
             continue
         measured = sum(gains) / len(gains)
-        llm_gain = float(claim["gain_pct"])
+        llm_gain = llm_signed_gain(claim)
         if abs(measured) < MIN_CLAIM_GAIN_PCT:
             playbook.reject_rule(store, proposal, "measured gain {:.2f}% below {}%".format(measured, MIN_CLAIM_GAIN_PCT))
             print("[{}] rejected (no effect, {:.2f}%): {}".format(tag, measured, proposal["text"][:120]), flush=True)
@@ -490,6 +492,17 @@ def verify_claims(store, proposals, problem, history, tag, max_sims, evidence=No
         print("[{}] admitted {} ({:+.2f}% measured over {} pairs, LLM said {:+.1f}%): {}".format(
             tag, rule_id, measured, len(gains), llm_gain, proposal["text"][:120]), flush=True)
     return extra_runs
+
+
+def llm_signed_gain(claim):
+    """The LLM's claimed effect with its sign taken from "direction" (helps/hurts).
+    Older claims without a direction carry the sign in gain_pct itself."""
+    magnitude = abs(float(claim["gain_pct"]))
+    if claim.get("direction") == "hurts":
+        return -magnitude
+    if claim.get("direction") == "helps":
+        return magnitude
+    return float(claim["gain_pct"])
 
 
 def matching_value(allowed_values, value):

@@ -1,63 +1,61 @@
-"""Re-distill a playbook from EVERYTHING measured on the training problems.
+"""Repeat ONLY the distillation step of a finished learn phase, from the tables.
 
-The learning loop distills from its own 20 runs. The result tables hold every
-design ever simulated on each training problem (hundreds), so a distillation
-pass over the tables gives the analyst far more evidence and the verifier far
-more controlled pairs, at the cost of a few LLM calls and at most
-VERIFY_SIMS_PER_PROBLEM extra simulations per problem.
+The learn phase ends with `experiment.distill`: the analyst reads the training
+problem's runs and settled bets, proposes rules, and `verify_claims` measures
+each claim before admission. This script re-runs that same step for every
+training problem of a tier, with the same evidence (every design measured on
+the problem, in the result tables) and the same settled bets (from the learn
+playbook), so a prompt or verifier change can be evaluated in minutes instead
+of re-running the loop. It replicates the step; it does not vary it.
 
-Usage: python -m loop.distill_tables results/experiment_v3_C_playbook.json results/experiment_v4_playbook.json
-Starts from the first playbook (existing rules are shown to the analyst so it
-sharpens or adds instead of repeating) and writes the merged result to the second.
+Usage: python -m loop.distill_tables <tier> <learn_playbook.json> <out_playbook.json>
+  tier             B or C (same training SoCs/traces/space as loop.run)
+  learn_playbook   the _playbook.json a run wrote (its bets are the ledger shown to the analyst)
+  out_playbook     where the fresh playbook goes (rules start from zero, as in the learn phase)
 """
 
-import json
 import sys
 
-from loop import analyst, experiment, loop, playbook
-from loop.champsim_problem import make_problem
-
-TRAIN_SOCS = ["A_mobile", "B_midrange"]
-TRAIN_TRACES = ["traces/605.mcf_s-665B.champsimtrace.xz",
-                "traces/619.lbm_s-2676B.champsimtrace.xz"]
+from loop import analyst, experiment, loop, playbook, run
 
 
-def distill_from_table(store, soc_name, trace_path):
-    problem = make_problem(soc_name, trace_path, space_name="B")
-    tag = "tables-" + problem["name"]
+def distill_problem(learn_store, soc_name, traces, space_name):
+    """One training problem, exactly as learn_job does it after its loop: fresh
+    rule set, this problem's settled bets as the ledger, every measured design as
+    the table and as verification evidence."""
+    problem = experiment.problem_for(soc_name, traces, space_name)
+    tag = "redistill-" + problem["name"]
     designs = experiment.measured_designs(problem)
-    # Baseline first, then the rest sorted by objective so the analyst sees the best designs.
-    baseline_name = loop.name_of(problem, problem["baseline"])
-    ordered = []
-    for design in designs:
-        if design["name"] == baseline_name:
-            ordered.append(design)
-    others = []
-    for design in designs:
-        if design["name"] != baseline_name:
-            others.append(design)
-    others.sort(key=lambda design: design["metrics"]["ipc"], reverse=True)
-    # The prompt cannot hold 500 rows: baseline + top 40 + 20 spread across the rest.
-    step = max(1, len(others) // 20)
-    shown = ordered + others[:40] + others[40::step]
-    table = loop.format_table(shown, problem["table_metrics"])
-    proposals = analyst.distill_rules(problem["search_space"], table, "(none)",
-                                      loop.format_rules(store["rules"]), problem["condition_metrics"])
-    print("[{}] {} designs measured, {} shown, {} proposals".format(
-        tag, len(designs), len(shown), len(proposals)), flush=True)
-    history = [ordered[0]] if len(ordered) > 0 else []
-    loop.verify_claims(store, proposals, problem, history, tag, experiment.VERIFY_SIMS_PER_PROBLEM,
-                       evidence=designs)
+
+    # The learn run's bets for this problem (bet experiments are design names,
+    # which start with the SoC name).
+    problem_bets = []
+    for bet in learn_store["bets"]:
+        if bet["experiment"].startswith(soc_name):
+            problem_bets.append(bet)
+    job_store = {"rules": [], "bets": problem_bets}
+
+    print("[{}] {} designs measured, {} settled bets".format(tag, len(designs), len(problem_bets)), flush=True)
+    extra_runs = experiment.distill(job_store, problem, designs, tag)
+    print("[{}] {} rules admitted, {} rejected, {} verification sims".format(
+        tag, len(job_store["rules"]), len(job_store.get("rejected_rules", [])), len(extra_runs)), flush=True)
+    return job_store
 
 
 if __name__ == "__main__":
-    source = sys.argv[1]
-    destination = sys.argv[2]
-    store = playbook.load(source)
-    before = len(store["rules"])
-    for soc_name in TRAIN_SOCS:
-        for trace_path in TRAIN_TRACES:
-            distill_from_table(store, soc_name, trace_path)
+    tier = run.TIERS[sys.argv[1]]
+    learn_store = playbook.load(sys.argv[2])
+    destination = sys.argv[3]
+
+    store = {"rules": [], "bets": []}
+    for soc_name in run.TRAIN_SOCS:
+        if tier["suite"]:
+            job_store = distill_problem(learn_store, soc_name, tier["train_traces"], tier["space"])
+            experiment.merge_playbook(store, job_store)
+        else:
+            for trace_path in tier["train_traces"]:
+                job_store = distill_problem(learn_store, soc_name, trace_path, tier["space"])
+                experiment.merge_playbook(store, job_store)
     playbook.save(store, destination)
-    print("playbook: {} -> {} rules ({} rejected in total) -> {}".format(
-        before, len(store["rules"]), len(store.get("rejected_rules", [])), destination), flush=True)
+    print("playbook: {} rules, {} rejected -> {}".format(
+        len(store["rules"]), len(store.get("rejected_rules", [])), destination), flush=True)
