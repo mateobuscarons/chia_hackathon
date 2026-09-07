@@ -29,6 +29,7 @@ Mechanism v3 ("rules earn their bets"):
 """
 
 import json
+import os
 
 from loop import analyst, forecast, playbook
 from loop.surrogate_gp import normal_tail
@@ -43,6 +44,12 @@ MIN_CLAIM_GAIN_PCT = 1.0
 # One slot per round for an untried categorical value when the last round did
 # not improve the best design. Part of our mechanism (rules / full arms only).
 EXPLORE_ON_STALL = True
+# One claim test per chip for a rule whose condition fails here, widening the
+# condition when the test wins. Off by default since conditions moved to
+# chip-independent descriptors (v5): a silent rule should be silent for the right
+# reason, and the test cost designs and muddled attribution. SILENT_RULE_TESTS=1
+# turns it back on for an ablation.
+SILENT_RULE_TESTS = os.environ.get("SILENT_RULE_TESTS", "0") == "1"
 
 
 def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analyst, tag,
@@ -124,7 +131,7 @@ def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analys
             # regime; Sep 7 seed 1: the LLC-prefetcher rule was right on C but silent).
             # A won test widens the condition to include this chip; a lost one leaves
             # the rule silent, as its condition said.
-            if len(chosen) == 0 and per_round > 1 and use_rules:
+            if SILENT_RULE_TESTS and len(chosen) == 0 and per_round > 1 and use_rules:
                 untested_silent = []
                 for rule in forecast.silent_rules(all_rules, descriptors):
                     if rule["id"] not in silent_tested:
