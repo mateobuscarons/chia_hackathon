@@ -49,6 +49,21 @@ GCP: project `project-c23a6080-f5d0-4871-9cb`, ADC auth (`gcloud auth applicatio
 
 **Operational lessons.** Launch long runs with `nohup caffeinate -i ... &`; never `pkill -f` a broad pattern (a `pkill -f multiprocessing.spawn` killed 4 live runs on Sep 5); result tables are the simulation cache, atomic-written, shared by all processes; every new design needs a ChampSim build (~2 min; parallel across `champsim_N` trees on the VM).
 
+## Tier C proof of concept, seed 0 (Sep 7, 2026): rule transfer lost to raw-data transfer
+
+Run on GCP (`champsim-1`, c2d-standard-32; 3 races fixed first: atomic config write, per-binary build lock, unique `.tmp`; suites evaluate one design on 4 workloads at once). Learn on A+B suites (10 rounds x 2 designs each), test on C suite, 24 designs. The user stopped it after seed 0 (baselines' seeds 1-2 partly cached). Files: `results/experiment_tierC_base_C.json` (random; bo/bo_pooled seed 0 only in the logs), `results/experiment_tierC_rules_C.json` (rules, full with playbook v2), `results/playbook_tierC_v1_thin.json` (learn run, 1 rule), `results/playbook_tierC_v2.json` (re-distilled with the direction field, 2 rules), tables `results/tierC_*.json`. Compute ~$6, LLM ~$0.10.
+
+**Result (seed 0, C suite baseline 0.599, best found 0.746 = +24.6%).** Designs to 90% of gain: bo_pooled **14**, bo 18, random >24, rules >24 (stuck at 0.726 from design 11), full >24 (stuck at 0.718 from design 6). The 0.726 -> 0.746 gap is one knob: LLC `next_line` prefetcher (+2.7% on top of SPP + L2 512x16 + LLC 4096x16).
+
+**Autopsy.**
+1. *Exploration collapse.* rules and full tried `llc_prefetcher=no` in 24/24 designs and `spp_dev` in 23/24; bo cold tried `next_line` in 15/18, random 15/25, bo_pooled 8/20. The loop has no space-filling start: round 1 is EI over a one-point GP plus priors. With two rule priors the GP has an attractor from design 1 and EI exploits it; bo cold's round 1 is std-driven and diverse. `full` produced zero improvement over its last 18 designs.
+2. *Thin playbook.* 2 verified rules from ~21 measured designs per training chip. On A/B `llc_prefetcher!=no` was measured in 2 designs (A) and 0 (B): no evidence, so no rule about the knob that decided C. The pooled GP still used A's two points.
+3. *Capacity rules structurally untestable* (same as Tier B autopsy item 2, still open): `llc_sets` 1024->2048 is the largest single effect (+33% A, +9% B, +8.5% C; 2048->4096 +4.6% on C), but a direction claim is verified only on the claimed side of the baseline (`forecast.claim_sibling`), the baseline is 2048 on every chip, and 4096 is over budget on A and B. Rejected as "no controlled comparison" 3 times.
+4. *Analyst deadlock confirmed.* Learn phase: hypothesis bets only in round 1 of each problem (all lost) -> credibility 0.33 -> silent for rounds 2-10; ledger shown to the distiller = 6 lost bets. On C (`full`): won its round-1 bet, then only 1 more bet in 23 designs (its designs rarely selected). Hypotheses are not persisted (`run_loop` returns round logs with them; `experiment` drops them), so what the analyst proposed cannot be audited.
+5. *What worked.* Verifier decisions were right (no-effect claims rejected; direction field removed the formatting rejections; one genuine contradiction still caught). Rule bets on C: 8/10 won, Brier 0.18; both claims confirmed on C in rounds 1-2. Surrogate dispute bets: 2/7, Brier 0.39. 1 of 10 allowed verification sims used.
+
+**Fix candidates (user decides).** (a) a space-filling initial batch for every model arm, or one exploration slot per round for an untried categorical value near the incumbent; (b) more learn-phase evidence (20 rounds on A/B) so knob coverage exists; (c) verify direction claims with any adjacent controlled pair, not only above the baseline; (d) analyst deadlock fix + persist round logs; (e) stronger model + cleaner prompts (2a/2b above).
+
 ## Mechanism v3 (Sep 4, 2026, evening): rules earn their bets
 
 Autopsy of the Tier B omnetpp failure: rules bet at a flat 0.70, zero claim bets settled in the whole test (claim bets needed a paired run that never existed), so losing rules were never re-scoped; distilled claims credited one knob for multi-knob gains (LLM said +20-35%, controlled pairs measured ~0%). Fixes, all in `loop/`:
