@@ -475,10 +475,10 @@ def format_effects(effects, limit=25):
 
 def stall_scan_candidate(history, candidates, search_space, surrogate, model, objective):
     """The architect's move when the search stalls: take the best design so far
-    and change ONE categorical knob to a value nobody has tried yet on this
-    problem (another prefetcher, another replacement policy). Among such
-    designs, the one the surrogate is least sure about. None if every value of
-    every categorical knob has been tried or no such design is in budget.
+    and change ONE knob: a categorical knob to a value nobody has tried yet on
+    this problem (another prefetcher, another replacement policy), or an ordinal
+    knob one step up or down. Among such unmeasured, in-budget designs, the one
+    the surrogate is least sure about. None if there is none.
 
     Sep 7 autopsy: with two rule priors, EI exploited the SPP + capacity basin
     for 24 designs and never tried the LLC prefetcher, which was worth +2.7%."""
@@ -492,18 +492,33 @@ def stall_scan_candidate(history, candidates, search_space, surrogate, model, ob
     for entry in history:
         for knob, value in entry["knobs"].items():
             tried.setdefault(knob, set()).add(str(value))
+    measured_names = set()
+    for entry in history:
+        measured_names.add(entry["name"])
     scan_names = []
     scan_knobs = []
     for knob, values in search_space.items():
         is_categorical = isinstance(values[0], str)
-        if not is_categorical:
-            continue
-        for value in values:
-            if str(value) in tried.get(knob, set()):
-                continue
+        neighbour_values = []
+        if is_categorical:
+            # Categorical: every value nobody has tried on this problem.
+            for value in values:
+                if str(value) not in tried.get(knob, set()):
+                    neighbour_values.append(value)
+        else:
+            # Ordinal (sizes, ways, MSHRs): one step up and one step down from the
+            # incumbent. Sep 7 seed 1: the missing move was llc_sets one step up,
+            # which a categorical-only scan can never propose.
+            for direction in ["up", "down"]:
+                stepped = stepped_value(search_space, knob, incumbent["knobs"][knob], direction)
+                if stepped is not None:
+                    neighbour_values.append(stepped)
+        for value in neighbour_values:
             design = dict(incumbent["knobs"])
             design[knob] = value
             for name, knobs in candidates.items():
+                if name in measured_names or name in scan_names:
+                    continue
                 if same_knobs(knobs, design):
                     scan_names.append(name)
                     scan_knobs.append(knobs)
