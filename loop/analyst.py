@@ -13,11 +13,15 @@ import time
 from google import genai
 
 GCP_PROJECT = "project-c23a6080-f5d0-4871-9cb"
-MODEL = "gemini-2.5-flash"
+# ANALYST_MODEL=gemini-2.5-pro runs the same loop with a stronger analyst (ablation).
+MODEL = os.environ.get("ANALYST_MODEL", "gemini-2.5-flash")
 USAGE_LOG = "loop/llm_usage.json"
 
-# USD per 1M tokens (input, output). Update if we change model.
-PRICES = {"gemini-2.5-flash": (0.30, 2.50)}
+# USD per 1M tokens (input, output), prompts under 200k tokens. Pro bills its
+# thinking tokens as output.
+PRICES = {"gemini-2.5-flash": (0.30, 2.50),
+          "gemini-2.5-flash-lite": (0.10, 0.40),
+          "gemini-2.5-pro": (1.25, 10.00)}
 
 # 120 s timeout per call: a hung request must fail loudly, not stall the loop.
 _client = genai.Client(vertexai=True, project=GCP_PROJECT, location="us-central1",
@@ -168,11 +172,18 @@ value lands within 5% of your forecast).
     return as_list(ask_gemini(prompt))
 
 
-def distill_rules(search_space, results_table, ledger_text, existing_rules_text, condition_metrics):
-    """Turn a finished chip's evidence into transferable rules. Returns a list of rules."""
+def distill_rules(search_space, results_table, ledger_text, existing_rules_text, condition_metrics,
+                  effects_text=""):
+    """Turn a finished chip's evidence into transferable rules. Returns a list of rules.
+    effects_text: the measured one-knob effects (controlled pairs), largest first;
+    the LLM writes the condition and the words over numbers that are already true."""
     prompt = ROLE + knobs_text(search_space) + """
 All simulation results on this chip and workload:
 {table}
+
+Measured one-knob effects on this chip (pairs of designs that differ in that knob
+only; mean change of the objective, largest effects first):
+{effects}
 
 Settled bets (what was predicted vs what happened):
 {ledger}
@@ -181,13 +192,19 @@ Rules already in the playbook (do not repeat them; sharpen or add):
 {existing}
 
 Write AT MOST 5 rules an architect should carry to the NEXT chip, which may
-have a different area budget and different feasible sizes. Only claim what
-the evidence supports; give each rule a condition that says when it applies.
-Do not repeat an existing rule with a different threshold: one claim, one rule.
-Claims about the baseline's own value (no change) are not rules. {schema}
+have a different area budget and different feasible sizes. Work down the list of
+measured effects from the largest: every effect of a few percent or more that has
+no rule yet deserves one before any smaller effect does. Your job is the
+CONDITION (which workload behaviour, in the metrics above, makes the effect
+appear) and the wording; the size of the effect is measured, not yours to state.
+One knob per rule: a rule whose text or claim changes two knobs is invalid. An
+effect near zero is not a rule; do not write rules that say a knob does not
+matter. Do not repeat an existing rule with a different threshold: one claim,
+one rule. Claims about the baseline's own value (no change) are not rules.
+{schema}
 Answer with a JSON list of rules.
-""".format(table=results_table, ledger=ledger_text, existing=existing_rules_text,
-           schema=rule_schema(condition_metrics))
+""".format(table=results_table, effects=effects_text or "(none measured yet)", ledger=ledger_text,
+           existing=existing_rules_text, schema=rule_schema(condition_metrics))
     return as_list(ask_gemini(prompt))
 
 

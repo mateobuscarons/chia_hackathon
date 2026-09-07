@@ -20,7 +20,7 @@ import random
 import time
 from concurrent.futures import ProcessPoolExecutor
 
-from loop import analyst, loop, playbook, surrogate_gp
+from loop import forecast, analyst, loop, playbook, surrogate_gp
 import os
 
 from loop.champsim_problem import aggregate_suite, enrich_metrics, make_problem, make_suite_problem, trace_short_name
@@ -118,13 +118,16 @@ def distill(store, problem, history, tag):
             ledger_lines.append("{} bet '{}' on {} with p={:.2f}: {}".format(
                 bet["forecaster"], bet["event"], bet["experiment"], bet["probability"],
                 "happened" if bet["outcome"] else "did not happen"))
+    # The LLM proposes; the simulator measures every claim before admission, using
+    # every design ever measured on this problem as evidence (not just this run).
+    # The same evidence, as measured one-knob effects, is shown to the analyst so
+    # it spends its rules on the largest effects (Sep 7 autopsy: it ignored a +33%).
+    evidence = measured_designs(problem)
+    effects_text = forecast.format_effects(forecast.one_knob_effects(evidence, problem["objective"]))
     proposals = analyst.distill_rules(problem["search_space"], table,
                                       "\n".join(ledger_lines[-60:]),
                                       loop.format_rules(store["rules"]),
-                                      problem["condition_metrics"])
-    # The LLM proposes; the simulator measures every claim before admission, using
-    # every design ever measured on this problem as evidence (not just this run).
-    evidence = measured_designs(problem)
+                                      problem["condition_metrics"], effects_text=effects_text)
     return loop.verify_claims(store, proposals, problem, history, tag, VERIFY_SIMS_PER_PROBLEM,
                               evidence=evidence)
 

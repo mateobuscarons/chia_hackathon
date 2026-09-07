@@ -426,6 +426,53 @@ def hypothesis_priors(hypotheses, candidates, record):
     return priors
 
 
+def one_knob_effects(designs, objective):
+    """Every controlled pair among `designs` (two designs that differ in exactly
+    one knob), grouped by (knob, from, to): mean gain in percent and the number
+    of pairs, largest mean first. Chip- and space-agnostic: it only reads knobs."""
+    groups = {}
+    for index_a in range(len(designs)):
+        for index_b in range(index_a + 1, len(designs)):
+            knobs_a = designs[index_a]["knobs"]
+            knobs_b = designs[index_b]["knobs"]
+            differing = []
+            for knob in knobs_a:
+                if str(knobs_a[knob]) != str(knobs_b.get(knob)):
+                    differing.append(knob)
+            if len(differing) != 1:
+                continue
+            knob = differing[0]
+            value_a = designs[index_a]["metrics"][objective]
+            value_b = designs[index_b]["metrics"][objective]
+            if value_a <= 0 or value_b <= 0:
+                continue
+            # Report the step in the order the values appear in the design list,
+            # low to high when they compare, so "from -> to" reads naturally.
+            if str(knobs_a[knob]) < str(knobs_b[knob]):
+                key = (knob, str(knobs_a[knob]), str(knobs_b[knob]))
+                gain = 100.0 * (value_b / value_a - 1.0)
+            else:
+                key = (knob, str(knobs_b[knob]), str(knobs_a[knob]))
+                gain = 100.0 * (value_a / value_b - 1.0)
+            groups.setdefault(key, []).append(gain)
+    effects = []
+    for (knob, low, high), gains in groups.items():
+        mean = sum(gains) / len(gains)
+        effects.append({"knob": knob, "from": low, "to": high, "gain_pct": mean, "pairs": len(gains)})
+    effects.sort(key=lambda effect: -abs(effect["gain_pct"]))
+    return effects
+
+
+def format_effects(effects, limit=25):
+    lines = []
+    for effect in effects[:limit]:
+        lines.append("{} {} -> {}: {:+.2f}% over {} pair(s)".format(
+            effect["knob"], effect["from"], effect["to"], effect["gain_pct"], effect["pairs"]))
+    if len(lines) == 0:
+        return "(none measured yet)"
+    return "\n".join(lines)
+
+
 def stall_scan_candidate(history, candidates, search_space, surrogate, model, objective):
     """The architect's move when the search stalls: take the best design so far
     and change ONE categorical knob to a value nobody has tried yet on this
