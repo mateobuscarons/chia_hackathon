@@ -13,6 +13,7 @@ reuses learned rules (same knowledge, new mechanism); the arm list restricts
 which arms run (e.g. "full" after a change that only touches the analyst).
 """
 
+import os
 import sys
 import time
 
@@ -48,12 +49,14 @@ if __name__ == "__main__":
     arms = ARMS
     if len(sys.argv) > 4:
         arms = sys.argv[4].split(",")
+    # SEEDS=1 runs seed 0 only (a quick look before committing to the whole run).
+    seeds = int(os.environ.get("SEEDS", tier["seeds"]))
     output_path = "results/experiment_{}_C.json".format(tag)
     started = time.time()
     print("tier {} ({}) -> {} | playbook: {} | arms: {}".format(
         sys.argv[1], tag, output_path, playbook_path, arms), flush=True)
     experiment.run_experiment(train_socs=TRAIN_SOCS, test_soc=TEST_SOC, traces=tier["test_traces"],
-                              rounds=tier["learn_rounds"], per_round=tier["per_round"], seeds=tier["seeds"],
+                              rounds=tier["learn_rounds"], per_round=tier["per_round"], seeds=seeds,
                               output_path=output_path, train_traces=tier["train_traces"],
                               space_name=tier["space"], arms=arms, test_rounds=tier["test_rounds"],
                               playbook_path=playbook_path, suite=tier["suite"])
