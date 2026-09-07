@@ -186,9 +186,12 @@ def random_arm(problem, budget, seed):
 def run_arm_job(arm, store, soc_name, trace_path, rounds, per_round, prior_history, seed, space_name):
     """One parallel job: run an arm and return only what the report keeps."""
     random.seed(seed)
-    history, arm_store = run_arm(arm, store, soc_name, trace_path, rounds, per_round, prior_history, seed, space_name)
+    history, arm_store, round_logs = run_arm(arm, store, soc_name, trace_path, rounds, per_round,
+                                             prior_history, seed, space_name)
+    # Round logs (hypotheses, chosen designs, claim tests, stall scans) stay in the
+    # report so an autopsy can see what the analyst proposed and what was picked.
     return {"history": compact(history, "ipc"), "full_history": history,
-            "bets": arm_store["bets"], "rules": arm_store["rules"]}
+            "bets": arm_store["bets"], "rules": arm_store["rules"], "rounds": round_logs}
 
 
 def run_arm(arm, store, soc_name, trace_path, rounds, per_round, prior_history, seed, space_name):
@@ -196,7 +199,7 @@ def run_arm(arm, store, soc_name, trace_path, rounds, per_round, prior_history, 
     arm_store = copy.deepcopy(store)          # every arm starts from the same playbook
     arm_store["bets"] = []                    # ...but with its own empty ledger (learn bets live in report["learn_bets"])
     if arm == "random":
-        return random_arm(problem, rounds * per_round, seed), arm_store
+        return random_arm(problem, rounds * per_round, seed), arm_store, []
     if arm == "textbook":
         # Textbook rules are admitted UNVERIFIED on purpose: this arm measures what
         # prior knowledge alone is worth; the loop's rules must beat it.
@@ -226,7 +229,7 @@ def run_arm(arm, store, soc_name, trace_path, rounds, per_round, prior_history, 
     result = loop.run_loop(problem, rounds, per_round, arm_store, surrogate_gp,
                            use_rules, use_analyst, tag, prior_history=prior, seed=seed,
                            selector=selector)
-    return result["history"], arm_store
+    return result["history"], arm_store, result["rounds"]
 
 
 def simulations_to_target(history, optimum, objective):

@@ -175,29 +175,28 @@ def claim_target(claim, base_knobs, search_space):
 
 def claim_sibling(claim, knobs, baseline_knobs, search_space):
     """The design one claim-step BEHIND `knobs`: knob back at baseline (value
-    claim) or one step against the direction (direction claim). None if `knobs`
-    does not carry the claim at all."""
+    claim) or one step against the direction (direction claim, any adjacent
+    step). None if `knobs` does not carry the claim at all."""
     knob = claim["knob"]
     if is_direction(claim):
         direction = str(claim["value"])
         opposite = "down" if direction == "up" else "up"
-        # knobs must lie on the claimed side of the baseline
+        # Any adjacent step counts, on either side of the baseline: "bigger LLC
+        # helps" is the same claim at 1MB->2MB as at 2MB->4MB. Until Sep 7 only
+        # steps beyond the baseline counted, which made capacity claims untestable
+        # on chips whose budget cannot afford the step above the baseline.
         values = ordered_values(search_space, knob)
         position = None
-        base_position = None
         for index, allowed in enumerate(values):
             if str(allowed) == str(knobs[knob]):
                 position = index
-            if str(allowed) == str(baseline_knobs[knob]):
-                base_position = index
-        if position is None or base_position is None:
+        if position is None:
             return None
-        if direction == "up" and position <= base_position:
-            return None
-        if direction == "down" and position >= base_position:
+        sibling_value = stepped_value(search_space, knob, knobs[knob], opposite)
+        if sibling_value is None:
             return None
         sibling = dict(knobs)
-        sibling[knob] = stepped_value(search_space, knob, knobs[knob], opposite)
+        sibling[knob] = sibling_value
         return sibling
     if str(knobs[knob]) != str(claim["value"]):
         return None
@@ -425,6 +424,51 @@ def hypothesis_priors(hypotheses, candidates, record):
         priors.append({"knobs": candidates[hypothesis["name"]], "value": hypothesis["predicted"],
                        "confidence": hypothesis["confidence"] * credibility})
     return priors
+
+
+def stall_scan_candidate(history, candidates, search_space, surrogate, model, objective):
+    """The architect's move when the search stalls: take the best design so far
+    and change ONE categorical knob to a value nobody has tried yet on this
+    problem (another prefetcher, another replacement policy). Among such
+    designs, the one the surrogate is least sure about. None if every value of
+    every categorical knob has been tried or no such design is in budget.
+
+    Sep 7 autopsy: with two rule priors, EI exploited the SPP + capacity basin
+    for 24 designs and never tried the LLC prefetcher, which was worth +2.7%."""
+    incumbent = None
+    for entry in history:
+        if incumbent is None or entry["metrics"][objective] > incumbent["metrics"][objective]:
+            incumbent = entry
+    if incumbent is None:
+        return None
+    tried = {}
+    for entry in history:
+        for knob, value in entry["knobs"].items():
+            tried.setdefault(knob, set()).add(str(value))
+    scan_names = []
+    scan_knobs = []
+    for knob, values in search_space.items():
+        is_categorical = isinstance(values[0], str)
+        if not is_categorical:
+            continue
+        for value in values:
+            if str(value) in tried.get(knob, set()):
+                continue
+            design = dict(incumbent["knobs"])
+            design[knob] = value
+            for name, knobs in candidates.items():
+                if same_knobs(knobs, design):
+                    scan_names.append(name)
+                    scan_knobs.append(knobs)
+                    break
+    if len(scan_names) == 0:
+        return None
+    means, stds = surrogate.predict_many(model, scan_knobs)
+    best_index = 0
+    for index in range(len(scan_names)):
+        if stds[index] > stds[best_index]:
+            best_index = index
+    return scan_names[best_index]
 
 
 def untested_claim_tests(rules, history, baseline_knobs, candidates, search_space, objective):

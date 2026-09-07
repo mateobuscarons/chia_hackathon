@@ -40,6 +40,11 @@ RESCOPE_AFTER_LOSSES = 3
 MIN_CLAIM_GAIN_PCT = 1.0
 
 
+# One slot per round for an untried categorical value when the last round did
+# not improve the best design. Part of our mechanism (rules / full arms only).
+EXPLORE_ON_STALL = True
+
+
 def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analyst, tag,
              prior_history=None, seed=0, selector="ei"):
     """Returns {"history": [...], "rounds": [...]}; bets land in `store`.
@@ -77,7 +82,9 @@ def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analys
     rescoped_here = set()
     analyst_record = {"wins": 0, "losses": 0}   # the analyst's hypothesis bets on THIS problem
     honest_std = use_rules or use_analyst or selector == "disagreement"   # bets need honest doubt
-
+    # The stall scan is part of OUR mechanism: baselines (bo, bo_pooled) stay textbook.
+    stall_scan_enabled = EXPLORE_ON_STALL and (use_rules or use_analyst)
+    last_round_improved = True     # no stall scan in round 1
     round_logs = []
     for round_number in range(1, rounds + 1):
         rules = forecast.speaking_rules(all_rules, baseline_metrics)
@@ -104,6 +111,29 @@ def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analys
                 test_name, rule_id = owed[0]
                 chosen.append(test_name)
                 claim_test_of[test_name] = rule_id
+            # (d) Right of reply: a silenced analyst (credibility below the floor) keeps
+            # one simulated design per round to bet on, so it can earn its voice back.
+            # Without it one lost bet silenced it for good (Sep 7 autopsy).
+            analyst_silenced = forecast.analyst_credibility(analyst_record) < forecast.CREDIBLE_CONFIDENCE
+            if analyst_silenced and len(hypotheses) > 0 and len(chosen) < per_round:
+                reply = None
+                for hypothesis in hypotheses:
+                    if hypothesis["name"] in chosen or hypothesis["name"] not in candidates:
+                        continue
+                    if reply is None or hypothesis["confidence"] > reply["confidence"]:
+                        reply = hypothesis
+                if reply is not None:
+                    chosen.append(reply["name"])
+                    claim_test_of[reply["name"]] = "reply " + reply["id"]
+            # (a) Stall scan: when the last round brought no improvement, one slot goes
+            # to the incumbent with a never-tried categorical value (see forecast).
+            # It never takes the last slot, so EI always keeps at least one pick.
+            if stall_scan_enabled and not last_round_improved and len(chosen) < per_round - 1:
+                scan_name = forecast.stall_scan_candidate(history, candidates, problem["search_space"],
+                                                          surrogate, model, objective)
+                if scan_name is not None and scan_name not in chosen:
+                    chosen.append(scan_name)
+                    claim_test_of[scan_name] = "stall scan"
             more = forecast.pick_expected_improvement(
                 candidates, surrogate, model, prior_history + history, problem["search_space"],
                 objective, per_round - len(chosen), best_so_far, seed=seed * 1000 + round_number,
@@ -175,7 +205,10 @@ def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analys
         metrics_list = problem["evaluate_many"](knobs_list)
 
         # 3) settle; rules that keep losing here get re-scoped
+        last_round_improved = False
         for name, knobs, metrics in zip(chosen, knobs_list, metrics_list):
+            if metrics[objective] > best_so_far:
+                last_round_improved = True
             history.append({"name": name, "knobs": knobs, "metrics": metrics, "reference": reference})
             del candidates[name]
             for bet_id in bets_by_name[name]:
@@ -197,7 +230,10 @@ def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analys
                     losses_here[rule["id"]] = losses_here.get(rule["id"], 0) + 1
             label = "{} bets".format(len(bets_by_name[name]))
             if name in claim_test_of:
-                label = label + " | claim test for " + claim_test_of[name]
+                if claim_test_of[name].startswith("RULE"):
+                    label = label + " | claim test for " + claim_test_of[name]
+                else:
+                    label = label + " | " + claim_test_of[name]
             print("[{}] round {} | {} | {}={:.4f} | {}".format(
                 tag, round_number, name, objective, metrics[objective], label), flush=True)
 
