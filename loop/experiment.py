@@ -319,7 +319,10 @@ def run_experiment(train_socs, test_soc, traces, rounds, per_round, seeds, outpu
         report["test"][problem["name"]] = {"optimum": in_budget_optimum(problem), "arms": {}}
         for arm in arms:
             report["test"][problem["name"]]["arms"][arm] = {}
-            for seed in range(first_seed, first_seed + seeds):
+        # Seed-major order: the first wave of parallel jobs already covers every arm
+        # on seed 0, so a running experiment shows an early cross-arm comparison.
+        for seed in range(first_seed, first_seed + seeds):
+            for arm in arms:
                 future = pool.submit(run_arm_job, arm, store, test_soc, trace_path,
                                      test_rounds, per_round, prior_history, seed, space_name)
                 futures.append((problem["name"], arm, seed, future))
