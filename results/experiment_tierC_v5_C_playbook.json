@@ -1,0 +1,560 @@
+{
+  "rules": [
+    {
+      "id": "RULE-001",
+      "condition": {
+        "metric": "llc_footprint_ratio",
+        "op": ">=",
+        "value": 5.0
+      },
+      "conditions": [
+        {
+          "metric": "llc_footprint_ratio",
+          "op": ">=",
+          "value": 5.0
+        }
+      ],
+      "claim": {
+        "knob": "llc_sets",
+        "value": "up",
+        "direction": "helps",
+        "gain_pct": 21.059652612679088
+      },
+      "example": "A_mobile/suite-mcf+lbm+omnetpp+xalancbmk: llc_sets up = +21.06% over 4 controlled pair(s)",
+      "text": "When a workload's memory footprint is much larger than the combined L2 and LLC capacity, increasing the number of LLC sets is highly beneficial.",
+      "verification": {
+        "pairs": 4,
+        "llm_gain_pct": 21.06,
+        "problem": "A_mobile/suite-mcf+lbm+omnetpp+xalancbmk"
+      },
+      "origin": [],
+      "wins": 0,
+      "losses": 0,
+      "claim_wins": 0,
+      "claim_losses": 0,
+      "brier_scores": [],
+      "status": "active"
+    },
+    {
+      "id": "RULE-002",
+      "condition": {
+        "metric": "stride_regular_fraction",
+        "op": ">=",
+        "value": 0.2
+      },
+      "conditions": [
+        {
+          "metric": "stride_regular_fraction",
+          "op": ">=",
+          "value": 0.2
+        }
+      ],
+      "claim": {
+        "knob": "l2_prefetcher",
+        "value": "ip_stride",
+        "direction": "helps",
+        "gain_pct": 8.299002675741098
+      },
+      "example": "A_mobile/suite-mcf+lbm+omnetpp+xalancbmk: l2_prefetcher ip_stride = +8.30% over 5 controlled pair(s)",
+      "text": "For workloads with a significant fraction of stride-regular memory accesses, enabling an L2 IP-stride prefetcher improves performance over having no prefetcher.",
+      "verification": {
+        "pairs": 5,
+        "llm_gain_pct": 7.66,
+        "problem": "A_mobile/suite-mcf+lbm+omnetpp+xalancbmk"
+      },
+      "origin": [],
+      "wins": 0,
+      "losses": 0,
+      "claim_wins": 0,
+      "claim_losses": 0,
+      "brier_scores": [],
+      "status": "active"
+    },
+    {
+      "id": "RULE-003",
+      "condition": {
+        "metric": "llc_footprint_ratio",
+        "op": ">=",
+        "value": 5.0
+      },
+      "conditions": [
+        {
+          "metric": "llc_footprint_ratio",
+          "op": ">=",
+          "value": 5.0
+        }
+      ],
+      "claim": {
+        "knob": "llc_replacement",
+        "value": "ship",
+        "direction": "helps",
+        "gain_pct": 7.058352451626064
+      },
+      "example": "A_mobile/suite-mcf+lbm+omnetpp+xalancbmk: llc_replacement ship = +7.06% over 3 controlled pair(s)",
+      "text": "When the workload's memory footprint is much larger than the LLC capacity, a scan-resistant replacement policy like SHIP is more effective than LRU.",
+      "verification": {
+        "pairs": 3,
+        "llm_gain_pct": 7.06,
+        "problem": "A_mobile/suite-mcf+lbm+omnetpp+xalancbmk"
+      },
+      "origin": [],
+      "wins": 0,
+      "losses": 0,
+      "claim_wins": 0,
+      "claim_losses": 0,
+      "brier_scores": [],
+      "status": "active"
+    },
+    {
+      "id": "RULE-004",
+      "condition": {
+        "metric": "l2_footprint_ratio",
+        "op": ">=",
+        "value": 19.0
+      },
+      "conditions": [
+        {
+          "metric": "l2_footprint_ratio",
+          "op": ">=",
+          "value": 19.0
+        }
+      ],
+      "claim": {
+        "knob": "l2_prefetcher",
+        "value": "spp_dev",
+        "direction": "helps",
+        "gain_pct": 9.514394570146223
+      },
+      "example": "B_midrange/suite-mcf+lbm+omnetpp+xalancbmk: l2_prefetcher spp_dev = +9.51% over 5 controlled pair(s)",
+      "text": "For workloads with a large memory footprint that significantly exceeds the L2 cache size, enabling an advanced signature-based L2 prefetcher (spp_dev) provides a substantial performance improvement over no L2 prefetching.",
+      "verification": {
+        "pairs": 5,
+        "llm_gain_pct": 9.51,
+        "problem": "B_midrange/suite-mcf+lbm+omnetpp+xalancbmk"
+      },
+      "origin": [],
+      "wins": 0,
+      "losses": 0,
+      "claim_wins": 0,
+      "claim_losses": 0,
+      "brier_scores": [],
+      "status": "active"
+    },
+    {
+      "id": "RULE-005",
+      "condition": {
+        "metric": "reuse_local_fraction",
+        "op": ">=",
+        "value": 0.85
+      },
+      "conditions": [
+        {
+          "metric": "reuse_local_fraction",
+          "op": ">=",
+          "value": 0.85
+        }
+      ],
+      "claim": {
+        "knob": "llc_replacement",
+        "value": "srrip",
+        "direction": "hurts",
+        "gain_pct": -6.277209172319975
+      },
+      "example": "B_midrange/suite-mcf+lbm+omnetpp+xalancbmk: llc_replacement srrip = -6.28% over 2 controlled pair(s)",
+      "text": "When a workload exhibits high temporal locality, using the SRRIP replacement policy in the LLC can be detrimental compared to LRU, as it may evict useful, soon-to-be-reused data.",
+      "verification": {
+        "pairs": 2,
+        "llm_gain_pct": -6.28,
+        "problem": "B_midrange/suite-mcf+lbm+omnetpp+xalancbmk"
+      },
+      "origin": [],
+      "wins": 0,
+      "losses": 0,
+      "claim_wins": 0,
+      "claim_losses": 0,
+      "brier_scores": [],
+      "status": "active"
+    },
+    {
+      "id": "RULE-006",
+      "condition": {
+        "metric": "stride_regular_fraction",
+        "op": ">=",
+        "value": 0.25
+      },
+      "conditions": [
+        {
+          "metric": "stride_regular_fraction",
+          "op": ">=",
+          "value": 0.25
+        }
+      ],
+      "claim": {
+        "knob": "l2_prefetcher",
+        "value": "ip_stride",
+        "direction": "helps",
+        "gain_pct": 5.38804196169953
+      },
+      "example": "B_midrange/suite-mcf+lbm+omnetpp+xalancbmk: l2_prefetcher ip_stride = +5.39% over 2 controlled pair(s)",
+      "text": "For workloads with a notable fraction of stride-regular memory accesses, enabling an IP-based stride prefetcher in the L2 cache is significantly better than having no L2 prefetcher.",
+      "verification": {
+        "pairs": 2,
+        "llm_gain_pct": 5.09,
+        "problem": "B_midrange/suite-mcf+lbm+omnetpp+xalancbmk"
+      },
+      "origin": [],
+      "wins": 0,
+      "losses": 0,
+      "claim_wins": 0,
+      "claim_losses": 0,
+      "brier_scores": [],
+      "status": "active"
+    }
+  ],
+  "bets": [
+    {
+      "id": "BET-0001",
+      "forecaster": "SURROGATE",
+      "experiment": "A_mobile_l1d_prefetcher-no_l1d_sets-64_l1d_ways-8_l2_mshr-16_l2_prefetcher-next_line_l2_sets-1024_l2_ways-4_llc_mshr-64_llc_prefetcher-no_llc_replacement-lru_llc_sets-2048_llc_ways-8",
+      "event": "ipc >= 0.3442",
+      "probability": 0.3831281139228345,
+      "kind": "dispute",
+      "outcome": false
+    },
+    {
+      "id": "BET-0002",
+      "forecaster": "learn-A_mobile/suite-mcf+lbm+omnetpp+xalancbmk-HYP-r1-2",
+      "experiment": "A_mobile_l1d_prefetcher-no_l1d_sets-64_l1d_ways-8_l2_mshr-16_l2_prefetcher-next_line_l2_sets-1024_l2_ways-4_llc_mshr-64_llc_prefetcher-no_llc_replacement-lru_llc_sets-2048_llc_ways-8",
+      "event": "ipc >= 0.3442",
+      "probability": 0.5379833629750788,
+      "kind": "dispute",
+      "outcome": false
+    },
+    {
+      "id": "BET-0003",
+      "forecaster": "SURROGATE",
+      "experiment": "A_mobile_l1d_prefetcher-no_l1d_sets-64_l1d_ways-8_l2_mshr-16_l2_prefetcher-ip_stride_l2_sets-1024_l2_ways-4_llc_mshr-64_llc_prefetcher-no_llc_replacement-lru_llc_sets-2048_llc_ways-8",
+      "event": "ipc >= 0.2703",
+      "probability": 0.37169202967012316,
+      "kind": "dispute",
+      "outcome": true
+    },
+    {
+      "id": "BET-0004",
+      "forecaster": "learn-A_mobile/suite-mcf+lbm+omnetpp+xalancbmk-HYP-r2-1",
+      "experiment": "A_mobile_l1d_prefetcher-no_l1d_sets-64_l1d_ways-8_l2_mshr-16_l2_prefetcher-ip_stride_l2_sets-1024_l2_ways-4_llc_mshr-64_llc_prefetcher-no_llc_replacement-lru_llc_sets-2048_llc_ways-8",
+      "event": "ipc >= 0.2703",
+      "probability": 0.5256615940659755,
+      "kind": "dispute",
+      "outcome": true
+    },
+    {
+      "id": "BET-0005",
+      "forecaster": "SURROGATE",
+      "experiment": "A_mobile_l1d_prefetcher-no_l1d_sets-64_l1d_ways-8_l2_mshr-16_l2_prefetcher-ip_stride_l2_sets-2048_l2_ways-4_llc_mshr-64_llc_prefetcher-no_llc_replacement-lru_llc_sets-2048_llc_ways-8",
+      "event": "ipc >= 0.3104",
+      "probability": 0.3678994008453157,
+      "kind": "dispute",
+      "outcome": false
+    },
+    {
+      "id": "BET-0006",
+      "forecaster": "learn-A_mobile/suite-mcf+lbm+omnetpp+xalancbmk-HYP-r3-1",
+      "experiment": "A_mobile_l1d_prefetcher-no_l1d_sets-64_l1d_ways-8_l2_mshr-16_l2_prefetcher-ip_stride_l2_sets-2048_l2_ways-4_llc_mshr-64_llc_prefetcher-no_llc_replacement-lru_llc_sets-2048_llc_ways-8",
+      "event": "ipc >= 0.3104",
+      "probability": 0.5462352097041395,
+      "kind": "dispute",
+      "outcome": false
+    },
+    {
+      "id": "BET-0007",
+      "forecaster": "SURROGATE",
+      "experiment": "A_mobile_l1d_prefetcher-no_l1d_sets-64_l1d_ways-8_l2_mshr-16_l2_prefetcher-ip_stride_l2_sets-2048_l2_ways-4_llc_mshr-64_llc_prefetcher-no_llc_replacement-ship_llc_sets-2048_llc_ways-8",
+      "event": "ipc >= 0.2894",
+      "probability": 0.366598817692559,
+      "kind": "dispute",
+      "outcome": true
+    },
+    {
+      "id": "BET-0008",
+      "forecaster": "learn-A_mobile/suite-mcf+lbm+omnetpp+xalancbmk-HYP-r4-2",
+      "experiment": "A_mobile_l1d_prefetcher-no_l1d_sets-64_l1d_ways-8_l2_mshr-16_l2_prefetcher-ip_stride_l2_sets-2048_l2_ways-4_llc_mshr-64_llc_prefetcher-no_llc_replacement-ship_llc_sets-2048_llc_ways-8",
+      "event": "ipc >= 0.2894",
+      "probability": 0.5320162837537858,
+      "kind": "dispute",
+      "outcome": true
+    },
+    {
+      "id": "BET-0009",
+      "forecaster": "SURROGATE",
+      "experiment": "A_mobile_l1d_prefetcher-no_l1d_sets-64_l1d_ways-8_l2_mshr-16_l2_prefetcher-ip_stride_l2_sets-2048_l2_ways-8_llc_mshr-64_llc_prefetcher-no_llc_replacement-ship_llc_sets-2048_llc_ways-8",
+      "event": "ipc >= 0.3255",
+      "probability": 0.40942466214705975,
+      "kind": "dispute",
+      "outcome": true
+    },
+    {
+      "id": "BET-0010",
+      "forecaster": "learn-A_mobile/suite-mcf+lbm+omnetpp+xalancbmk-HYP-r5-1",
+      "experiment": "A_mobile_l1d_prefetcher-no_l1d_sets-64_l1d_ways-8_l2_mshr-16_l2_prefetcher-ip_stride_l2_sets-2048_l2_ways-8_llc_mshr-64_llc_prefetcher-no_llc_replacement-ship_llc_sets-2048_llc_ways-8",
+      "event": "ipc >= 0.3255",
+      "probability": 0.5317013682485289,
+      "kind": "dispute",
+      "outcome": true
+    },
+    {
+      "id": "BET-0011",
+      "forecaster": "SURROGATE",
+      "experiment": "B_midrange_l1d_prefetcher-no_l1d_sets-64_l1d_ways-12_l2_mshr-32_l2_prefetcher-ip_stride_l2_sets-1024_l2_ways-8_llc_mshr-64_llc_prefetcher-no_llc_replacement-lru_llc_sets-2048_llc_ways-16",
+      "event": "ipc >= 0.6108",
+      "probability": 0.3822904293302263,
+      "kind": "dispute",
+      "outcome": false
+    },
+    {
+      "id": "BET-0012",
+      "forecaster": "learn-B_midrange/suite-mcf+lbm+omnetpp+xalancbmk-HYP-r1-2",
+      "experiment": "B_midrange_l1d_prefetcher-no_l1d_sets-64_l1d_ways-12_l2_mshr-32_l2_prefetcher-ip_stride_l2_sets-1024_l2_ways-8_llc_mshr-64_llc_prefetcher-no_llc_replacement-lru_llc_sets-2048_llc_ways-16",
+      "event": "ipc >= 0.6108",
+      "probability": 0.5323701319341874,
+      "kind": "dispute",
+      "outcome": false
+    },
+    {
+      "id": "BET-0013",
+      "forecaster": "SURROGATE",
+      "experiment": "B_midrange_l1d_prefetcher-no_l1d_sets-64_l1d_ways-12_l2_mshr-32_l2_prefetcher-ip_stride_l2_sets-2048_l2_ways-8_llc_mshr-64_llc_prefetcher-no_llc_replacement-lru_llc_sets-2048_llc_ways-16",
+      "event": "ipc >= 0.5646",
+      "probability": 0.21492318721038783,
+      "kind": "dispute",
+      "outcome": false
+    },
+    {
+      "id": "BET-0014",
+      "forecaster": "learn-B_midrange/suite-mcf+lbm+omnetpp+xalancbmk-HYP-r2-2",
+      "experiment": "B_midrange_l1d_prefetcher-no_l1d_sets-64_l1d_ways-12_l2_mshr-32_l2_prefetcher-ip_stride_l2_sets-2048_l2_ways-8_llc_mshr-64_llc_prefetcher-no_llc_replacement-lru_llc_sets-2048_llc_ways-16",
+      "event": "ipc >= 0.5646",
+      "probability": 0.5665179229842429,
+      "kind": "dispute",
+      "outcome": false
+    },
+    {
+      "id": "BET-0015",
+      "forecaster": "SURROGATE",
+      "experiment": "B_midrange_l1d_prefetcher-no_l1d_sets-64_l1d_ways-12_l2_mshr-32_l2_prefetcher-ip_stride_l2_sets-1024_l2_ways-8_llc_mshr-64_llc_prefetcher-next_line_llc_replacement-lru_llc_sets-2048_llc_ways-16",
+      "event": "ipc >= 0.5579",
+      "probability": 0.24910338077871508,
+      "kind": "dispute",
+      "outcome": true
+    },
+    {
+      "id": "BET-0016",
+      "forecaster": "learn-B_midrange/suite-mcf+lbm+omnetpp+xalancbmk-HYP-r3-2",
+      "experiment": "B_midrange_l1d_prefetcher-no_l1d_sets-64_l1d_ways-12_l2_mshr-32_l2_prefetcher-ip_stride_l2_sets-1024_l2_ways-8_llc_mshr-64_llc_prefetcher-next_line_llc_replacement-lru_llc_sets-2048_llc_ways-16",
+      "event": "ipc >= 0.5579",
+      "probability": 0.5439069083637248,
+      "kind": "dispute",
+      "outcome": true
+    },
+    {
+      "id": "BET-0017",
+      "forecaster": "SURROGATE",
+      "experiment": "B_midrange_l1d_prefetcher-no_l1d_sets-64_l1d_ways-12_l2_mshr-32_l2_prefetcher-ip_stride_l2_sets-1024_l2_ways-8_llc_mshr-64_llc_prefetcher-next_line_llc_replacement-srrip_llc_sets-2048_llc_ways-16",
+      "event": "ipc >= 0.5668",
+      "probability": 0.2233063628551204,
+      "kind": "dispute",
+      "outcome": false
+    },
+    {
+      "id": "BET-0018",
+      "forecaster": "learn-B_midrange/suite-mcf+lbm+omnetpp+xalancbmk-HYP-r4-2",
+      "experiment": "B_midrange_l1d_prefetcher-no_l1d_sets-64_l1d_ways-12_l2_mshr-32_l2_prefetcher-ip_stride_l2_sets-1024_l2_ways-8_llc_mshr-64_llc_prefetcher-next_line_llc_replacement-srrip_llc_sets-2048_llc_ways-16",
+      "event": "ipc >= 0.5668",
+      "probability": 0.5774742184005662,
+      "kind": "dispute",
+      "outcome": false
+    },
+    {
+      "id": "BET-0019",
+      "forecaster": "SURROGATE",
+      "experiment": "B_midrange_l1d_prefetcher-no_l1d_sets-64_l1d_ways-12_l2_mshr-32_l2_prefetcher-ip_stride_l2_sets-1024_l2_ways-8_llc_mshr-128_llc_prefetcher-next_line_llc_replacement-lru_llc_sets-2048_llc_ways-16",
+      "event": "ipc >= 0.5784",
+      "probability": 0.22169804386373315,
+      "kind": "dispute",
+      "outcome": false
+    },
+    {
+      "id": "BET-0020",
+      "forecaster": "learn-B_midrange/suite-mcf+lbm+omnetpp+xalancbmk-HYP-r5-2",
+      "experiment": "B_midrange_l1d_prefetcher-no_l1d_sets-64_l1d_ways-12_l2_mshr-32_l2_prefetcher-ip_stride_l2_sets-1024_l2_ways-8_llc_mshr-128_llc_prefetcher-next_line_llc_replacement-lru_llc_sets-2048_llc_ways-16",
+      "event": "ipc >= 0.5784",
+      "probability": 0.5649371230984623,
+      "kind": "dispute",
+      "outcome": false
+    },
+    {
+      "id": "BET-0021",
+      "forecaster": "SURROGATE",
+      "experiment": "B_midrange_l1d_prefetcher-no_l1d_sets-64_l1d_ways-12_l2_mshr-32_l2_prefetcher-spp_dev_l2_sets-1024_l2_ways-8_llc_mshr-64_llc_prefetcher-next_line_llc_replacement-lru_llc_sets-2048_llc_ways-16",
+      "event": "ipc >= 0.5691",
+      "probability": 0.2205306682715562,
+      "kind": "dispute",
+      "outcome": true
+    },
+    {
+      "id": "BET-0022",
+      "forecaster": "learn-B_midrange/suite-mcf+lbm+omnetpp+xalancbmk-HYP-r6-1",
+      "experiment": "B_midrange_l1d_prefetcher-no_l1d_sets-64_l1d_ways-12_l2_mshr-32_l2_prefetcher-spp_dev_l2_sets-1024_l2_ways-8_llc_mshr-64_llc_prefetcher-next_line_llc_replacement-lru_llc_sets-2048_llc_ways-16",
+      "event": "ipc >= 0.5691",
+      "probability": 0.555893866345689,
+      "kind": "dispute",
+      "outcome": true
+    },
+    {
+      "id": "BET-0023",
+      "forecaster": "SURROGATE",
+      "experiment": "B_midrange_l1d_prefetcher-no_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-spp_dev_l2_sets-1024_l2_ways-8_llc_mshr-128_llc_prefetcher-next_line_llc_replacement-lru_llc_sets-2048_llc_ways-16",
+      "event": "ipc >= 0.5858",
+      "probability": 0.2796289014736384,
+      "kind": "dispute",
+      "outcome": false
+    },
+    {
+      "id": "BET-0024",
+      "forecaster": "learn-B_midrange/suite-mcf+lbm+omnetpp+xalancbmk-HYP-r7-1",
+      "experiment": "B_midrange_l1d_prefetcher-no_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-spp_dev_l2_sets-1024_l2_ways-8_llc_mshr-128_llc_prefetcher-next_line_llc_replacement-lru_llc_sets-2048_llc_ways-16",
+      "event": "ipc >= 0.5858",
+      "probability": 0.5578474133631706,
+      "kind": "dispute",
+      "outcome": false
+    },
+    {
+      "id": "BET-0025",
+      "forecaster": "SURROGATE",
+      "experiment": "B_midrange_l1d_prefetcher-no_l1d_sets-64_l1d_ways-12_l2_mshr-32_l2_prefetcher-next_line_l2_sets-1024_l2_ways-8_llc_mshr-64_llc_prefetcher-next_line_llc_replacement-lru_llc_sets-2048_llc_ways-16",
+      "event": "ipc >= 0.5772",
+      "probability": 0.2991143070285608,
+      "kind": "dispute",
+      "outcome": false
+    },
+    {
+      "id": "BET-0026",
+      "forecaster": "learn-B_midrange/suite-mcf+lbm+omnetpp+xalancbmk-HYP-r8-1",
+      "experiment": "B_midrange_l1d_prefetcher-no_l1d_sets-64_l1d_ways-12_l2_mshr-32_l2_prefetcher-next_line_l2_sets-1024_l2_ways-8_llc_mshr-64_llc_prefetcher-next_line_llc_replacement-lru_llc_sets-2048_llc_ways-16",
+      "event": "ipc >= 0.5772",
+      "probability": 0.5401771385942878,
+      "kind": "dispute",
+      "outcome": false
+    },
+    {
+      "id": "BET-0027",
+      "forecaster": "SURROGATE",
+      "experiment": "B_midrange_l1d_prefetcher-no_l1d_sets-64_l1d_ways-12_l2_mshr-32_l2_prefetcher-spp_dev_l2_sets-2048_l2_ways-8_llc_mshr-64_llc_prefetcher-next_line_llc_replacement-lru_llc_sets-2048_llc_ways-16",
+      "event": "ipc >= 0.5853",
+      "probability": 0.1869841355269326,
+      "kind": "dispute",
+      "outcome": false
+    },
+    {
+      "id": "BET-0028",
+      "forecaster": "learn-B_midrange/suite-mcf+lbm+omnetpp+xalancbmk-HYP-r9-1",
+      "experiment": "B_midrange_l1d_prefetcher-no_l1d_sets-64_l1d_ways-12_l2_mshr-32_l2_prefetcher-spp_dev_l2_sets-2048_l2_ways-8_llc_mshr-64_llc_prefetcher-next_line_llc_replacement-lru_llc_sets-2048_llc_ways-16",
+      "event": "ipc >= 0.5853",
+      "probability": 0.5657333315393446,
+      "kind": "dispute",
+      "outcome": false
+    },
+    {
+      "id": "BET-0029",
+      "forecaster": "SURROGATE",
+      "experiment": "B_midrange_l1d_prefetcher-no_l1d_sets-64_l1d_ways-12_l2_mshr-32_l2_prefetcher-no_l2_sets-1024_l2_ways-8_llc_mshr-64_llc_prefetcher-next_line_llc_replacement-lru_llc_sets-2048_llc_ways-16",
+      "event": "ipc >= 0.5500",
+      "probability": 0.7645787953036326,
+      "kind": "dispute",
+      "outcome": true
+    },
+    {
+      "id": "BET-0030",
+      "forecaster": "learn-B_midrange/suite-mcf+lbm+omnetpp+xalancbmk-HYP-r10-2",
+      "experiment": "B_midrange_l1d_prefetcher-no_l1d_sets-64_l1d_ways-12_l2_mshr-32_l2_prefetcher-no_l2_sets-1024_l2_ways-8_llc_mshr-64_llc_prefetcher-next_line_llc_replacement-lru_llc_sets-2048_llc_ways-16",
+      "event": "ipc >= 0.5500",
+      "probability": 0.442273717388298,
+      "kind": "dispute",
+      "outcome": true
+    }
+  ],
+  "rejected_rules": [
+    {
+      "text": "When a workload exhibits stride-regular memory access, an IP-stride L2 prefetcher is more effective than a simple next-line prefetcher.",
+      "conditions": [
+        {
+          "metric": "stride_regular_fraction",
+          "op": ">=",
+          "value": 0.2
+        }
+      ],
+      "claim": {
+        "knob": "l2_prefetcher",
+        "value": "ip_stride",
+        "direction": "helps",
+        "gain_pct": 5.28
+      },
+      "example": "A_mobile: 0.2788 -> 0.2956",
+      "reason": "duplicate claim"
+    },
+    {
+      "text": "When a workload has a very high rate of memory accesses, disabling the L1D next-line prefetcher can improve performance by reducing memory system contention.",
+      "conditions": [
+        {
+          "metric": "mem_accesses_per_kinstr",
+          "op": ">=",
+          "value": 400
+        }
+      ],
+      "claim": {
+        "knob": "l1d_prefetcher",
+        "value": "no",
+        "direction": "helps",
+        "gain_pct": 5.12
+      },
+      "example": "A_mobile: 0.3232 -> 0.3379",
+      "reason": "malformed"
+    },
+    {
+      "text": "When a workload's memory access patterns are not purely sequential, upgrading the L2 prefetcher from a simple next-line to a more complex signature-based one like spp_dev yields a solid performance gain.",
+      "conditions": [
+        {
+          "metric": "stride_regular_fraction",
+          "op": "<",
+          "value": 0.3
+        }
+      ],
+      "claim": {
+        "knob": "l2_prefetcher",
+        "value": "spp_dev",
+        "direction": "helps",
+        "gain_pct": 5.02
+      },
+      "example": "B_midrange/suite-mcf+lbm+omnetpp+xalancbmk: 0.5554 -> 0.5815",
+      "reason": "duplicate claim"
+    },
+    {
+      "text": "If a workload has a large memory footprint, reducing L2 cache associativity significantly degrades performance due to increased conflict misses.",
+      "conditions": [
+        {
+          "metric": "l2_footprint_ratio",
+          "op": ">=",
+          "value": 19
+        }
+      ],
+      "claim": {
+        "knob": "l2_ways",
+        "value": "down",
+        "direction": "hurts",
+        "gain_pct": 1.68
+      },
+      "example": "B_midrange/suite-mcf+lbm+omnetpp+xalancbmk: 0.5536 -> 0.5441",
+      "reason": "measured gain -0.18% below 1.0%"
+    }
+  ]
+}
