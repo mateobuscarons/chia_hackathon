@@ -8,6 +8,7 @@ affordable and "% of true optimum" claims stay rigorous.
 import itertools
 import json
 import os
+import threading
 
 from loop.socs import apply_profile, AREA_BUDGET_KB
 
@@ -148,6 +149,11 @@ def make_config(knobs, soc_name, base_config_path, output_dir, space_name=None):
 
     os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir, name + ".json")
-    with open(output_path, "w") as output_file:
+    # Suite problems evaluate one design on several workloads at once, so two
+    # threads write this same file together: write a private temp file and
+    # rename it, so a reader never sees a half-written (empty) config.
+    temp_path = "{}.{}.{}.tmp".format(output_path, os.getpid(), threading.get_ident())
+    with open(temp_path, "w") as output_file:
         json.dump(config, output_file, indent=2)
+    os.replace(temp_path, output_path)
     return output_path

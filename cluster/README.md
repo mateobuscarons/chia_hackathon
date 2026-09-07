@@ -7,8 +7,13 @@ CHIA-integration story, see the end of this file).
 ## One VM for the hard tier (Tier C)
 
 Project `project-c23a6080-f5d0-4871-9cb`. No spot quota (PREEMPTIBLE_CPUS = 0), so
-the VM is on-demand: c2d-standard-56 (~$2.5/h) or n2-standard-64 (~$3.1/h).
-europe-west1-b had no c2d stock on Sep 4; try europe-west4-a, then us-central1-a.
+the VM is on-demand. The project-wide cap is **32 vCPUs** (CPUS-ALL-REGIONS, found
+Sep 7; the per-region C2D quota of 100 is not the binding one), so the biggest VM is
+c2d-standard-32 (~$1.5/h). europe-west4-a had stock on Sep 7.
+
+The analyst calls Gemini through Vertex AI with the VM's default service account,
+which needs `roles/aiplatform.user` once per project (granted Sep 7):
+`gcloud projects add-iam-policy-binding $P --member=serviceAccount:<project-number>-compute@developer.gserviceaccount.com --role=roles/aiplatform.user`
 
 Auth on the Mac: `gcloud auth login` (or reuse ADC with
 `--access-token-file=<(gcloud auth application-default print-access-token)`).
@@ -17,16 +22,16 @@ Auth on the Mac: `gcloud auth login` (or reuse ADC with
 P=project-c23a6080-f5d0-4871-9cb; Z=europe-west4-a; VM=champsim-1
 # 1. create (retry another zone on "stockout")
 gcloud compute instances create $VM --project $P --zone $Z \
-  --machine-type c2d-standard-56 --image-family debian-12 --image-project debian-cloud \
+  --machine-type c2d-standard-32 --image-family debian-12 --image-project debian-cloud \
   --boot-disk-size 200GB --boot-disk-type pd-balanced --scopes cloud-platform
 # 2. sync the repo (code only; tables are the result cache and are worth carrying)
 gcloud compute scp --project $P --zone $Z --recurse \
   loop cluster upstream $VM:~/hackathon/
 # 3. bootstrap: ChampSim + 12 build trees + traces (~30-45 min)
-gcloud compute ssh $VM --project $P --zone $Z --command 'cd ~/hackathon && mkdir -p results && bash cluster/vm_bootstrap.sh'
+gcloud compute ssh $VM --project $P --zone $Z --command 'cd ~/hackathon && mkdir -p results && TREES=8 nohup bash cluster/vm_bootstrap.sh > bootstrap.log 2>&1 &'
 # 4. run (detached; the VM keeps running if the Mac sleeps)
 gcloud compute ssh $VM --project $P --zone $Z --command \
-  'cd ~/hackathon && PARALLEL_RUNS=6 SIM_THREADS=8 CHAMPSIM_BUILD_SHARE=6 nohup .venv/bin/python -m loop.run C tierC > results/tierC.log 2>&1 &'
+  'cd ~/hackathon && PARALLEL_RUNS=4 SIM_THREADS=8 CHAMPSIM_BUILD_SHARE=4 nohup .venv/bin/python -m loop.run C tierC > results/tierC.log 2>&1 &'
 # 5. watch / fetch
 gcloud compute ssh $VM --project $P --zone $Z --command 'cd ~/hackathon && .venv/bin/python -m loop.early results/experiment_tierC_C.json results/tierC.log'
 gcloud compute scp --project $P --zone $Z --recurse $VM:~/hackathon/results ./results_vm
@@ -40,8 +45,8 @@ builds run in parallel across the `champsim_N` tree copies (`TREES` in the
 bootstrap, capped by `CHAMPSIM_TREES`), each `make -j(nproc/CHAMPSIM_BUILD_SHARE)`.
 
 Cost/time estimate for the PoC (4 workloads, 5 arms, 3 seeds, 24 designs):
-~1,400 simulations + ~350 builds; ~4 h on 56 vCPUs including bootstrap;
-~$12 compute + ~$2 LLM.
+~1,400 simulations + ~350 builds; ~4 h on 56 vCPUs or ~6-7 h on 32 vCPUs
+including bootstrap; ~$10-12 compute + ~$2 LLM either way.
 
 ## CHIA cluster (`gcp.yaml`)
 
