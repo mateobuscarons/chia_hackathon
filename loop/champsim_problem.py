@@ -234,7 +234,7 @@ def make_problem(soc_name, trace_path, allow_simulation=True, dispatch=None, spa
         "objective": "ipc",
         "table_metrics": ["ipc", "L1D_mpki", "L2C_mpki", "LLC_mpki", "LLC_hit_ratio"],
         # Rule conditions must describe the WORKLOAD, not the chip: they are checked
-        # on `descriptors` (the fingerprint), never on the chip's own runs.
+        # on `descriptors`, never on the chip's own runs.
         "condition_metrics": condition_metrics,
         "descriptors": descriptors,
         "holder": holder,
@@ -293,7 +293,7 @@ def make_suite_problem(soc_name, trace_paths, allow_simulation=True, dispatch=No
     for short in short_names:
         table_metrics.append(short + ":ipc")
     table_metrics = table_metrics + ["L2C_mpki", "LLC_mpki", "LLC_hit_ratio"]
-    # Suite descriptors: mean and max of each workload's fingerprint metric.
+    # Suite descriptors: mean and max of each workload's descriptor.
     base_metrics = list(first["condition_metrics"])
     condition_metrics = list(base_metrics)
     for metric in base_metrics:

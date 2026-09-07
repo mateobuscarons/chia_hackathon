@@ -89,42 +89,6 @@ def speaking_rules(rules, baseline_metrics):
     return speaking
 
 
-def silent_rules(rules, baseline_metrics):
-    """Credible rules whose condition does NOT hold on this chip. They neither
-    forecast nor warm-start the surrogate here, but each may claim ONE test on
-    this chip (see loop.run_loop): the simulator, not the threshold the LLM wrote
-    on another chip, decides whether the effect exists here."""
-    silent = []
-    for rule in rules:
-        if not rule_is_credible(rule):
-            continue
-        if rule_applies(rule, baseline_metrics):
-            continue
-        silent.append(rule)
-    return silent
-
-
-def widened_clauses(clauses, baseline_metrics):
-    """The mirror of tightening: every clause that fails on this chip is moved
-    just past this chip's value so the rule applies here; clauses that already
-    hold are kept. Used when a silent rule's claim test wins on this chip."""
-    widened = []
-    for clause in clauses:
-        if clause_holds(clause, baseline_metrics):
-            widened.append(dict(clause))
-            continue
-        chip_value = baseline_metrics[clause["metric"]]
-        new_clause = dict(clause)
-        if clause["op"] in [">=", ">"]:
-            new_clause["op"] = ">="
-            new_clause["value"] = chip_value
-        else:
-            new_clause["op"] = "<"
-            new_clause["value"] = chip_value + abs(chip_value) * 0.001 + 1e-6
-        widened.append(new_clause)
-    return widened
-
-
 def sibling_knobs(knobs, knob, baseline_value):
     """The candidate with one knob put back to its baseline value."""
     sibling = dict(knobs)
@@ -341,42 +305,6 @@ def gather_forecasts(candidates, surrogate, model, rules, hypotheses, baseline_k
         if hypothesis["name"] in forecasts:
             forecasts[hypothesis["name"]]["opinions"].append((hypothesis["id"], hypothesis["predicted"]))
     return forecasts
-
-
-def disagreement(entry, best_so_far):
-    """Spread between the most optimistic and most pessimistic forecaster, plus
-    surrogate doubt, plus how much the optimist expects to beat the best so far,
-    plus a bonus when the run settles a rule's claim as a controlled comparison.
-
-    The promise term keeps the loop from spending runs on "is this config terrible
-    or merely bad?" - a dispute nobody needs settled. The claim-test bonus makes
-    the loop prefer runs whose outcome is attributable to one knob: those are the
-    bets that can re-scope or confirm a rule.
-    """
-    values = []
-    for _, predicted in entry["opinions"]:
-        values.append(predicted)
-    spread = max(values) - min(values)
-    promise = max(0.0, max(values) - best_so_far)
-    claim_bonus = 0.0
-    if len(entry["claim_tests"]) > 0:
-        claim_bonus = CLAIM_TEST_BONUS_FRACTION * abs(best_so_far)
-    return spread + entry["surrogate_std"] + promise + claim_bonus
-
-
-def pick_most_disagreed(forecasts, how_many, best_so_far, seed=0):
-    """Ties (e.g. every candidate equal after only the baseline run) are broken
-    at random with the given seed, never by config name."""
-    names = list(forecasts.keys())
-    random.Random(seed).shuffle(names)
-    scored = []
-    for position, name in enumerate(names):
-        scored.append((disagreement(forecasts[name], best_so_far), -position, name))
-    scored.sort(reverse=True)
-    chosen = []
-    for score, position, name in scored[:how_many]:
-        chosen.append(name)
-    return chosen
 
 
 def expected_improvement(mean, std, best_so_far):

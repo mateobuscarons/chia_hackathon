@@ -1,6 +1,6 @@
 """Smoke test: the WHOLE experiment on a tiny budget. Nothing big launches until this passes.
 
-Runs learn (one SoC, one trace) + all seven arms on another SoC, 2 rounds, 1 seed,
+Runs learn (one SoC, one trace) + every arm on another SoC, 2 rounds, 1 seed,
 then asserts every arm produced a result and no parallel job failed. ~1 minute, ~$0.05.
 """
 
@@ -10,12 +10,11 @@ from loop import experiment
 
 OUTPUT = "results/smoke.json"
 
-TIER_B_ARMS = ["random", "bo", "bo_pooled", "surrogate", "rules", "full"]
 
 if __name__ == "__main__":
     import sys
     space_name = sys.argv[1] if len(sys.argv) > 1 else "A"
-    arms = experiment.ARMS if space_name == "A" else TIER_B_ARMS
+    arms = experiment.ARMS
     rounds = 2 if space_name == "A" else 1          # Tiers B/C simulate for real: keep it tiny
     traces = ["traces/605.mcf_s-665B.champsimtrace.xz"]
     suite = False

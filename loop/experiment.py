@@ -4,14 +4,12 @@ Arms on the target SoC (same simulation cap for all):
   random          - shuffle the candidates, run them in order
   bo              - textbook Bayesian optimisation: GP + expected improvement (cold start)
   bo_pooled       - the same BO warm-started with every A/B run (statistical transfer)
-  surrogate       - our disagreement selector with the GP alone (ablation, no rules)
-  surrogate_pooled- the same, GP warm-started with every A/B run
   textbook        - GP + rules the LLM wrote BEFORE seeing any result
   rules           - GP + rules distilled from A/B (rule transfer, no LLM in the loop)
-  analyst         - GP + LLM hypotheses, no rules (LLM cold start)
   full            - GP + distilled rules + LLM hypotheses (the whole loop)
-The metric is simulations-to-target: how many runs until best-so-far
-captures 90% of the gap between baseline and the in-budget optimum (dense sweep).
+The metric is designs-to-target: how many designs until best-so-far captures
+90% of the gap between the baseline and the best design any arm found (or the
+in-budget optimum when a dense sweep exists).
 """
 
 import copy
@@ -218,24 +216,19 @@ def run_arm(arm, store, soc_name, trace_path, rounds, per_round, prior_history, 
                 playbook.add_rule(arm_store, clauses[0], rule["claim"], rule["example"], rule["text"],
                                   conditions=clauses, verification={"pairs": 0, "llm_gain_pct": rule["claim"]["gain_pct"]})
     prior = []
-    if arm in ["surrogate_pooled", "bo_pooled"]:
+    if arm == "bo_pooled":
         prior = prior_history
         problem["search_space"] = dict(problem["search_space"], soc=["A_mobile", "B_midrange", "C_server"])
         for name in problem["candidates"]:
             problem["candidates"][name] = dict(problem["candidates"][name], soc=soc_name)
         problem["baseline"] = dict(problem["baseline"], soc=soc_name)
     use_rules = arm in ["textbook", "rules", "full"]
-    use_analyst = arm in ["analyst", "full"]
-    # v4: every model-driven arm selects by expected improvement; the difference
-    # between arms is what warms the surrogate and who bets. The two "surrogate"
-    # arms keep the v2/v3 disagreement selector as an ablation.
-    selector = "ei"
-    if arm in ["surrogate", "surrogate_pooled"]:
-        selector = "disagreement"
+    use_analyst = arm == "full"
+    # Every model-driven arm selects by expected improvement; the difference
+    # between arms is what warms the surrogate and who bets.
     tag = "{}-{}-s{}".format(arm, problem["name"], seed)
     result = loop.run_loop(problem, rounds, per_round, arm_store, surrogate_gp,
-                           use_rules, use_analyst, tag, prior_history=prior, seed=seed,
-                           selector=selector)
+                           use_rules, use_analyst, tag, prior_history=prior, seed=seed)
     return result["history"], arm_store, result["rounds"]
 
 
@@ -274,7 +267,7 @@ def in_budget_optimum(problem):
     return best
 
 
-ARMS = ["random", "bo", "bo_pooled", "surrogate", "surrogate_pooled", "textbook", "rules", "analyst", "full"]
+ARMS = ["random", "bo", "bo_pooled", "textbook", "rules", "full"]
 
 
 def compact(history, objective):

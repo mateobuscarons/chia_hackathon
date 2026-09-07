@@ -29,7 +29,6 @@ Mechanism v3 ("rules earn their bets"):
 """
 
 import json
-import os
 
 from loop import analyst, forecast, playbook
 from loop.surrogate_gp import normal_tail
@@ -44,16 +43,10 @@ MIN_CLAIM_GAIN_PCT = 1.0
 # One slot per round for an untried categorical value when the last round did
 # not improve the best design. Part of our mechanism (rules / full arms only).
 EXPLORE_ON_STALL = True
-# One claim test per chip for a rule whose condition fails here, widening the
-# condition when the test wins. Off by default since conditions moved to
-# chip-independent descriptors (v5): a silent rule should be silent for the right
-# reason, and the test cost designs and muddled attribution. SILENT_RULE_TESTS=1
-# turns it back on for an ablation.
-SILENT_RULE_TESTS = os.environ.get("SILENT_RULE_TESTS", "0") == "1"
 
 
 def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analyst, tag,
-             prior_history=None, seed=0, selector="ei"):
+             prior_history=None, seed=0):
     """Returns {"history": [...], "rounds": [...]}; bets land in `store`.
 
     surrogate:   module with fit / predict_many / probability_at_least
@@ -62,13 +55,12 @@ def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analys
     tag:         prefix for hypothesis ids so arms can be told apart in the ledger
     prior_history: runs from OTHER designs the surrogate may learn from
                  (pooled transfer); they never count as simulations
-    selector:    "ei" - expected improvement over a GP that carries every
-                 forecaster's belief as a prior; one slot per round goes to an
-                 owed claim test (baseline + one knob) while credible rules have
-                 untested claims here. Textbook BO is the special case with no
-                 rules and no analyst.
-                 "disagreement" - v2/v3 selector (spread + doubt + promise), kept
-                 as an ablation of the acquisition function.
+    Selection: expected improvement over a GP that carries every forecaster's
+    belief as a prior; one slot per round goes to an owed claim test (baseline +
+    one knob) while credible rules have untested claims here; a silenced analyst
+    keeps one design to bet on; when the last round brought no improvement, one
+    slot scans an untried neighbour of the incumbent (rules / full arms only).
+    Textbook BO is the special case with no rules and no analyst.
     """
     if prior_history is None:
         prior_history = []
@@ -77,7 +69,7 @@ def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analys
     baseline_name = name_of(problem, problem["baseline"])
     baseline_metrics = problem["evaluate"](problem["baseline"])
     reference = baseline_metrics[objective]
-    # Conditions are checked on the workload fingerprint (chip-independent); the
+    # Conditions are checked on the workload descriptors (chip-independent); the
     # chip's own baseline run stays the reference for values and forecasts.
     descriptors = problem.get("descriptors")
     if descriptors is None:
@@ -93,11 +85,10 @@ def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analys
     wins_here = {}
     rescoped_here = set()
     analyst_record = {"wins": 0, "losses": 0}   # the analyst's hypothesis bets on THIS problem
-    honest_std = use_rules or use_analyst or selector == "disagreement"   # bets need honest doubt
+    honest_std = use_rules or use_analyst   # bets need honest doubt
     # The stall scan is part of OUR mechanism: baselines (bo, bo_pooled) stay textbook.
     stall_scan_enabled = EXPLORE_ON_STALL and (use_rules or use_analyst)
     last_round_improved = True     # no stall scan in round 1
-    silent_tested = set()          # silent rules that already had their one claim test here
     round_logs = []
     for round_number in range(1, rounds + 1):
         rules = forecast.speaking_rules(all_rules, descriptors)
@@ -116,77 +107,50 @@ def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analys
 
         chosen = []
         claim_test_of = {}
-        silent_test_rule = None      # set only by the EI selector below
-        silent_test_name = None
-        if selector == "ei":
-            # One slot for the most valuable owed claim test, the rest by expected improvement.
-            owed = forecast.untested_claim_tests(rules, history, problem["baseline"], candidates,
-                                                problem["search_space"], objective)
-            if len(owed) > 0 and per_round > 1:
-                test_name, rule_id = owed[0]
-                chosen.append(test_name)
-                claim_test_of[test_name] = rule_id
-            # Silent rules: a credible rule whose condition fails on this chip still
-            # gets ONE claim test here (its threshold came from another chip's metric
-            # regime; Sep 7 seed 1: the LLC-prefetcher rule was right on C but silent).
-            # A won test widens the condition to include this chip; a lost one leaves
-            # the rule silent, as its condition said.
-            if SILENT_RULE_TESTS and len(chosen) == 0 and per_round > 1 and use_rules:
-                untested_silent = []
-                for rule in forecast.silent_rules(all_rules, descriptors):
-                    if rule["id"] not in silent_tested:
-                        untested_silent.append(rule)
-                owed_silent = forecast.untested_claim_tests(untested_silent, history, problem["baseline"],
-                                                            candidates, problem["search_space"], objective)
-                if len(owed_silent) > 0:
-                    silent_test_name, rule_id = owed_silent[0]
-                    chosen.append(silent_test_name)
-                    claim_test_of[silent_test_name] = "silent-rule test " + rule_id
-                    silent_tested.add(rule_id)
-                    silent_test_rule = rule_by_id(all_rules, rule_id)
-            # (d) Right of reply: a silenced analyst (credibility below the floor) keeps
-            # one simulated design per round to bet on, so it can earn its voice back.
-            # Without it one lost bet silenced it for good (Sep 7 autopsy).
-            analyst_silenced = forecast.analyst_credibility(analyst_record) < forecast.CREDIBLE_CONFIDENCE
-            if analyst_silenced and len(hypotheses) > 0 and len(chosen) < per_round:
-                reply = None
-                for hypothesis in hypotheses:
-                    if hypothesis["name"] in chosen or hypothesis["name"] not in candidates:
-                        continue
-                    if reply is None or hypothesis["confidence"] > reply["confidence"]:
-                        reply = hypothesis
-                if reply is not None:
-                    chosen.append(reply["name"])
-                    claim_test_of[reply["name"]] = "reply " + reply["id"]
-            # (a) Stall scan: when the last round brought no improvement, one slot goes
-            # to the incumbent with a never-tried categorical value (see forecast).
-            # It never takes the last slot, so EI always keeps at least one pick.
-            if stall_scan_enabled and not last_round_improved and len(chosen) < per_round - 1:
-                scan_name = forecast.stall_scan_candidate(history, candidates, problem["search_space"],
-                                                          surrogate, model, objective)
-                if scan_name is not None and scan_name not in chosen:
-                    chosen.append(scan_name)
-                    claim_test_of[scan_name] = "stall scan"
-            more = forecast.pick_expected_improvement(
-                candidates, surrogate, model, prior_history + history, problem["search_space"],
-                objective, per_round - len(chosen), best_so_far, seed=seed * 1000 + round_number,
-                priors=priors, already_chosen=chosen, honest_std=honest_std)
-            chosen = chosen + more
-            forecasts = None
-            if len(rules) > 0 or len(hypotheses) > 0:
-                # Forecasts only for the chosen designs: that is all the bets need.
-                chosen_candidates = {}
-                for name in chosen:
-                    chosen_candidates[name] = candidates[name]
-                forecasts = forecast.gather_forecasts(chosen_candidates, surrogate, model, rules, hypotheses,
-                                                      problem["baseline"], baseline_metrics, objective, history,
-                                                      problem["search_space"])
-        else:
-            forecasts = forecast.gather_forecasts(candidates, surrogate, model, rules, hypotheses,
+        # One slot for the most valuable owed claim test, the rest by expected improvement.
+        owed = forecast.untested_claim_tests(rules, history, problem["baseline"], candidates,
+                                            problem["search_space"], objective)
+        if len(owed) > 0 and per_round > 1:
+            test_name, rule_id = owed[0]
+            chosen.append(test_name)
+            claim_test_of[test_name] = rule_id
+        # (d) Right of reply: a silenced analyst (credibility below the floor) keeps
+        # one simulated design per round to bet on, so it can earn its voice back.
+        # Without it one lost bet silenced it for good (Sep 7 autopsy).
+        analyst_silenced = forecast.analyst_credibility(analyst_record) < forecast.CREDIBLE_CONFIDENCE
+        if analyst_silenced and len(hypotheses) > 0 and len(chosen) < per_round:
+            reply = None
+            for hypothesis in hypotheses:
+                if hypothesis["name"] in chosen or hypothesis["name"] not in candidates:
+                    continue
+                if reply is None or hypothesis["confidence"] > reply["confidence"]:
+                    reply = hypothesis
+            if reply is not None:
+                chosen.append(reply["name"])
+                claim_test_of[reply["name"]] = "reply " + reply["id"]
+        # (a) Stall scan: when the last round brought no improvement, one slot goes
+        # to the incumbent with a never-tried categorical value (see forecast).
+        # It never takes the last slot, so EI always keeps at least one pick.
+        if stall_scan_enabled and not last_round_improved and len(chosen) < per_round - 1:
+            scan_name = forecast.stall_scan_candidate(history, candidates, problem["search_space"],
+                                                      surrogate, model, objective)
+            if scan_name is not None and scan_name not in chosen:
+                chosen.append(scan_name)
+                claim_test_of[scan_name] = "stall scan"
+        more = forecast.pick_expected_improvement(
+            candidates, surrogate, model, prior_history + history, problem["search_space"],
+            objective, per_round - len(chosen), best_so_far, seed=seed * 1000 + round_number,
+            priors=priors, already_chosen=chosen, honest_std=honest_std)
+        chosen = chosen + more
+        forecasts = None
+        if len(rules) > 0 or len(hypotheses) > 0:
+            # Forecasts only for the chosen designs: that is all the bets need.
+            chosen_candidates = {}
+            for name in chosen:
+                chosen_candidates[name] = candidates[name]
+            forecasts = forecast.gather_forecasts(chosen_candidates, surrogate, model, rules, hypotheses,
                                                   problem["baseline"], baseline_metrics, objective, history,
                                                   problem["search_space"])
-            chosen = forecast.pick_most_disagreed(forecasts, per_round, best_so_far,
-                                                  seed=seed * 1000 + round_number)
         logged = None
         if forecasts is not None:
             logged = compact_forecasts(forecasts, chosen)
@@ -233,23 +197,6 @@ def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analys
                 bets_by_name[name].append(playbook.place_bet(
                     store, rule["id"], name, claim_event, probability, kind="claim"))
 
-        # A silent rule bets on its own claim test exactly like a speaking rule would.
-        if silent_test_rule is not None:
-            claim = silent_test_rule["claim"]
-            sibling = forecast.claim_sibling(claim, candidates[silent_test_name], problem["baseline"],
-                                             problem["search_space"])
-            sibling_metrics = forecast.find_measured(history, sibling)
-            if sibling_metrics is not None:
-                gain = forecast.effective_gain(silent_test_rule, history, problem["baseline"],
-                                               problem["search_space"], objective)
-                half_gain = sibling_metrics[objective] * (1.0 + gain / 200.0)
-                probability = forecast.rule_confidence(silent_test_rule)
-                if gain < 0:
-                    probability = 1.0 - probability
-                bets_by_name[silent_test_name].append(playbook.place_bet(
-                    store, silent_test_rule["id"], silent_test_name,
-                    "{} >= {:.4f}".format(objective, half_gain), probability, kind="claim"))
-
         # 2) the chosen configs run in parallel (one CHIA task each)
         knobs_list = [candidates[name] for name in chosen]
         metrics_list = problem["evaluate_many"](knobs_list)
@@ -271,14 +218,6 @@ def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analys
                         analyst_record["wins"] += 1
                     else:
                         analyst_record["losses"] += 1
-                if silent_test_rule is not None and bet["forecaster"] == silent_test_rule["id"]:
-                    if leaned_yes == happened:
-                        widen_rule(silent_test_rule, descriptors, problem["name"], name)
-                        print("[{}] widened {} after its claim test won here: {}".format(
-                            tag, silent_test_rule["id"], json.dumps(silent_test_rule["conditions"])), flush=True)
-                    else:
-                        print("[{}] {} stays silent here: claim test lost".format(
-                            tag, silent_test_rule["id"]), flush=True)
                 rule = rule_by_id(rules, bet["forecaster"])
                 if rule is None:
                     continue
@@ -291,7 +230,7 @@ def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analys
                 if claim_test_of[name].startswith("RULE"):
                     label = label + " | claim test for " + claim_test_of[name]
                 else:
-                    label = label + " | " + claim_test_of[name]     # reply / stall scan / silent-rule test
+                    label = label + " | " + claim_test_of[name]     # reply / stall scan
             print("[{}] round {} | {} | {}={:.4f} | {}".format(
                 tag, round_number, name, objective, metrics[objective], label), flush=True)
 
@@ -473,7 +412,7 @@ def find_bet(store, bet_id):
 
 def rescope(rule, problem, descriptors, name, metrics, wins=0, losses=0):
     """Ask the analyst to sharpen the condition; keep the old one in the rule's trail.
-    `descriptors`: the workload fingerprint the conditions are checked against."""
+    `descriptors`: the workload descriptors the conditions are checked against."""
     context = "problem: {}\nworkload descriptors (conditions are checked on these): {}\nrecord on this problem: {} wins, {} losses\nlast experiment {}: {}".format(
         problem["name"], json.dumps(descriptors), wins, losses, name, json.dumps(metrics))
     updated = analyst.rescope_rule(rule, context, problem["condition_metrics"])
@@ -506,24 +445,6 @@ def rescope(rule, problem, descriptors, name, metrics, wins=0, losses=0):
     rule["conditions"] = new_clauses
     rule["condition"] = new_clauses[0]
     rule["text"] = new_text
-
-
-def widen_rule(rule, descriptors, problem_name, test_name):
-    """A silent rule's claim test won on this chip: widen its condition so it
-    applies here too, keeping the old clauses in the rule's trail. The mirror of
-    re-scoping: losers get narrower, verified winners get wider."""
-    old_clauses = forecast.rule_clauses(rule)
-    new_clauses = forecast.widened_clauses(old_clauses, descriptors)
-    rule["origin"].append({"widened_from": old_clauses,
-                           "because": "claim test {} won on {}".format(test_name, problem_name),
-                           "how": "mechanical"})
-    rule["conditions"] = new_clauses
-    rule["condition"] = new_clauses[0]
-    changed = []
-    for old_clause, new_clause in zip(old_clauses, new_clauses):
-        if old_clause != new_clause:
-            changed.append("{} {} {:.3g}".format(new_clause["metric"], new_clause["op"], new_clause["value"]))
-    rule["text"] = rule["text"] + " [widened: {}]".format(", ".join(changed))
 
 
 def tightened_condition(condition, baseline_metrics):
