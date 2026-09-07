@@ -491,6 +491,13 @@ def verify_claims(store, proposals, problem, history, tag, max_sims, evidence=No
         claim = dict(proposal["claim"])
         if not forecast.is_direction(claim):
             claim["value"] = matching_value(space[claim["knob"]], claim["value"])
+        # One claim, one rule: the same knob+value already in the playbook (from an
+        # earlier batch or earlier in this one) is a duplicate, however it is worded.
+        if claim_already_ruled(store, claim):
+            playbook.reject_rule(store, proposal, "duplicate claim")
+            print("[{}] rejected (duplicate claim {}={}): {}".format(
+                tag, claim["knob"], claim["value"], proposal["text"][:120]), flush=True)
+            continue
         gains = forecast.paired_gains(evidence + extra_runs, claim, baseline_knobs, space, objective)
         if len(gains) == 0 and sims_used < max_sims:
             test_knobs = forecast.claim_target(claim, baseline_knobs, space)
@@ -528,6 +535,18 @@ def verify_claims(store, proposals, problem, history, tag, max_sims, evidence=No
         print("[{}] admitted {} ({:+.2f}% measured over {} pairs, LLM said {:+.1f}%): {}".format(
             tag, rule_id, measured, len(gains), llm_gain, proposal["text"][:120]), flush=True)
     return extra_runs
+
+
+def claim_already_ruled(store, claim):
+    """True if an active rule in `store` already carries this knob and value."""
+    for rule in store["rules"]:
+        if rule.get("status", "active") != "active":
+            continue
+        same_knob = rule["claim"]["knob"] == claim["knob"]
+        same_value = str(rule["claim"]["value"]) == str(claim["value"])
+        if same_knob and same_value:
+            return True
+    return False
 
 
 def llm_signed_gain(claim):
