@@ -237,6 +237,9 @@ def make_problem(soc_name, trace_path, allow_simulation=True, dispatch=None, spa
         # on `descriptors`, never on the chip's own runs.
         "condition_metrics": condition_metrics,
         "descriptors": descriptors,
+        # Per-workload descriptors (one workload here): used to FIT condition
+        # thresholds from where a claim's effect appears and where it does not.
+        "workload_descriptors": {trace_name: descriptors},
         "holder": holder,
     }
 
@@ -298,6 +301,9 @@ def make_suite_problem(soc_name, trace_paths, allow_simulation=True, dispatch=No
     condition_metrics = list(base_metrics)
     for metric in base_metrics:
         condition_metrics.append("max_" + metric)
+    workload_descriptors = {}
+    for short, problem in zip(short_names, single_problems):
+        workload_descriptors[short] = problem["descriptors"]
     descriptors = None
     if first["descriptors"] is not None:
         descriptors = {}
@@ -319,6 +325,7 @@ def make_suite_problem(soc_name, trace_paths, allow_simulation=True, dispatch=No
         "table_metrics": table_metrics,
         "condition_metrics": condition_metrics,
         "descriptors": descriptors,
+        "workload_descriptors": workload_descriptors,
         "holder": first["holder"],
         "holders": [problem["holder"] for problem in single_problems],
     }

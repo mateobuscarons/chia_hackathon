@@ -526,13 +526,118 @@ def verify_claims(store, proposals, problem, history, tag, max_sims, evidence=No
         verified_claim["gain_pct"] = measured
         example = "{}: {} {} = {:+.2f}% over {} controlled pair(s)".format(
             problem["name"], claim["knob"], claim["value"], measured, len(gains))
-        rule_id = playbook.add_rule(store, rule_clauses_of(proposal)[0], verified_claim, example,
-                                    proposal["text"], conditions=rule_clauses_of(proposal),
+        # The LLM chose WHICH descriptor matters; the data sets WHERE the threshold
+        # lies: between the workloads where the effect appeared and where it did not.
+        clauses, fit_note = fit_thresholds(rule_clauses_of(proposal), claim, evidence + extra_runs,
+                                           problem, baseline_knobs, space, objective)
+        rule_id = playbook.add_rule(store, clauses[0], verified_claim, example,
+                                    proposal["text"], conditions=clauses,
                                     verification={"pairs": len(gains), "llm_gain_pct": llm_gain,
-                                                  "problem": problem["name"]})
-        print("[{}] admitted {} ({:+.2f}% measured over {} pairs, LLM said {:+.1f}%): {}".format(
-            tag, rule_id, measured, len(gains), llm_gain, proposal["text"][:120]), flush=True)
+                                                  "problem": problem["name"], "threshold_fit": fit_note})
+        print("[{}] admitted {} ({:+.2f}% measured over {} pairs, LLM said {:+.1f}%): {} | conditions {}".format(
+            tag, rule_id, measured, len(gains), llm_gain, proposal["text"][:100], json.dumps(clauses)), flush=True)
     return extra_runs
+
+
+def per_workload_gains(claim, evidence, baseline_knobs, search_space, objective):
+    """Mean controlled-pair gain of a claim on EACH workload of a suite, from the
+    per-workload objective kept in every suite result ("<workload>:<objective>").
+    Empty for single-workload problems."""
+    sums = {}
+    counts = {}
+    for entry in evidence:
+        sibling = forecast.claim_sibling(claim, entry["knobs"], baseline_knobs, search_space)
+        if sibling is None:
+            continue
+        sibling_metrics = forecast.find_measured(evidence, sibling)
+        if sibling_metrics is None:
+            continue
+        for key in entry["metrics"]:
+            if not key.endswith(":" + objective):
+                continue
+            workload = key.split(":")[0]
+            if key not in sibling_metrics or sibling_metrics[key] <= 0:
+                continue
+            gain = 100.0 * (entry["metrics"][key] / sibling_metrics[key] - 1.0)
+            sums[workload] = sums.get(workload, 0.0) + gain
+            counts[workload] = counts.get(workload, 0) + 1
+    means = {}
+    for workload in sums:
+        means[workload] = sums[workload] / counts[workload]
+    return means
+
+
+def fit_thresholds(clauses, claim, evidence, problem, baseline_knobs, search_space, objective):
+    """Re-set each clause's threshold from evidence. A workload shows the effect
+    when its controlled gain has the claim's sign and at least MIN_CLAIM_GAIN_PCT.
+    For ">=" the threshold moves to the midpoint between the lowest descriptor
+    value with the effect and the highest without it below that (geometric mean
+    when both are positive); with no workload below, it drops to the lowest value
+    with the effect so the rule speaks wherever the effect was seen. "<" is the
+    mirror. Returns (clauses, note) where note records what moved and why."""
+    workload_descriptors = problem.get("workload_descriptors") or {}
+    gains = per_workload_gains(claim, evidence, baseline_knobs, search_space, objective)
+    expected_sign = 1.0
+    if llm_signed_gain(claim) < 0:
+        expected_sign = -1.0
+    present = []
+    absent = []
+    for workload, gain in gains.items():
+        if workload not in workload_descriptors or workload_descriptors[workload] is None:
+            continue
+        if gain * expected_sign >= MIN_CLAIM_GAIN_PCT:
+            present.append(workload)
+        else:
+            absent.append(workload)
+    note = {"present": present, "absent": absent, "moved": []}
+    if len(present) == 0:
+        return clauses, note
+    fitted = []
+    for clause in clauses:
+        metric = clause["metric"]
+        base_metric = metric
+        if base_metric.startswith("max_"):
+            base_metric = base_metric[len("max_"):]
+        present_values = []
+        for workload in present:
+            if base_metric in workload_descriptors[workload]:
+                present_values.append(float(workload_descriptors[workload][base_metric]))
+        absent_values = []
+        for workload in absent:
+            if base_metric in workload_descriptors[workload]:
+                absent_values.append(float(workload_descriptors[workload][base_metric]))
+        new_clause = dict(clause)
+        old_value = float(clause["value"])
+        if len(present_values) == 0:
+            fitted.append(new_clause)
+            continue
+        if clause["op"] in [">=", ">"]:
+            edge = min(present_values)
+            below = [value for value in absent_values if value < edge]
+            if len(below) > 0:
+                new_clause["value"] = midpoint(max(below), edge)
+            else:
+                new_clause["value"] = edge
+            new_clause["op"] = ">="
+        else:
+            edge = max(present_values)
+            above = [value for value in absent_values if value > edge]
+            if len(above) > 0:
+                new_clause["value"] = midpoint(edge, min(above))
+            else:
+                new_clause["value"] = edge * 1.001 + 1e-9
+            new_clause["op"] = "<"
+        if abs(new_clause["value"] - old_value) > 1e-9:
+            note["moved"].append({"metric": metric, "from": old_value, "to": new_clause["value"]})
+        fitted.append(new_clause)
+    return fitted, note
+
+
+def midpoint(low, high):
+    """Geometric midpoint when both ends are positive (ratios, fractions), else arithmetic."""
+    if low > 0 and high > 0:
+        return (low * high) ** 0.5
+    return (low + high) / 2.0
 
 
 def claim_already_ruled(store, claim):
