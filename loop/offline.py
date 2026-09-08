@@ -89,26 +89,42 @@ BUYABLE_LLC_LARGEST_KB = 4608.0
 # A workload must be able to move at least this many misses per kilo-instruction
 # by capacity alone, or no capacity decision made on it means anything.
 MOVABLE_MPKI_FLOOR = 1.0
+# Below this many misses per kilo-instruction there is nothing for any knob to
+# fix, whatever family it belongs to.
+POLICY_MPKI_FLOOR = 5.0
 # Measured share of chip C's IPC variance owned by the two capacity knobs
 # (Tier A full factorial). The gate has to agree with these or it is wrong.
 CAPACITY_VARIANCE = {"605.mcf_s-665B": 0.46, "619.lbm_s-2676B": 0.01, "620.omnetpp_s-874B": 0.86}
+# The same, for the L2 prefetcher knob.
+PREFETCHER_VARIANCE = {"605.mcf_s-665B": 0.46, "619.lbm_s-2676B": 0.96, "620.omnetpp_s-874B": 0.00}
 
 
 def admit():
     """Can this workload teach anything about cache capacity? Free, no simulator.
 
-    Two numbers decide it. `movable` is how many misses per kilo-instruction
+    Two channels, because a workload can be worth simulating for two reasons.
+
+    The CAPACITY channel is `movable`: how many misses per kilo-instruction
     capacity alone can remove, from the smallest to the largest cache the search
-    space can buy. `cold` is the share of its misses that are compulsory - a
-    block touched for the first time in the measured window - which no design
-    can ever remove. A workload with a big MPKI but nothing movable measures
-    only its own cold misses, and a long enough window is the only fix.
+    space can buy. This channel is validated - its verdicts match the measured
+    variance shares on chip C.
+
+    The POLICY channel is just a miss floor: with enough misses there is
+    something for a prefetcher or a replacement policy to fix, even when no
+    cache size helps. This channel deliberately does NOT claim to know WHICH
+    policy. Stride regularity is reported because it is suggestive, but it is
+    not trustworthy on its own: mcf's stride regularity is only 0.157 and yet
+    the L2 prefetcher owns 0.46 of its variance on chip C, because SPP learns
+    repeated irregular paths that a stride count cannot see.
+
+    `unfixable` is the compulsory MPKI - blocks touched for the first time in
+    the measured window, which no design removes.
     """
     print("== workload admission gate: chip C can buy an LLC read at {:.0f}-{:.0f} KB"
           .format(BUYABLE_LLC_SMALLEST_KB, BUYABLE_LLC_LARGEST_KB))
-    print("  {:<12s} {:>10s} {:>9s} {:>9s} {:>8s} {:>9s} {:>8s}  {}".format(
-        "trace", "footprint", "MPKI@min", "MPKI@max", "movable", "unfixable", "cap.var",
-        "verdict"))
+    print("  {:<12s} {:>9s} {:>8s} {:>8s} {:>9s} {:>7s} {:>7s} {:>7s}  {}".format(
+        "trace", "footprint", "MPKI", "movable", "unfixable", "stride", "cap.var", "pf.var",
+        "admit as"))
     for path in sorted(glob.glob("results/profile_*.json")):
         with open(path) as profile_file:
             profile = json.load(profile_file)
@@ -123,23 +139,39 @@ def admit():
         # No cache on any chip removes them; only a longer window does.
         unfixable_mpki = accesses * floor
 
+        channels = []
         if movable >= MOVABLE_MPKI_FLOOR:
-            verdict = "ADMIT"
+            channels.append("capacity")
+        if accesses * smallest >= POLICY_MPKI_FLOOR:
+            channels.append("policy")
+        if len(channels) == 0:
+            admitted_as = "REJECT (nothing any knob can fix)"
         else:
-            verdict = "REJECT: capacity moves only {:.2f} MPKI".format(movable)
-        known = CAPACITY_VARIANCE.get(name)
-        if known is None:
-            known_text = "       -"
+            admitted_as = " + ".join(channels)
+
+        capacity_known = CAPACITY_VARIANCE.get(name)
+        prefetcher_known = PREFETCHER_VARIANCE.get(name)
+        if capacity_known is None:
+            capacity_text = "      -"
         else:
-            known_text = "{:8.2f}".format(known)
-        print("  {:<12s} {:8.0f}KB {:9.1f} {:9.1f} {:8.2f} {:9.1f} {}  {}".format(
-            name.split(".")[1].split("_")[0], profile["footprint_kb"], accesses * smallest,
-            accesses * largest, movable, unfixable_mpki, known_text, verdict))
+            capacity_text = "{:7.2f}".format(capacity_known)
+        if prefetcher_known is None:
+            prefetcher_text = "      -"
+        else:
+            prefetcher_text = "{:7.2f}".format(prefetcher_known)
+        short_name = name.split(".")[1].split("_")[0]
+        if name.startswith("bfs.") or name.startswith("pr."):
+            short_name = name.split("-")[0]
+        print("  {:<12s} {:7.0f}KB {:8.1f} {:8.2f} {:9.1f} {:7.3f} {} {}  {}".format(
+            short_name, profile["footprint_kb"], accesses * smallest, movable, unfixable_mpki,
+            profile["stride_regular_fraction"], capacity_text, prefetcher_text, admitted_as))
     print()
-    print("  unfixable = compulsory MPKI in this window. When it swallows almost all of")
-    print("  MPKI@min, the workload is being measured before it starts reusing anything,")
-    print("  and the fix is a longer window, not a bigger cache. cap.var is the measured")
-    print("  ground truth (chip C variance share of the capacity knobs) the gate must match.")
+    print("  admit as capacity  -> the capacity knobs have leverage here (validated channel)")
+    print("  admit as policy    -> enough misses for a prefetcher or replacement policy to")
+    print("                        matter, WITHOUT claiming which one; the simulator says.")
+    print("  cap.var / pf.var   = measured chip C variance shares of the capacity knobs and")
+    print("                        the L2 prefetcher (Tier A full factorial), the ground truth.")
+    print("  stride is reported but NOT used to decide: mcf is 0.157 and still 0.46 pf.var.")
 
 
 def knobs_equal(knobs, reference_knobs):

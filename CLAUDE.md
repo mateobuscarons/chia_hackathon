@@ -41,22 +41,34 @@ This is a claim about the **rule language**, not about a learned model. Keep the
 
 `xalancbmk` is dropped as planned. **`gcc` is rejected too, for the opposite reason:** its 43 MB footprint over a 10M-instruction window makes 100% of its 70 MPKI compulsory, and its curve is flat at 0.187 from 16 KB to 32 MB - no cache on any chip changes its miss count. (It has the highest stride regularity of any trace at 0.79, so it would be a strong *prefetcher* workload, but we already have lbm and the geomean would be swamped by a workload no capacity decision can move.) **Open: we still need a second capacity-sensitive workload**, to be screened with this gate from the 14 remaining SPEC17 candidates before anything is downloaded in bulk.
 
-10. **Window length is not the lever; the workload's own reuse structure is.** Measured (Sep 8, all free): `bfs.kron` is capacity-flat at 10M, 30M and 45M windows alike (movable 0.01 / -0.00 / 0.00) because its footprint grows as fast as the window. Screening 4 GAP traces then showed the pattern is the **graph input**, not the kernel and not the window:
+10. **Workload admission gate, two channels** (`python -m loop.offline admit`, free, from trace profiles alone). 15 traces screened Sep 8. The **capacity** channel (miss-ratio curve moves >= 1 MPKI across the 576-4608 KB the space can buy) is *validated*: its verdicts match the measured chip C variance shares. The **policy** channel is a miss floor (>= 5 MPKI) and deliberately does **not** claim which policy - stride regularity is reported but not used to decide, because mcf's is 0.157 and the L2 prefetcher still owns 0.46 of its variance (SPP learns repeated irregular paths a stride count cannot see).
 
-| trace | footprint | LLC MPKI | movable | verdict |
-|---|---|---|---|---|
-| `bfs.urand-36B` | 22.4 MB | 87.5 | **33.6** | **ADMIT** - 2.7x mcf's capacity headroom |
-| `bfs.kron-128B` | 10.7 MB | 17.1 | 0.01 | reject |
-| `pr.web-16B` | 8.1 MB | 12.8 | 0.20 | reject |
-| `bfs.road-99B` | 4.3 MB | 6.9 | 0.00 | reject |
+| trace | footprint | MPKI | movable | stride | measured cap.var / pf.var | admits as |
+|---|---|---|---|---|---|---|
+| `bfs.urand-36B` | 22.4 MB | 87.5 | **33.6** | 0.267 | - | capacity + policy |
+| `bfs.urand-60B` | 22.5 MB | 82.2 | **33.1** | 0.241 | - | capacity + policy |
+| `mcf` | 7.5 MB | 23.5 | **12.6** | 0.157 | 0.46 / 0.46 | capacity + policy |
+| `omnetpp` | 5.6 MB | 11.0 | **2.6** | 0.013 | 0.86 / 0.00 | capacity + policy |
+| `lbm` | 26.7 MB | 45.2 | 0.6 | 0.387 | 0.01 / 0.96 | policy |
+| `pr.urand-129B` | 14.2 MB | 22.7 | 0.00 | **1.000** | - | policy (pure sequential scan) |
+| `bfs.kron-128B` | 10.7 MB | 17.1 | 0.01 | 0.519 | - | policy |
+| `pr.road-28B` / `pr.web-16B` / `bfs.road-99B` | 4-10 MB | 6.9-16.2 | <= 0.20 | 0.63-0.98 | - | policy |
+| `gcc` | 43.4 MB | 69.5 | -0.7 | 0.792 | - | policy (100% compulsory: curve flat 16 KB - 32 MB) |
+| `xalancbmk` | 0.9 MB | 1.3 | -0.1 | 0.475 | - | **REJECT** |
+| `xz` / `deepsjeng` / `leela` / `perlbench` | 0.1-1.6 MB | 0.1-3.0 | <= 0.42 | - | - | **REJECT** (fit inside L2) |
 
-Explanation: in power-law (kron, twitter, web) and road graphs the reused hot set is small and already fits at 576 KB while the rest streams past once, so extra capacity buys nothing. In a **uniform-random** graph the reuse is spread evenly over the whole vertex array, so every extra megabyte captures proportionally more. **The held-out suite is therefore built from `urand` GAP traces.** Also screened and rejected as a 4th training workload: `perlbench` (76 KB footprint), `leela` (172 KB), `deepsjeng` (238 KB), `xz` (1.6 MB, movable 0.42 - the closest). Six SPEC17 traces profiled in total and only **mcf (7.5 MB) and omnetpp (5.6 MB)** are capacity-sensitive, which is our own measurement of ArchAgent's claim that SPEC is unrepresentative.
+**Two hypotheses of mine that the data killed, recorded so they are not retried.** (i) *The simulation window is the lever* - false: `bfs.kron` is capacity-flat at 10M, 30M and 45M alike, because its footprint grows as fast as the window. (ii) *The graph input decides* - false: `bfs.urand` is capacity-bound while `pr.urand` on the same graph is a perfectly sequential scan (stride 1.000). Among six GAP (kernel, graph) pairs only BFS-on-urand is capacity-sensitive, but it is so at both SimPoints tested. **Capacity sensitivity must be screened per trace; benchmark and input labels do not predict it.**
 
-**Paper obligation:** held-out workloads are selected by this pre-registered, simulator-free gate, and both the gate and every rejection are reported. Selecting workloads where *no* design matters would measure nothing, and ArchAgent filters the same way (LLC MPKI > 1) - but ours must be stated openly, because choosing the held-out set is otherwise the easiest place to fool yourself.
-11. **Held-out workload class:** GAP ChampSim traces (bfs, pr, cc) from Zenodo record 20043527 (BSC/UPC/TAMU, May 2026). Cited for exactly our gap: the trace set exists because replacement policy matters on big-data workloads and not on SPEC, which is why our `llc_replacement` knob explains only 0.2-11% of variance today.
+Also: only **mcf and omnetpp** of nine SPEC17 traces screened are capacity-sensitive - our own measurement of ArchAgent's claim that SPEC is unrepresentative. Training suite therefore stands at mcf + omnetpp (capacity) + lbm (prefetcher).
+
+**Practical note:** a GAP kernel's zip is 10 GB but holds 31 separate traces of 24-630 MB. Read its zip64 central directory from the last 256 KB, then byte-range the one member wanted (`fetch_any.py` pattern). One trace costs ~150-600 MB, not 10 GB.
+
+11. **Held-out workload class: chosen for DIVERSITY OF BINDING CONSTRAINT, not for headroom** (user, Sep 8). GAP ChampSim traces from Zenodo record 20043527 (BSC/UPC/TAMU, May 2026; cite the IISWC 2020 replacement-policy paper). The suite is `bfs.urand-36B` (capacity-only: movable 33.6, stride 0.267), `pr.urand-129B` (prefetcher-only: movable 0.00, stride 1.000) and `bfs.kron-128B` (mixed: movable 0.01, stride 0.519).
+
+Selecting on headroom would have invited the obvious objection - "you chose the workloads where your rules could win" - so instead **the gate becomes a prediction instrument, not a selection filter**: for every rule and every held-out workload we pre-register whether the rule *should* fire, from the descriptors alone. A capacity-flat workload is then a **positive** test: a well-written capacity rule must stay silent when the descriptors say the footprint is far beyond any buyable cache. If it fires and loses, the descriptor language is wrong and we report that. **Gate G-headroom:** one ~0.5 USD sweep (about 30 designs x 3 GAP traces) must show the held-out suite has some IPC spread at all, since no offline test can answer that.
 12. **Multi-core is an extra cell, not the backbone** (assessment delegated to Claude, Sep 8): a 4-core shared-LLC chip is the most realistic setting and matches the CRC-2 configs ArchAgent uses, but it costs ~4x per design, and the only way to afford making the whole experiment multi-core is dropping from 5 seeds to 2-3. Yazdanbakhsh will read variance across seeds first, so that trade is the one this committee punishes. Main experiment stays single-core at 5 seeds; one added cell runs `rules` vs `bo_pooled` at 3 seeds on the 4-core chip. Two risks stated in the paper: a mix has no single footprint (hence decision on mix descriptors above), and footprint theory predicts a *dedicated* cache's miss ratio, so the miss-ratio curve is only an approximation on a shared LLC.
 13. **Chips are not made structurally different.** The block-size trick was rejected: the miss-ratio curve is measured in 64-byte blocks, so per-chip block sizes would destroy the profile's chip-independence, which is a founding principle. Verified that the chip axis is nonetheless non-trivial: A's best design ranks 314th of 447 on C, B's best 181st, and C's best does not even fit A's or B's area budget. Stated limitation: **our chips differ in provisioning (core width, MSHRs, DRAM, area budget, core count on chip D), not in hierarchy shape.**
-14. **We pre-register our own experimental predictions** before the paid run and Brier-score ourselves on them. See the paid-run section.
+14. **We pre-register our own experimental predictions** before the paid run and Brier-score ourselves on them: the three arm-level predictions in the paid-run section, plus one should-fire/should-stay-silent prediction per rule per held-out workload (decision 11).
 
 ## Evidence gathered Sep 8 (all offline, zero spend)
 
