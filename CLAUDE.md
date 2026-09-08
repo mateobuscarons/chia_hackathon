@@ -45,6 +45,8 @@ GCP: project `project-c23a6080-f5d0-4871-9cb`, ADC auth (`gcloud auth applicatio
 
 (designs to 90% of gain; final best in parentheses; reference best = best any arm found in that run: 0.749 / 0.745.) v5.1's threshold fit did its job (8 of 9 rules speak on C, the +18% LLC-capacity rule included; in v5 it was mute at "ratio >= 5" vs C's 3.97), yet `rules` got WORSE: 5 speaking rules cost 5 claim tests in rounds 1-5 (designs at 0.59-0.69), then EI with 8 rule priors exploited the SPP-only basin (~0.69) and two stall scans did not escape. `full` with the same playbook reached 0.744 by design 10 (analyst reply in round 2). VM `champsim-1` is STOPPED; results fetched (`results/experiment_tierC_v5*_C*.json`, tables, profiles). Compute Sep 7-8 ~14 USD, LLM ~1 USD (Pro).
 
+**User's verdict (Sep 8, 02:10): not yet hackathon-winning material.** One seed, mixed ordering (`bo_pooled` fastest in v5, `full` in v5.1), `rules` alone unreliable. What would make it worthy: the headline comparison (`rules`/`full` vs `bo_pooled` and `bo`) holding across seeds with the same playbook, a `rules` arm that does not need the analyst to escape its own priors, and the claim-test budget under control. Work continues in a later session from the autopsy list below.
+
 **Morning autopsy (v5.1 `rules`), then decide:**
 1. Claim-test flood: one owed test per round for every speaking rule = 5-8 of 24 designs on baseline+1-knob designs. Options: cap owed tests (e.g. top-3 by credibility x gain), test only on rounds where EI has nothing better, or pool them.
 2. Exploitation trap with many priors: 8 virtual points pull the GP to one basin. Options: prior strength scaled by number of speaking rules, or an EI exploration term; compare against `full`, which escaped via the analyst.
