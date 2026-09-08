@@ -8,7 +8,8 @@ the baseline first, then every design one knob away from it, then the rest in a
 fixed random order. The same designs then run on each new trace, so every chip
 gets aligned rows across workloads. Results land in the usual Tier C tables
 (results/tierC_<soc>_<trace>.json), which every other command reads as a cache.
-Env: PARALLEL_PAIRS (soc x trace pairs at once, default 4), SIM_THREADS per pair.
+Env: PARALLEL_PAIRS (soc x trace pairs at once, default 4), SIM_THREADS per pair,
+COLLECT_SOCS (comma-separated chip names; default all three).
 """
 
 import os
@@ -20,7 +21,7 @@ from concurrent.futures import ThreadPoolExecutor
 from loop import champsim_problem
 from loop.sweep import load_sweep
 
-SOCS = ["A_mobile", "B_midrange", "C_server"]
+ALL_SOCS = ["A_mobile", "B_midrange", "C_server"]
 REFERENCE_TRACE = "605.mcf_s-665B"
 SPACE = "C"
 
@@ -68,15 +69,27 @@ def collect_pair(soc_name, trace_path, designs):
                                              (time.time() - started) / 60), flush=True)
 
 
+def chosen_socs():
+    """Which chips to collect on. A headroom check only needs the target chip."""
+    setting = os.environ.get("COLLECT_SOCS", "")
+    if setting == "":
+        return ALL_SOCS
+    names = []
+    for name in setting.split(","):
+        names.append(name.strip())
+    return names
+
+
 def main():
     how_many = int(sys.argv[1])
     trace_paths = sys.argv[2:]
+    socs = chosen_socs()
     designs_by_soc = {}
-    for soc_name in SOCS:
+    for soc_name in socs:
         designs_by_soc[soc_name] = designs_for_chip(soc_name, how_many)
     pairs = []
     for trace_path in trace_paths:
-        for soc_name in SOCS:
+        for soc_name in socs:
             pairs.append((soc_name, trace_path))
     pool = ThreadPoolExecutor(max_workers=int(os.environ.get("PARALLEL_PAIRS", "4")))
     futures = []

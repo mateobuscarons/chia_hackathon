@@ -30,6 +30,10 @@ over the four workloads, for designs measured on all four.
                invariant, so that model has nothing to transfer; only the cost
                of a miss changes with the chip, and that is the formula.
 
+  headroom     gate G-headroom: on the simulated rows of the held-out suite, is
+               there any IPC spread for a search to find? And - the real prize -
+               does the admission gate's per-workload prediction (which knob
+               family has leverage) match what the simulator says?
   coverage     the descriptor-range table: does each held-out workload sit
                INSIDE the range the training suite covers? A condition fired
                inside the training range is interpolating; outside it, the rule
@@ -39,7 +43,7 @@ over the four workloads, for designs measured on all four.
                against the measured variance shares on chip C.
 
 Usage: python -m loop.offline ceiling | timeliness | compare | misses | fair | learned
-                            | admit | coverage
+                            | admit | coverage | headroom
 """
 
 import glob
@@ -185,6 +189,124 @@ TRAINING_SUITE = ["605.mcf_s-665B", "620.omnetpp_s-874B", "619.lbm_s-2676B",
 HELD_OUT_SUITE = ["bfs.urand-36B", "pr.urand-129B", "bfs.kron-128B"]
 COVERAGE_DESCRIPTORS = ["footprint_kb", "mem_accesses_per_kinstr", "stride_regular_fraction",
                         "reuse_local_fraction", "write_fraction"]
+
+
+# What the admission gate predicted for the held-out suite, written down before
+# a single design was simulated on it (decision 11: the gate is a prediction
+# instrument, not a selection filter).
+GATE_PREDICTION = {
+    "bfs.urand-36B": "capacity should move it (movable 33.6 MPKI)",
+    "pr.urand-129B": "capacity should NOT move it (movable 0.00); prefetching should",
+    "bfs.kron-128B": "capacity should NOT move it (movable 0.01)",
+}
+CAPACITY_KNOBS = ["l2_sets", "l2_ways", "llc_sets", "llc_ways"]
+POLICY_KNOBS_ALL = ["l1d_prefetcher", "l2_prefetcher", "llc_prefetcher", "llc_replacement"]
+
+
+def one_knob_difference(knobs, baseline_knobs):
+    """The single knob this design changes from the baseline, or None."""
+    changed = []
+    for knob in baseline_knobs:
+        if str(knobs.get(knob)) != str(baseline_knobs[knob]):
+            changed.append(knob)
+    if len(changed) == 1:
+        return changed[0]
+    return None
+
+
+def headroom():
+    """Does the held-out suite have anything for a search to find, and does the
+    gate's prediction hold once the simulator has spoken?"""
+    baseline_knobs = champsim_problem.profiled_baseline("C_server", "C")
+    baseline_name = config_name(baseline_knobs, "C_server")
+
+    tables = {}
+    for trace in HELD_OUT_SUITE:
+        path = "results/tierC_C_server_{}.json".format(trace)
+        with open(path) as table_file:
+            tables[trace] = json.load(table_file)
+
+    print("== gate G-headroom: chip C, held-out suite")
+    print("   {:<16s} {:>9s} {:>9s} {:>9s} {:>9s}  {}".format(
+        "workload", "baseline", "worst", "best", "spread", "designs"))
+    baseline_ipc = {}
+    for trace in HELD_OUT_SUITE:
+        table = tables[trace]
+        values = []
+        for name in table:
+            metrics = table[name]["metrics"]
+            if metrics is None or "ipc" not in metrics:
+                continue
+            values.append(metrics["ipc"])
+        if baseline_name in table and table[baseline_name]["metrics"] is not None:
+            baseline_ipc[trace] = table[baseline_name]["metrics"]["ipc"]
+        else:
+            baseline_ipc[trace] = None
+        if len(values) == 0:
+            print("   {:<16s} no rows yet".format(trace))
+            continue
+        spread = 100.0 * (max(values) / min(values) - 1.0)
+        if baseline_ipc[trace] is None:
+            baseline_text = "        -"
+        else:
+            baseline_text = "{:9.4f}".format(baseline_ipc[trace])
+        print("   {:<16s} {} {:9.4f} {:9.4f} {:8.1f}% {:9d}".format(
+            trace, baseline_text, min(values), max(values), spread, len(values)))
+
+    # The suite score: geometric mean over the three workloads.
+    names_in_all = None
+    for trace in HELD_OUT_SUITE:
+        usable = set()
+        for name in tables[trace]:
+            if tables[trace][name]["metrics"] is not None:
+                usable.add(name)
+        if names_in_all is None:
+            names_in_all = usable
+        else:
+            names_in_all = names_in_all & usable
+    suite_scores = {}
+    for name in names_in_all:
+        total = 0.0
+        for trace in HELD_OUT_SUITE:
+            total += math.log(tables[trace][name]["metrics"]["ipc"])
+        suite_scores[name] = math.exp(total / len(HELD_OUT_SUITE))
+    if len(suite_scores) == 0:
+        print("   no design measured on all three yet")
+        return
+    best_name = max(suite_scores, key=lambda n: suite_scores[n])
+    print()
+    print("   suite geomean over {} designs measured on all three:".format(len(suite_scores)))
+    if baseline_name in suite_scores:
+        base = suite_scores[baseline_name]
+        print("     baseline {:.4f}, best {:.4f} -> headroom {:.1f}%".format(
+            base, suite_scores[best_name], 100.0 * (suite_scores[best_name] / base - 1.0)))
+    else:
+        print("     best {:.4f} (baseline not measured on all three)".format(
+            suite_scores[best_name]))
+
+    # The pre-registered check: which knob family actually moves each workload?
+    print()
+    print("== does the gate's prediction hold? one-knob effects versus the baseline")
+    for trace in HELD_OUT_SUITE:
+        if baseline_ipc[trace] is None:
+            continue
+        print("   {} - gate said: {}".format(trace, GATE_PREDICTION[trace]))
+        best_capacity = 0.0
+        best_policy = 0.0
+        for name in tables[trace]:
+            metrics = tables[trace][name]["metrics"]
+            if metrics is None or "ipc" not in metrics:
+                continue
+            knob = one_knob_difference(tables[trace][name]["knobs"], baseline_knobs)
+            if knob is None:
+                continue
+            effect = 100.0 * (metrics["ipc"] / baseline_ipc[trace] - 1.0)
+            if knob in CAPACITY_KNOBS and effect > best_capacity:
+                best_capacity = effect
+            if knob in POLICY_KNOBS_ALL and effect > best_policy:
+                best_policy = effect
+        print("     best single capacity change: {:+.1f}%   best single policy change: {:+.1f}%"
+              .format(best_capacity, best_policy))
 
 
 def coverage():
@@ -749,5 +871,7 @@ if __name__ == "__main__":
         admit()
     elif step == "coverage":
         coverage()
+    elif step == "headroom":
+        headroom()
     else:
         raise SystemExit("unknown step: " + step)
