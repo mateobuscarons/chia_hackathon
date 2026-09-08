@@ -27,16 +27,32 @@ One sentence: **the workload's physics (miss-ratio curve from the trace) times t
 
 ## Evidence gathered Sep 8 (all offline, zero spend)
 
-**Offline transfer test** (`train on every cached A+B per-workload row, predict every cached C row`, target = log speedup over the chip's own per-workload baseline; 810 train / 1,834 test rows; harness: scratchpad `physics_gate.py`, to become `loop/offline.py`):
+**Offline transfer test** (`train on every cached A+B per-workload row, predict every cached C row`; 810 train / 1,834 test rows; harness `loop/offline.py`, reproducible with `python -m loop.offline compare | fair | learned`).
 
-| surrogate sees | error (log-speedup MAE) | Spearman rank corr. | true rank of its top pick (of 1,834) |
-|---|---|---|---|
-| knob columns + soc one-hot (today's `bo_pooled`) | 0.153 | 0.30 | 191 |
-| + workload identity one-hot | 0.122 | 0.82 | 419 |
-| physics features (pred. miss ratio per level, footprint ratios, program descriptors) | 0.110 | 0.86 | 80 |
-| minimal physics (design-vs-baseline predicted miss deltas only) | 0.093 | 0.86 | 62 |
+**The morning table was wrong and is corrected below.** A pooled Spearman over all four workloads mostly rewards knowing *which* workload a row is (mcf's log speedups span -0.31..+0.51, xalancbmk's -0.83..+0.02), so it flattered every model. The two metrics that mean something are the rank **inside** one workload and the **suite objective** the loop actually optimises (geomean over the 4 workloads, 447 designs measured on all of them). Same protocol, same rows, corrected columns:
 
-Held-out program (train A+B on 3 programs, predict C on the 4th): no model transfers (mean MAE ~0.17-0.18 for all; xalancbmk anti-correlated). Consistent with the literature (Concorde ISCA 2025 needs 2k-8k samples of a held-out program even with 29 training programs). Hence: physics for chips, not for unseen programs, unless the cost of a miss comes from a formula, which is what the CPI-stack mean provides.
+| surrogate (fit on A+B, zero designs seen on C) | pooled Spearman (misleading) | within-workload Spearman | suite Spearman | best real IPC in its top 5 |
+|---|---|---|---|---|
+| knob columns + soc one-hot (today's `bo_pooled`) | 0.30 | 0.46 | 0.60 | 0.7204 (96.2%) |
+| physics features | 0.86 | **0.31** | 0.22 | 0.7184 (95.9%) |
+| minimal physics (design-vs-baseline miss deltas) | 0.87 | **0.56** | 0.60 | 0.7188 (96.0%) |
+| CPI stack, curve-predicted miss counts | 0.46 | 0.47 | **0.72** | 0.7175 (95.8%) |
+| CPI stack, learned miss counts (GP on A+B) | - | 0.45 | 0.47 | 0.7041 (94.0%) |
+| *CPI stack, measured miss counts (oracle, not achievable in the loop)* | 0.46 | 0.54 | 0.75 | **0.7491 (100%)** |
+
+Read it as: **G1 fails.** Every achievable model lands in the same 95.8-96.2% band on top-5, i.e. the CPI-stack mean as specified buys nothing over `bo_pooled`'s own GP. The G1 fallback ("minimal-physics GP as the mean") rests on the inflated 0.86; its real within-workload rank is 0.56. What *is* established: with exact miss counts the same 5-coefficient formula puts the true optimum in its top 5 from zero observations on C, so the whole mechanism reduces to one well-posed sub-problem - **predict per-level miss counts accurately** (the learned model reaches 34% relative error at the LLC; the stack multiplies that by ~180 DRAM cycles).
+
+**Miss counts are chip-invariant, IPC is not** (36 designs simulated on both B and C): same design and workload, B -> C changes L1D/L2C/LLC MPKI by 1.8-4.2% (rank corr. 0.99+) while IPC moves 25.8%. So the problem factors: *how many misses* is a (program, design) property learnable on any chip, cheaply and without transfer; *what a miss costs* is a chip property a formula supplies. This is a better factorisation than either v6 extreme and is the next thing to test.
+
+**Where the IPC variation lives** (Tier A full factorial, 81 designs, clean): capacity owns omnetpp (llc_sets 0.76 of variance) and half of mcf (0.41); the L2 prefetcher owns lbm (0.96); interactions are 2.5-23%. The split flips per workload, and the prefetcher's share grows with the chip (lbm l2_pref: A 0.34, B 0.84, C 0.96). This is the paper's motivation figure and the reason a capacity-only mean cannot carry a suite.
+
+**A suite objective forgives model error** that per-workload accuracy condemns: per-workload errors partly cancel in the geomean, and what survives is common-mode, which does not change a ranking. This is why all four models were mis-ranked by the morning's metric.
+
+**Interval model recovered from data:** fitting the stack's overlap fraction as `base + slope x stride_regular_fraction` returns base = 0.000, slope = 0.899 - a program with no regular strides gets no miss overlap at all, which is exactly the model's dependent-miss statement. It lifts mcf's within-workload rank from 0.73 to 0.84.
+
+**Prefetchers hide misses, they do not remove them** (chip C, lbm): `spp_dev` cuts LLC misses 17% and raises IPC 34%; `ip_stride` cuts them 7% and raises IPC 2.7%. A miss-count model cannot see this. A fitted timeliness factor per prefetcher value recovers +0.05 suite Spearman and changes no top pick, so "physics for capacity, rules for policy" survives.
+
+Held-out program (train A+B on 3 programs, predict C on the 4th): no model transfers (mean MAE ~0.17-0.18 for all; xalancbmk anti-correlated). Consistent with the literature (Concorde ISCA 2025 needs 2k-8k samples of a held-out program even with 29 training programs). Hence: physics for chips, not for unseen programs.
 
 **Literature (Sep 8 scan; details in memory `research-sep8-ml-cache`).** Closest prior work: **AgentDSE** (MLArchSys @ ISCA 2026, arXiv 2606.21836): coding agent tunes a ChampSim cache hierarchy on mcf/lbm/omnetpp, ~50 sims vs 1,000 for BO; hypotheses as free text; no transfer, no scoring; its anonymization ablation showed the LLM is a capable black-box optimizer by itself. Also LUMINA (unverified LLM rules), MicroEvo (ICCAD 2026, refuses quantitative claims because of noise), ArchEval (agents' forecasts diverge from results). Learned cross-program transfer (MetaDSE, OneDSE, PerfVec, Concorde) needs 7-29 programs and 10^5 samples; RL for design selection loses to BO/GA at 10x our budget (ArchGym, OneDSE); deep trace surrogates need GPU-days. Mechanistic miss-cost models exist: interval model (TOCS 2009), Van den Steen et al. (ISPASS 2015 / IEEE TC 2016: profile once, predict CPI for any ROB/LLC/MSHR, 4-9% error), Aneto (MICRO 2026: blocking factor fit on 5-7 workloads). Nobody has simulator-settled, Brier-scored, pre-registered architectural claims; framing citations POPPER (ICML 2025), FOREAGENT (ACL 2026), Murphy 1973. Baseline fairness: budget-matched HPO study (2606.21641), MTBO pitfalls (2607.09073).
 
@@ -47,7 +63,8 @@ Held-out program (train A+B on 3 programs, predict C on the 4th): no model trans
 | when | do | gate |
 |---|---|---|
 | Sep 8 | CLAUDE.md consolidated (this). Then: fixed reference in `summarize` (0.7491, 90/95/99%), `summarize` crash on unfinished arms fixed, frozen `bo_pooled` pool, line size removed from prose, fidelity-check job written (~40 lines: design list at 50M/50M into a separate table). **Launch fidelity check** (user presses; then stop VM). | — |
-| Sep 9-10 | CPI-stack mean on cached rows: per-level MPKI from the miss-ratio curve x latency-from-size x overlap/MSHR cap; prefetcher x stride term; replacement x locality term. Fit A+B, test C. LLM term proposer (K terms, leave-one-chip-out admission, ledgered). Move harness to `loop/offline.py`. | **G1:** CPI-stack Spearman >= 0.86 on C and predicted top-5 within ~2% of 0.7491. Fail -> minimal-physics GP as the mean (still "model transfer"). |
+| Sep 8 (done) | CPI-stack mean built (`loop/cpi_stack.py`) and tested offline (`loop/offline.py`: `ceiling`, `timeliness`, `misses`, `compare`, `fair`, `learned`). | **G1 FAILED as specified:** suite top-5 reaches 95.8% of 0.7491 with curve-predicted miss counts, no better than `bo_pooled`'s 96.2%. Oracle miss counts reach 100%, so the formula is sound and the miss-count layer is the whole gap. Gate restated in suite terms (top-5 within 2% of 0.7491); the old "Spearman >= 0.86" was measuring between-workload spread. |
+| Sep 9-10 | The one open sub-problem: **per-level miss counts to a few percent**, LLC first. Chip-invariance (above) means it trains on any chip's rows and needs no transfer, and Tier A/B rows are cheap. Prefetch coverage as a function of the profile is the missing term and is exactly what the LLM term proposer should be asked for (leave-one-chip-out admission, ledgered). Then re-run `python -m loop.offline learned`. | **G1':** suite top-5 within 2% of 0.7491 with predicted miss counts. Fail -> drop the CPI-stack mean, keep the trace profile as GP features (real within-workload rank 0.56), and the headline becomes calibration, not model transfer. |
 | Sep 10 | Read fidelity result. | **G0:** top-20 ranks hold at 50M warmup. Fail -> raise warmup, invalidate cache, re-plan budget. |
 | Sep 11-12 | Residual GP with physics mean; categorical rule priors (bounded, decaying); claim tests only on stall; `physics` arm; smoke Tier B; Tier C seed 0 (~3 USD + ~1 USD Pro). Mechanism frozen after this. | **G2:** `physics`/`rules`/`full` <= `bo_pooled` <= `bo` on designs to target, curves separate. Fail -> one day autopsy, run anyway, write what happened. |
 | Sep 13 | CACTI node (area + energy per config); guardrails (fresh-build re-run of final best, skeptic pass). | — |
@@ -68,7 +85,7 @@ Budget: ~21 USD spent of ~280; the plan above is ~40-60 USD. Compute is not the 
 
 ## Repo layout
 
-See `README.md` for the file table. `loop/loop.py` is simulator-agnostic; `loop/champsim_problem.py` is the only ChampSim glue; `loop/chia_nodes.py` + `loop/run_chia.py` run it as a CHIA loop (116 lines; **not yet exercised on Tier C**, the runs used `loop/run.py`'s own runner); `loop/collect.py` (new, Sep 8) simulates a fixed design list per chip on new traces; `loop/socs.py` / `configs.py` hold **placeholder** SoC profiles and search spaces; `proposal.tex` is the accepted proposal (its "line size" knob was never in any search space: ChampSim's block size is global); `paper/main.tex` the paper skeleton (must be rewritten to the v6 story).
+See `README.md` for the file table. `loop/loop.py` is simulator-agnostic; `loop/champsim_problem.py` is the only ChampSim glue; `loop/chia_nodes.py` + `loop/run_chia.py` run it as a CHIA loop (116 lines; **not yet exercised on Tier C**, the runs used `loop/run.py`'s own runner); `loop/collect.py` (new, Sep 8) simulates a fixed design list per chip on new traces; `loop/cpi_stack.py` (new, Sep 8) is the CPI-stack mean function (5 global coefficients, chip parameters read from the SoC profile so an unseen chip needs no work); `loop/offline.py` + `loop/surrogates.py` (new, Sep 8) are the zero-cost offline harness and the candidate feature sets; `loop/socs.py` / `configs.py` hold **placeholder** SoC profiles and search spaces; `proposal.tex` is the accepted proposal (its "line size" knob was never in any search space: ChampSim's block size is global); `paper/main.tex` the paper skeleton (must be rewritten to the v6 story).
 
 ## Setup (not in repo)
 
