@@ -30,11 +30,16 @@ over the four workloads, for designs measured on all four.
                invariant, so that model has nothing to transfer; only the cost
                of a miss changes with the chip, and that is the formula.
 
+  coverage     the descriptor-range table: does each held-out workload sit
+               INSIDE the range the training suite covers? A condition fired
+               inside the training range is interpolating; outside it, the rule
+               is guessing and the paper must say so.
   admit        the workload admission gate: from the free trace profile alone,
                can this workload teach anything about cache capacity? Validated
                against the measured variance shares on chip C.
 
-Usage: python -m loop.offline ceiling | timeliness | compare | misses | fair | learned | admit
+Usage: python -m loop.offline ceiling | timeliness | compare | misses | fair | learned
+                            | admit | coverage
 """
 
 import glob
@@ -172,6 +177,47 @@ def admit():
     print("  cap.var / pf.var   = measured chip C variance shares of the capacity knobs and")
     print("                        the L2 prefetcher (Tier A full factorial), the ground truth.")
     print("  stride is reported but NOT used to decide: mcf is 0.157 and still 0.46 pf.var.")
+
+
+# The suites, decided Sep 8 from the admission gate above.
+TRAINING_SUITE = ["605.mcf_s-665B", "620.omnetpp_s-874B", "619.lbm_s-2676B",
+                  "649.fotonik3d_s-10881B", "627.cam4_s-490B"]
+HELD_OUT_SUITE = ["bfs.urand-36B", "pr.urand-129B", "bfs.kron-128B"]
+COVERAGE_DESCRIPTORS = ["footprint_kb", "mem_accesses_per_kinstr", "stride_regular_fraction",
+                        "reuse_local_fraction", "write_fraction"]
+
+
+def coverage():
+    """Is the held-out class inside the training suite's descriptor ranges?
+
+    Every rule condition is written on these descriptors. A condition that
+    fires on a held-out workload whose descriptor sits inside the training
+    range is interpolating, which is a fair thing to expect it to get right.
+    Outside the range it is extrapolating, and the paper has to admit it.
+    """
+    profiles = {}
+    for name in TRAINING_SUITE + HELD_OUT_SUITE:
+        with open("results/profile_{}.json".format(name)) as profile_file:
+            profiles[name] = json.load(profile_file)
+
+    print("== descriptor coverage: training suite range vs each held-out workload")
+    print("   training suite:", ", ".join(TRAINING_SUITE))
+    for descriptor in COVERAGE_DESCRIPTORS:
+        training_values = []
+        for name in TRAINING_SUITE:
+            training_values.append(profiles[name][descriptor])
+        low = min(training_values)
+        high = max(training_values)
+        print("  {:<26s} training range {:10.3f} .. {:10.3f}".format(descriptor, low, high))
+        for name in HELD_OUT_SUITE:
+            value = profiles[name][descriptor]
+            if value < low:
+                position = "EXTRAPOLATING below"
+            elif value > high:
+                position = "EXTRAPOLATING above"
+            else:
+                position = "interpolating"
+            print("    {:<24s} {:10.3f}   {}".format(name, value, position))
 
 
 def knobs_equal(knobs, reference_knobs):
@@ -701,5 +747,7 @@ if __name__ == "__main__":
         learned()
     elif step == "admit":
         admit()
+    elif step == "coverage":
+        coverage()
     else:
         raise SystemExit("unknown step: " + step)

@@ -59,7 +59,21 @@ This is a claim about the **rule language**, not about a learned model. Keep the
 
 **Two hypotheses of mine that the data killed, recorded so they are not retried.** (i) *The simulation window is the lever* - false: `bfs.kron` is capacity-flat at 10M, 30M and 45M alike, because its footprint grows as fast as the window. (ii) *The graph input decides* - false: `bfs.urand` is capacity-bound while `pr.urand` on the same graph is a perfectly sequential scan (stride 1.000). Among six GAP (kernel, graph) pairs only BFS-on-urand is capacity-sensitive, but it is so at both SimPoints tested. **Capacity sensitivity must be screened per trace; benchmark and input labels do not predict it.**
 
-Also: only **mcf and omnetpp** of nine SPEC17 traces screened are capacity-sensitive - our own measurement of ArchAgent's claim that SPEC is unrepresentative. Training suite therefore stands at mcf + omnetpp (capacity) + lbm (prefetcher).
+**18 SPEC traces screened, 5 capacity-sensitive**: mcf 12.6, cam4 5.0, fotonik3d 3.9, pop2 2.7, omnetpp 2.6. Everything else fails both channels: `xz` 1.6 MB, `roms` 839 KB, `x264` 333 KB, `deepsjeng` 238 KB, `imagick` 223 KB, `leela` 172 KB, `nab` 471 KB, `cactuBSSN` 2.0 MB (movable -0.52), `xalancbmk` 862 KB, and `exchange2` at **18 KB**, which never leaves the L1. That is our own measurement of ArchAgent's claim that SPEC is unrepresentative - most of it does not touch memory hard enough to test a cache hierarchy at all.
+
+**Final suites (user, Sep 8).** Training: **mcf, omnetpp, lbm, fotonik3d, cam4** - four capacity channels plus lbm for prefetching, footprints spanning 2.8-26.7 MB. Held-out: **bfs.urand-36B, pr.urand-129B, bfs.kron-128B**. Both suites need their own reference collected (the 0.7491 reference was the old 4-workload SPEC suite including xalancbmk and is now superseded).
+
+**Descriptor coverage** (`python -m loop.offline coverage`) - the rigor table, and the reason the five-workload suite was worth +3 USD. 12 of 15 descriptor cells **interpolate**, including footprint and access rate for all three held-out workloads, which are the descriptors capacity conditions are written on:
+
+| descriptor | training range | held-out position |
+|---|---|---|
+| footprint | 2.8 - 26.7 MB | all three inside (10.7 / 14.2 / 22.4 MB) |
+| accesses per kinstr | 219 - 704 | all three inside (227 / 316 / 364) |
+| stride regularity | 0.013 - 0.844 | `bfs.urand` 0.267 and `bfs.kron` 0.519 inside; **`pr.urand` 1.000 extrapolates above** |
+| local reuse | 0.830 - 0.973 | `pr.urand` and `bfs.kron` inside; **`bfs.urand` 0.703 extrapolates below** |
+| write fraction | 0.091 - 0.412 | `bfs.urand` and `pr.urand` inside; **`bfs.kron` 0.008 extrapolates below** |
+
+The three extrapolations are named in the paper with their direction: `pr.urand` is *more* stride-regular than anything trained on (the safe direction for a prefetcher rule), `bfs.urand` has *less* local reuse (so replacement rules extrapolate), and `bfs.kron` is nearly read-only (so any write-conditioned rule extrapolates).
 
 **Practical note:** a GAP kernel's zip is 10 GB but holds 31 separate traces of 24-630 MB. Read its zip64 central directory from the last 256 KB, then byte-range the one member wanted (`fetch_any.py` pattern). One trace costs ~150-600 MB, not 10 GB.
 
@@ -124,12 +138,12 @@ Budget: ~21 USD spent of ~257. Plan above ~59 USD: learn phase ~3, collection (g
 
 ## Paid-run design and paper
 
-**Three test cells, one frozen playbook, learned on chips A+B with the SPEC-class suite (mcf, lbm, omnetpp, gcc).** The playbook is never re-learned or re-tuned between cells; that is what makes the comparison mean anything.
+**Three test cells, one frozen playbook, learned on chips A+B with the training suite (mcf, omnetpp, lbm, fotonik3d, cam4).** The playbook is never re-learned or re-tuned between cells; that is what makes the comparison mean anything.
 
 | cell | chip | workloads | what it isolates | arms x seeds |
 |---|---|---|---|---|
-| 1 | C (unseen) | SPEC-class | new chip only | 6 x 5 |
-| 2 | C (unseen) | **GAP** (bfs, pr, cc) | new chip **and** new workload class - the headline | 6 x 5 |
+| 1 | C (unseen) | mcf, omnetpp, lbm, fotonik3d, cam4 | new chip only | 6 x 5 |
+| 2 | C (unseen) | **bfs.urand, pr.urand, bfs.kron** | new chip **and** new workload class - the headline | 6 x 5 |
 | 3 | D (unseen, **4-core shared LLC**) | GAP mixes | does it also survive a core-count change | 2 x 3 |
 
 **Arms** (same budget, same baseline start, same seed set): `random`, `bo` (cold GP), `bo_pooled` (frozen A/B pool - the data-transfer baseline), `textbook` (LLM rules written before any result), `rules` (verified playbook as bounded categorical priors, no LLM at test time), `full` (+ analyst). The `physics` arm is dropped: G1 failed, so it would only be a worse GP. ChampSim is deterministic; variance comes from the optimizer and, for `rules`/`full`, from the analyst (temperature 0.3/0.7).
