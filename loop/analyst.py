@@ -35,7 +35,7 @@ ROLE = ("You are a computer architect running simulation experiments. You propos
 
 # Temperature and thinking budget per call type. Distillation and re-scoping
 # are consistency tasks (numbers, signs, exact schema): low temperature, more
-# thinking. Hypotheses need some diversity: default-ish temperature.
+# thinking. The reply needs some diversity: default-ish temperature.
 DISTILL_TEMPERATURE = 0.3
 HYPOTHESIS_TEMPERATURE = 0.7
 THINKING_BUDGET = 2048
@@ -68,35 +68,41 @@ A good rule reads like this (fictional knob and metric, for the shape only):
  "example": "chip_x/workload_y: 0.310 -> 0.322"}
 """
 
-HYPOTHESIS_SCHEMA = """## Output format
-A JSON list of objects with EXACTLY these keys:
-- "hypothesis": one sentence naming the bottleneck and why this experiment tests it.
-- "knobs": the experiment, one allowed value per knob (every knob listed above).
-- "predicted": your point forecast of the objective for that experiment (number).
+REPLY_SCHEMA = """## Output format
+A JSON list with ONE object with EXACTLY these keys:
+- "hypothesis": one sentence naming the bottleneck and why this design tests it.
+- "knobs": the design, one allowed value per knob (every knob listed above).
+- "predicted": your point forecast of the objective for that design (number).
 - "confidence": 0 to 1, how sure you are the measured value lands within 5% of "predicted".
 
-One object looks like this (fictional knob names, for the shape only):
+The object looks like this (fictional knob names, for the shape only):
 {"hypothesis": "The mid-level cache is capacity-bound, so a larger widget_size should cut its misses",
  "knobs": {"widget_size": 2048, "widget_ways": 8, "gadget_policy": "plain"},
  "predicted": 0.71, "confidence": 0.6}
 """
 
 
-# When set (see use_chia_node), calls go through CHIA's Vertex backend instead.
+# LOOP_DISPATCH=chia (set by run_chia) routes every call through CHIA's Vertex
+# node, so the profiler records it. Read from the environment, not module state,
+# because Ray workers do not share the driver's module state.
 _chia_node = None
 
 
-def use_chia_node(node):
+def chia_node():
     global _chia_node
-    _chia_node = node
+    if _chia_node is None:
+        from loop.chia_nodes import AnalystNode
+        _chia_node = AnalystNode(model=MODEL, project=GCP_PROJECT)
+    return _chia_node
 
 
 def ask_gemini(prompt, temperature=HYPOTHESIS_TEMPERATURE, thinking_budget=THINKING_BUDGET):
     """One LLM call, JSON-mode, parsed. All analyst functions go through here.
     ROLE goes in as the system instruction; `prompt` is the user turn."""
-    if _chia_node is not None:
-        answer = _chia_node.ask(ROLE + "\n\n" + prompt)
-        tokens = _chia_node.llm._last_metadata
+    if os.environ.get("LOOP_DISPATCH", "local") == "chia":
+        node = chia_node()
+        answer = node.ask(ROLE + "\n\n" + prompt)
+        tokens = node.llm._last_metadata
         _log_cost(tokens.get("input_tokens", 0), tokens.get("output_tokens", 0))
         return answer
     # The model occasionally returns truncated or malformed JSON; retry a few times.
@@ -181,10 +187,11 @@ def rule_schema(condition_metrics):
     return RULE_SCHEMA.replace("{metrics}", " / ".join(condition_metrics))
 
 
-def propose_hypotheses(search_space, objective, results_table, rules_text, how_many):
-    """Competing bottleneck hypotheses, each with a point forecast for one experiment.
+def propose_reply(search_space, objective, results_table, rules_text, incumbent_name):
+    """The right of reply: the search stalled, and the analyst names ONE untested
+    design that should break out of it, with a point forecast the loop can score.
 
-    Returns a list of {hypothesis, knobs, predicted, confidence}.
+    Returns a list with one {hypothesis, knobs, predicted, confidence}.
     """
     prompt = knobs_text(search_space) + """
 ## Objective
@@ -197,12 +204,45 @@ Maximize {objective}.
 {table}
 
 ## Task
-Propose {n} COMPETING hypotheses about the current performance bottleneck: if one
-is right, another should be wrong. For each, pick the single untested experiment
-that best tests it and pre-register a point forecast of its {objective}.
+The last round brought no improvement over the incumbent ({incumbent}). Name the
+bottleneck the search is stuck on and propose the ONE untested design that best
+tests it, with a pre-registered point forecast of its {objective}.
 
-{schema}""".format(objective=objective, rules=rules_text, table=results_table, n=how_many,
-                   schema=HYPOTHESIS_SCHEMA)
+{schema}""".format(objective=objective, rules=rules_text, table=results_table, incumbent=incumbent_name,
+                   schema=REPLY_SCHEMA)
+    return as_list(ask_gemini(prompt, temperature=HYPOTHESIS_TEMPERATURE))
+
+
+PICK_SCHEMA = """## Output format
+A JSON list of objects, one per design, with EXACTLY these keys:
+- "reasoning": one sentence on why this design should improve the objective.
+- "knobs": the design, one allowed value per knob (every knob listed above).
+- "predicted": your point forecast of the objective for that design (number).
+- "confidence": 0 to 1, how sure you are the measured value lands within 5% of "predicted".
+"""
+
+
+def pick_designs(search_space, objective, results_table, descriptors_text, how_many, area_budget_kb):
+    """The plain agent: from the results so far and the workload descriptors alone,
+    the LLM names the next designs to simulate and forecasts each. No surrogate,
+    no rules. Returns a list of {reasoning, knobs, predicted, confidence}."""
+    prompt = knobs_text(search_space) + """
+## Objective
+Maximize {objective}. A design must fit the area budget: L2 capacity + LLC capacity
+(sets x ways x 64 bytes each) <= {budget} KB.
+
+## Workload descriptors (profiled from the traces, no simulator)
+{descriptors}
+
+## Simulation results so far on THIS chip and workload (one row per design)
+{table}
+
+## Task
+You are tuning this cache hierarchy by yourself. Propose the {n} untested designs
+most likely to raise {objective}, and pre-register a point forecast for each.
+
+{schema}""".format(objective=objective, budget=area_budget_kb, descriptors=descriptors_text,
+                   table=results_table, n=how_many, schema=PICK_SCHEMA)
     return as_list(ask_gemini(prompt, temperature=HYPOTHESIS_TEMPERATURE))
 
 
@@ -225,9 +265,18 @@ every chip: memory accesses per 1000 instructions, write fraction, working set
 (footprint_kb), fraction of stride-regular accesses (what a stride prefetcher
 catches), fraction of reuses within 1024 accesses (temporal locality). Program
 against THIS chip's cache sizes: working set over L2 size and over L2+LLC size,
-and the predicted LRU miss ratio at this chip's L1D, L2 and LLC capacity
-(footprint theory, from the trace). A condition like "l2_footprint_ratio >= 2"
-means "the L2 is at least 2x too small for this program" on any chip.
+the predicted LRU miss ratio at this chip's L1D, L2 and LLC capacity (footprint
+theory, from the trace), and movable_l2_mpki / movable_llc_mpki: the misses per
+1000 instructions that a bigger L2 / LLC would remove, from this chip's baseline
+size up to the largest its area budget affords. Movable MPKI is THE capacity
+descriptor: a program with a huge footprint but movable_llc_mpki near zero reads
+its data once and no cache size helps it, while a large movable MPKI means
+capacity pays. Footprint ratios cannot tell those two apart. A condition like
+"movable_llc_mpki >= 5" means "a bigger LLC would remove at least 5 misses per
+1000 instructions on this chip" and means the same on any chip. Every claim about a
+SIZE knob (l2_sets, l2_ways, llc_sets, llc_ways) must therefore condition on the
+matching movable MPKI (movable_l2_mpki for the L2, movable_llc_mpki for the LLC),
+never on a footprint ratio alone.
 {descriptors}
 
 ## Settled bets (what was predicted vs what happened)
@@ -285,8 +334,7 @@ def textbook_rules(search_space, objective, how_many, condition_metrics):
 ## Task
 You have NOT run any experiment. From textbook knowledge alone, write the {n}
 rules you would carry into tuning these knobs to maximize {objective} on SPEC
-CPU2017-like workloads. Conditions may only use the listed metrics of the
-untouched baseline design.
+CPU2017-like workloads. Conditions may only use the listed workload descriptors.
 
 {schema}""".format(n=how_many, objective=objective, schema=rule_schema(condition_metrics))
     return as_list(ask_gemini(prompt, temperature=DISTILL_TEMPERATURE))

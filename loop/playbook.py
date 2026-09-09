@@ -112,8 +112,8 @@ def settle_bet(store, bet_id, event_happened):
     won = (leaned_yes == event_happened)
 
     # A rule's record counts EVERY bet it placed: the shared dispute questions
-    # and its own claims. (v2 counted claims only; claims need a paired run and
-    # almost never happen on a new chip, so losing rules kept full confidence.)
+    # and its own claims. (Claims alone need a paired run and almost never happen
+    # on a new chip, so a rule scored on claims only would keep full confidence.)
     for rule in store["rules"]:
         if rule["id"] == bet["forecaster"]:
             rule["brier_scores"].append(brier)

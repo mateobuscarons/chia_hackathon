@@ -3,25 +3,27 @@
   build_from_config  - compile ChampSim for an arbitrary config JSON. Fills the
                        gap in chia.simulators.champsim, whose build node only
                        accepts a prefetcher module (upstream PR candidate).
-  simulate           - CHIA's own ChampSimNode.run_champsim, flattened to the
-                       metrics dict the loop uses.
+  simulate           - run a built binary on one trace per core and flatten the
+                       stats to the metrics dict the loop uses. CHIA's own
+                       ChampSimNode.run_champsim takes a single trace, so the
+                       multi-core chip needs this one (second upstream candidate).
   AnalystNode.ask    - Gemini through chia.models.vertex, JSON in / JSON out.
 
 Resources: "champsim_build" is 1 per checkout (builds share the tree and
 cannot overlap); "champsim" is one slot per simulation core.
 """
 
+import hashlib
 import json
 import os
+import stat
 import tempfile
 
 from chia.base.ChiaFunction import ChiaFunction
 from chia.models.vertex import VertexGeminiLLM
-from chia.simulators.champsim import ChampSimNode
+from chia.trace.profiler import _ProfiledResult
 
-from loop.simulate import build_binary
-
-TUNED_CACHES = ["L1D", "L2C", "LLC"]
+from loop.simulate import build_binary, run_simulation
 
 
 @ChiaFunction(resources={"champsim_build": 1})
@@ -38,27 +40,26 @@ def build_from_config(config, champsim_root):
 
 
 @ChiaFunction(resources={"champsim": 1})
-def simulate(binary, trace_path, warmup_instructions, simulation_instructions):
-    """Run CHIA's ChampSim node and flatten its result to {ipc, <cache>_mpki, ...}."""
-    result = ChampSimNode.run_champsim(
-        binary, trace_path, warmup_instructions=warmup_instructions,
-        simulation_instructions=simulation_instructions, timeout_s=3600)
-    if not result.success:
-        raise RuntimeError("ChampSim run failed: " + result.stdout_tail[-500:])
-    metrics = {"ipc": result.ipc}
-    for cache_name in TUNED_CACHES:
-        stats = result.cache_stats[cache_name]
-        # Demand traffic only, same definition as loop/simulate.py.
-        misses = sum(stats.load_miss) + sum(stats.rfo_miss) + sum(stats.write_miss)
-        hits = sum(stats.load_hit) + sum(stats.rfo_hit) + sum(stats.write_hit)
-        metrics[cache_name + "_hits"] = hits
-        metrics[cache_name + "_misses"] = misses
-        metrics[cache_name + "_mpki"] = misses * 1000.0 / result.instructions
-    return metrics
+def simulate(binary, trace_paths, warmup_instructions, simulation_instructions):
+    """Write the binary to a content-addressed path on this worker (once), run it
+    on the traces (one per core) and return {ipc, <cache>_mpki, ...}."""
+    # With the profiler on, a task's result travels wrapped in CHIA's profiling
+    # record; only get() unwraps it, and here the build future arrives directly.
+    if isinstance(binary, _ProfiledResult):
+        binary = binary.value
+    content_hash = hashlib.sha256(binary).hexdigest()[:16]
+    binary_path = os.path.join(tempfile.gettempdir(), "champsim_" + content_hash)
+    if not os.path.isfile(binary_path):
+        temporary_path = "{}.{}.tmp".format(binary_path, os.getpid())
+        with open(temporary_path, "wb") as binary_file:
+            binary_file.write(binary)
+        os.chmod(temporary_path, os.stat(temporary_path).st_mode | stat.S_IXUSR)
+        os.replace(temporary_path, binary_path)
+    return run_simulation(binary_path, trace_paths, warmup_instructions, simulation_instructions)
 
 
 class AnalystNode:
-    """Gemini on Vertex through CHIA's model layer. One instance per loop run."""
+    """Gemini on Vertex through CHIA's model layer. One instance per worker process."""
 
     def __init__(self, model, project, location="us-central1"):
         self.llm = VertexGeminiLLM(model=model, project=project, location=location,

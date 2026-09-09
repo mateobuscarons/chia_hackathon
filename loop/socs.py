@@ -1,9 +1,11 @@
-"""SoC profiles: three deliberately different chips, sharing the same knobs.
+"""SoC profiles: four deliberately different chips, sharing the same knobs.
 
 PLACEHOLDER values - the team must review. Each profile is a set of
 overrides applied on top of ChampSim's stock config before the knobs.
-B is the stock config (what the MVP validated); A is smaller/slower,
-C is bigger/faster, so the same knob can pay off differently on each.
+B is the stock config; A is smaller/slower, C is bigger/faster, so the same
+knob can pay off differently on each. D has four cores with private L1/L2
+and one shared LLC (the shape of the CRC-2 multi-core configs), so private
+capacity costs four times what shared capacity costs.
 """
 
 SOC_PROFILES = {
@@ -28,15 +30,31 @@ SOC_PROFILES = {
         "LLC": {"ways": 16, "mshr_size": 128},
         "physical_memory": {"data_rate": 3200, "channels": 2},
     },
+    # Four-core: stock cores with a deeper ROB, private L1/L2 per core, one
+    # shared LLC, two memory channels. Every "trace" on this chip is a mix of
+    # four programs, one per core.
+    "D_quad": {
+        "num_cores": 4,
+        "ooo_cpu": {"rob_size": 256},
+        "L2C": {"mshr_size": 32},
+        "LLC": {"ways": 16, "mshr_size": 128},
+        "physical_memory": {"data_rate": 3200, "channels": 2},
+    },
 }
 
-# Hard area budget per SoC (L2 + LLC capacity). PLACEHOLDER - team to review.
-# The objective is "best IPC that fits"; over-budget configs are not candidates.
+# Hard area budget per SoC: one L2 per core plus the shared LLC, in KB.
+# PLACEHOLDER - team to review. The objective is "best IPC that fits";
+# over-budget configs are not candidates.
 AREA_BUDGET_KB = {
     "A_mobile": 2048,
     "B_midrange": 3072,
     "C_server": 4608,
+    "D_quad": 8192,
 }
+
+
+def num_cores(soc_name):
+    return SOC_PROFILES[soc_name].get("num_cores", 1)
 
 
 def apply_profile(config, soc_name):
@@ -44,8 +62,12 @@ def apply_profile(config, soc_name):
     overrides = SOC_PROFILES[soc_name]
     for section_name in overrides:
         section_overrides = overrides[section_name]
+        if section_name == "num_cores":
+            # ChampSim duplicates the first core (and the private caches) to this count.
+            config["num_cores"] = section_overrides
+            continue
         if section_name == "ooo_cpu":
-            # ChampSim stores cores as a list; we only have one core.
+            # ChampSim stores cores as a list; the first entry is the template.
             target = config["ooo_cpu"][0]
         else:
             target = config[section_name]

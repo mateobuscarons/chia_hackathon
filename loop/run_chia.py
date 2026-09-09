@@ -1,40 +1,46 @@
-"""Entry point for running the experiment as a CHIA loop.
+"""Run a cell as a CHIA loop.
 
-  python -m loop.run_chia local  traces/...xz   # ray started in-process on this Mac
-  python -m loop.run_chia auto   traces/...xz   # attach to a cluster started by `chia up`
+  LOOP_DISPATCH is set here, so every build and simulation is a CHIA task, the
+  analyst goes through chia.models.vertex, arm runs are Ray tasks, and CHIA's
+  profiler records the task graph and per-call token counts for `chia viz-profile`.
 
-Simulations are dispatched as CHIA tasks (parallel per round), the analyst
-runs through chia.models.vertex, and CHIA's profiler records the task graph
-and per-call LLM token counts for `chia viz-profile`.
+  python -m loop.run_chia local <cell> <tag> [playbook.json|-] [arm,arm,...]   # Ray in-process on this machine
+  python -m loop.run_chia auto  <cell> <tag> [playbook.json|-] [arm,arm,...]   # attach to a cluster started by `chia up`
+
+Cells are the ones in loop.run. Profiles land in results/chia_profiles/.
 """
 
+import os
 import sys
-import time
+
+os.environ["LOOP_DISPATCH"] = "chia"       # before loop modules read it
 
 import ray
 from chia.trace.profiler import start_collector
 
-from loop import analyst, experiment
-from loop.chia_nodes import AnalystNode
-from loop import champsim_problem
+from loop import run
+from loop.champsim_problem import CHAMPSIM_ROOT
+from loop.simulate import tree_paths
 
 
-def main(mode, traces):
+def main(mode, cell_name, tag, playbook_path, arms):
     if mode == "local":
-        ray.init(resources={"champsim": 4, "champsim_build": 1, "vertex_creds": 1},
+        cores = os.cpu_count()
+        # One simulation slot per core; one build slot per ChampSim tree copy.
+        builds = len(tree_paths(CHAMPSIM_ROOT))
+        ray.init(resources={"champsim": cores, "champsim_build": builds, "vertex_creds": 1},
                  include_dashboard=False, logging_level="ERROR")
     else:
         ray.init(address="auto")
     start_collector(log_dir="results/chia_profiles")
-
-    analyst.use_chia_node(AnalystNode(model=analyst.MODEL, project=analyst.GCP_PROJECT))
-    champsim_problem.DEFAULT_DISPATCH = "chia"
-
-    stamp = time.strftime("%Y%m%d_%H%M")
-    experiment.run_experiment(train_socs=["A_mobile", "B_midrange"], test_soc="C_server",
-                              traces=traces, rounds=10, per_round=2, seeds=3,
-                              output_path="results/experiment_{}.json".format(stamp))
+    run.run_cell(cell_name, tag, playbook_path, arms)
 
 
 if __name__ == "__main__":
-    main(sys.argv[1], sys.argv[2:])
+    playbook_path = None
+    if len(sys.argv) > 4 and sys.argv[4] != "-":
+        playbook_path = sys.argv[4]
+    arms = None
+    if len(sys.argv) > 5:
+        arms = sys.argv[5].split(",")
+    main(sys.argv[1], sys.argv[2], sys.argv[3], playbook_path, arms)

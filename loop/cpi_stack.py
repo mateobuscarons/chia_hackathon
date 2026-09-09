@@ -1,4 +1,4 @@
-"""The CPI stack: the surrogate's mean function (v6).
+"""The CPI stack: a mechanistic mean function for the surrogate (offline finding).
 
 The idea in one line: a design changes IPC only by changing how many misses
 happen at each level and what each miss costs, so write that down as a formula

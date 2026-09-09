@@ -1,15 +1,21 @@
 """The transfer experiment: learn a playbook on SoCs A and B, test it on unseen SoC C.
 
+The playbook is distilled from the result tables of the training chips: a
+structured set of designs (the baseline, every one-knob change, key pairs, a
+spread of mixed designs) simulated on the training suite, so every knob has a
+controlled pair and every claim can be measured before a rule is admitted.
+
 Arms on the target SoC (same simulation cap for all):
   random          - shuffle the candidates, run them in order
   bo              - textbook Bayesian optimisation: GP + expected improvement (cold start)
   bo_pooled       - the same BO warm-started with every A/B run (statistical transfer)
   textbook        - GP + rules the LLM wrote BEFORE seeing any result
   rules           - GP + rules distilled from A/B (rule transfer, no LLM in the loop)
-  full            - GP + distilled rules + LLM hypotheses (the whole loop)
-The metric is designs-to-target: how many designs until best-so-far captures
-90% of the gap between the baseline and the best design any arm found (or the
-in-budget optimum when a dense sweep exists).
+  full            - GP + distilled rules + the analyst's reply on a stall (the whole loop)
+  llm_direct      - the plain agent: the LLM picks every design from the results table alone
+The pooled arm's warm start is frozen once per playbook (a `_pool.json` next to
+it) so every cell and seed sees the same prior data. Reports keep every run's history; `summarize` scores designs-to-target against
+each cell's fixed reference.
 """
 
 import copy
@@ -23,9 +29,50 @@ import os
 
 from loop.champsim_problem import aggregate_suite, enrich_metrics, make_problem, make_suite_problem, trace_short_name
 
-TARGET_FRACTION = 0.9
 # Parallel arm runs (each simulates per_round designs x suite size at a time).
 PARALLEL_RUNS = int(os.environ.get("PARALLEL_RUNS", "5"))
+
+
+class ProcessJobs:
+    """Arm runs and learn jobs as local processes (python -m loop.run)."""
+
+    def __init__(self):
+        self.pool = ProcessPoolExecutor(max_workers=PARALLEL_RUNS)
+
+    def submit(self, function, *arguments):
+        return self.pool.submit(function, *arguments)
+
+    def result(self, handle):
+        return handle.result()
+
+    def shutdown(self):
+        self.pool.shutdown()
+
+
+class RayJobs:
+    """The same jobs as Ray tasks under CHIA (python -m loop.run_chia): every
+    simulation they launch is a CHIA task too, so the profiler sees the whole
+    loop as one task graph. An arm job itself needs no CPU: it waits on tasks."""
+
+    def __init__(self):
+        import ray
+        self.ray = ray
+
+    def submit(self, function, *arguments):
+        remote_function = self.ray.remote(num_cpus=0)(function)
+        return remote_function.remote(*arguments)
+
+    def result(self, handle):
+        return self.ray.get(handle)
+
+    def shutdown(self):
+        return
+
+
+def make_jobs():
+    if os.environ.get("LOOP_DISPATCH", "local") == "chia":
+        return RayJobs()
+    return ProcessJobs()
 
 
 def problem_for(soc_name, traces, space_name, allow_simulation=True):
@@ -35,21 +82,22 @@ def problem_for(soc_name, traces, space_name, allow_simulation=True):
     return make_problem(soc_name, traces, allow_simulation=allow_simulation, space_name=space_name)
 
 
-def learn(store, soc_names, traces, rounds, per_round, space_name):
-    """Run the full loop on every training (SoC, trace) in parallel, distill rules
-    from each, and merge the playbooks into `store`. Returns the pooled history."""
-    pool = ProcessPoolExecutor(max_workers=PARALLEL_RUNS)
-    futures = []
+def learn(store, soc_names, traces, space_name):
+    """Distill rules from every training (SoC, suite) in parallel and merge the
+    playbooks into `store`. Returns the pooled history of every measured training
+    design (the pooled arm's warm start)."""
+    jobs = make_jobs()
+    handles = []
     for soc_name in soc_names:
         for trace_path in traces:
-            futures.append((soc_name, pool.submit(learn_job, soc_name, trace_path, rounds, per_round, space_name)))
+            handles.append((soc_name, jobs.submit(learn_job, soc_name, trace_path, space_name)))
     prior_history = []
-    for soc_name, future in futures:
-        job_store, history = future.result()
+    for soc_name, handle in handles:
+        job_store, history = jobs.result(handle)
         merge_playbook(store, job_store)
         for entry in history:
             prior_history.append(with_soc(entry, soc_name))
-    pool.shutdown()
+    jobs.shutdown()
     return prior_history
 
 
@@ -57,18 +105,20 @@ def learn(store, soc_names, traces, rounds, per_round, space_name):
 VERIFY_SIMS_PER_PROBLEM = 5
 
 
-def learn_job(soc_name, trace_path, rounds, per_round, space_name):
-    """One training problem: loop with analyst + its own fresh playbook, then distill
-    (claims measured by controlled comparison before a rule is admitted)."""
+def learn_job(soc_name, trace_path, space_name):
+    """One training problem: every design measured on it is the evidence; the
+    analyst proposes rules over the measured one-knob effects and each claim is
+    verified by controlled comparison before it is admitted."""
     problem = problem_for(soc_name, trace_path, space_name)
     job_store = {"rules": [], "bets": []}
     tag = "learn-" + problem["name"]
-    result = loop.run_loop(problem, rounds, per_round, job_store, surrogate_gp,
-                           use_rules=True, use_analyst=True, tag=tag)
-    history = result["history"]
+    reference = problem["evaluate"](problem["baseline"])[problem["objective"]]
+    history = measured_designs(problem)
+    for entry in history:
+        entry["reference"] = reference
     extra_runs = distill(job_store, problem, history, tag)
     for entry in extra_runs:
-        entry["reference"] = history[0]["reference"]
+        entry["reference"] = reference
     return job_store, history + extra_runs
 
 
@@ -119,7 +169,7 @@ def distill(store, problem, history, tag):
     # The LLM proposes; the simulator measures every claim before admission, using
     # every design ever measured on this problem as evidence (not just this run).
     # The same evidence, as measured one-knob effects, is shown to the analyst so
-    # it spends its rules on the largest effects (Sep 7 autopsy: it ignored a +33%).
+    # it spends its rules on the largest effects instead of the first it notices.
     evidence = measured_designs(problem)
     effects_text = forecast.format_effects(forecast.one_knob_effects(evidence, problem["objective"]))
     descriptors_text = "(not available)"
@@ -194,7 +244,7 @@ def run_arm_job(arm, store, soc_name, trace_path, rounds, per_round, prior_histo
     history, arm_store, round_logs = run_arm(arm, store, soc_name, trace_path, rounds, per_round,
                                              prior_history, seed, space_name)
     # Round logs (hypotheses, chosen designs, claim tests, stall scans) stay in the
-    # report so an autopsy can see what the analyst proposed and what was picked.
+    # report so a review can see what the analyst proposed and what was picked.
     return {"history": compact(history, "ipc"), "full_history": history,
             "bets": arm_store["bets"], "rules": arm_store["rules"], "rounds": round_logs}
 
@@ -205,6 +255,11 @@ def run_arm(arm, store, soc_name, trace_path, rounds, per_round, prior_history, 
     arm_store["bets"] = []                    # ...but with its own empty ledger (learn bets live in report["learn_bets"])
     if arm == "random":
         return random_arm(problem, rounds * per_round, seed), arm_store, []
+    if arm == "llm_direct":
+        arm_store = {"rules": [], "bets": []}
+        tag = "llm_direct-{}-s{}".format(problem["name"], seed)
+        result = loop.run_llm_direct(problem, rounds, per_round, arm_store, tag, seed=seed)
+        return result["history"], arm_store, result["rounds"]
     if arm == "textbook":
         # Textbook rules are admitted UNVERIFIED on purpose: this arm measures what
         # prior knowledge alone is worth; the loop's rules must beat it.
@@ -232,42 +287,7 @@ def run_arm(arm, store, soc_name, trace_path, rounds, per_round, prior_history, 
     return result["history"], arm_store, result["rounds"]
 
 
-def simulations_to_target(history, optimum, objective):
-    """Runs until best-so-far captures TARGET_FRACTION of the achievable gain.
-
-    The gap is optimum minus the baseline (history[0]). Scoring against the
-    gap, not the raw optimum, keeps workloads with little headroom (omnetpp:
-    +2%) from being "solved" at step zero.
-    """
-    baseline = history[0]["metrics"][objective]
-    target = baseline + TARGET_FRACTION * (optimum - baseline)
-    best = None
-    for index, entry in enumerate(history):
-        value = entry["metrics"][objective]
-        if best is None or value > best:
-            best = value
-        if best >= target:
-            return index          # index 0 is the free baseline run
-    return None
-
-
-def in_budget_optimum(problem):
-    """True optimum from the dense sweep. None when the space was never swept
-    (Tier B): the report then scores against the best design any arm found."""
-    if "holders" in problem:
-        return None            # suites are never densely swept
-    table = problem["holder"].sweep_table
-    best = None
-    for name in problem["candidates"]:
-        if name not in table:
-            return None
-        value = table[name]["metrics"]["ipc"]
-        if best is None or value > best:
-            best = value
-    return best
-
-
-ARMS = ["random", "bo", "bo_pooled", "textbook", "rules", "full"]
+ARMS = ["random", "bo", "bo_pooled", "textbook", "rules", "full", "llm_direct"]
 
 
 def compact(history, objective):
@@ -279,14 +299,15 @@ def compact(history, objective):
 
 
 def run_experiment(train_socs, test_soc, traces, rounds, per_round, seeds, output_path,
-                   train_traces=None, space_name="A", arms=None, test_rounds=None,
+                   train_traces=None, space_name="C", arms=None,
                    playbook_path=None, first_seed=0, suite=False):
     """suite=True: all `traces` form ONE problem per SoC (geomean objective);
-    otherwise each trace is its own problem.
+    otherwise each trace is its own problem. `rounds` x `per_round` is each arm's
+    design budget on the test chip.
     train_traces defaults to `traces` (cross-trace transfer passes another list).
-    space_name selects Tier A or B; arms defaults to all; test_rounds defaults to rounds.
+    space_name names the search space; arms defaults to all.
     playbook_path reuses an already-learned playbook (more seeds, same knowledge);
-    the pooled arm then gets every training run in the Tier tables as prior data."""
+    the pooled arm then gets every measured training design as prior data."""
     if train_traces is None:
         train_traces = traces
     if suite:
@@ -295,62 +316,68 @@ def run_experiment(train_socs, test_soc, traces, rounds, per_round, seeds, outpu
         train_traces = [list(train_traces)]
     if arms is None:
         arms = ARMS
-    if test_rounds is None:
-        test_rounds = rounds
     started = time.time()
     if playbook_path is None:
         store = {"rules": [], "bets": []}
-        prior_history = learn(store, train_socs, train_traces, rounds, per_round, space_name)
+        prior_history = learn(store, train_socs, train_traces, space_name)
+        pool_path = output_path.replace(".json", "_pool.json")
     else:
         store = playbook.load(playbook_path)
-        prior_history = training_runs(train_socs, train_traces, space_name)
+        # The frozen pool lives next to the playbook it was made with; it is built
+        # once from every measured training design and never changes afterwards.
+        if playbook_path.endswith("_playbook.json"):
+            pool_path = playbook_path.replace("_playbook.json", "_pool.json")
+        else:
+            pool_path = playbook_path.replace(".json", "_pool.json")
+        if os.path.exists(pool_path):
+            with open(pool_path) as pool_file:
+                prior_history = json.load(pool_file)
+        else:
+            prior_history = training_runs(train_socs, train_traces, space_name)
     playbook.save(store, output_path.replace(".json", "_playbook.json"))
+    with open(pool_path, "w") as pool_file:
+        json.dump(prior_history, pool_file)
 
     report = {"settings": {"train_socs": train_socs, "test_soc": test_soc, "traces": traces,
                            "train_traces": train_traces, "space": space_name, "arms": arms, "suite": suite,
-                           "test_rounds": test_rounds,
                            "rounds": rounds, "per_round": per_round, "seeds": seeds},
               "learn_bets": store["bets"], "rules": store["rules"],
               "rejected_rules": store.get("rejected_rules", []), "test": {}}
 
-    # Every (trace, arm, seed) run is independent: run them in parallel processes.
+    # Every (trace, arm, seed) run is independent: run them in parallel jobs.
     # Each one returns a small dict; the report is saved after every result.
-    pool = ProcessPoolExecutor(max_workers=PARALLEL_RUNS)
-    futures = []
+    jobs = make_jobs()
+    handles = []
     for trace_path in traces:
         problem = problem_for(test_soc, trace_path, space_name)
-        report["test"][problem["name"]] = {"optimum": in_budget_optimum(problem), "arms": {}}
+        report["test"][problem["name"]] = {"arms": {}}
         for arm in arms:
             report["test"][problem["name"]]["arms"][arm] = {}
         # Seed-major order: the first wave of parallel jobs already covers every arm
         # on seed 0, so a running experiment shows an early cross-arm comparison.
         for seed in range(first_seed, first_seed + seeds):
             for arm in arms:
-                future = pool.submit(run_arm_job, arm, store, test_soc, trace_path,
-                                     test_rounds, per_round, prior_history, seed, space_name)
-                futures.append((problem["name"], arm, seed, future))
+                handle = jobs.submit(run_arm_job, arm, store, test_soc, trace_path,
+                                     rounds, per_round, prior_history, seed, space_name)
+                handles.append((problem["name"], arm, seed, handle))
 
     report["failed_jobs"] = []
-    for problem_name, arm, seed, future in futures:
+    for problem_name, arm, seed, handle in handles:
         try:
-            run = future.result()
+            run = jobs.result(handle)
         except Exception as error:
             # One bad job must never abort the experiment; it is recorded and visible.
             report["failed_jobs"].append({"problem": problem_name, "arm": arm, "seed": seed,
                                           "error": repr(error)[-400:]})
             print("!! FAILED {} / {} seed {}: {}".format(arm, problem_name, seed, repr(error)[-200:]), flush=True)
             continue
-        optimum = report["test"][problem_name]["optimum"]
-        run["sims_to_target"] = None
-        if optimum is not None:
-            run["sims_to_target"] = simulations_to_target(run["full_history"], optimum, "ipc")
+        best_found = max(row["ipc"] for row in run["history"])
         del run["full_history"]
         report["test"][problem_name]["arms"][arm][str(seed)] = run
-        print("== {} / {} seed {}: sims_to_target={}".format(
-            arm, problem_name, seed, run["sims_to_target"]), flush=True)
+        print("== {} / {} seed {}: best {:.4f}".format(arm, problem_name, seed, best_found), flush=True)
         with open(output_path, "w") as report_file:
             json.dump(report, report_file, indent=2)
-    pool.shutdown()
+    jobs.shutdown()
 
     report["wall_seconds"] = time.time() - started
     print("failed jobs:", len(report["failed_jobs"]), flush=True)
@@ -363,5 +390,5 @@ if __name__ == "__main__":
     import sys
     stamp = time.strftime("%Y%m%d_%H%M")
     run_experiment(train_socs=["A_mobile", "B_midrange"], test_soc="C_server",
-                   traces=sys.argv[1:], rounds=10, per_round=2, seeds=3,
-                   output_path="results/experiment_{}.json".format(stamp))
+                   traces=sys.argv[1:], rounds=12, per_round=2, seeds=3,
+                   output_path="results/experiment_{}.json".format(stamp), suite=True)

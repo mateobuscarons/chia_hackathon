@@ -1,7 +1,7 @@
 """Gaussian-process surrogate (scikit-learn), shared by every arm.
 
 Interface used by the loop:
-  fit(history, search_space, objective, priors, honest_std) -> model
+  fit(history, search_space, objective, honest_std, reference) -> model
   predict(model, knobs) -> (mean, std)
   predict_many(model, [knobs]) -> (means, stds)      one vectorised call
   probability_at_least(model, knobs, threshold) -> P(objective >= threshold)
@@ -36,12 +36,9 @@ from sklearn.gaussian_process.kernels import ConstantKernel, Matern, WhiteKernel
 
 MIN_STD = 0.005
 
-# Noise (in normalised-target units, since normalize_y=True) attached to a
-# virtual point from a rule. Real measurements get the tiny value; a rule's
-# point gets more, so real data overrides a rule as soon as it arrives.
+# Noise (in normalised-target units, since normalize_y=True) attached to every
+# measurement: ChampSim is deterministic, so only a hair above zero.
 REAL_NOISE = 1e-6
-PRIOR_NOISE_MIN = 0.05     # rule the GP fully trusts
-PRIOR_NOISE_MAX = 1.0      # rule at the credibility floor
 
 # With few points the kernel optimizer hits its bounds; harmless, and noisy.
 warnings.filterwarnings("ignore", category=ConvergenceWarning)
@@ -103,15 +100,12 @@ def to_log_speedup(value, reference):
     return math.log(max(value, 1e-9) / reference)
 
 
-def fit(history, search_space, objective, priors=None, honest_std=True, reference=None):
-    """priors: optional list of {"knobs", "value", "confidence"} - virtual
-    experiments from playbook rules or hypotheses (values in objective units of
-    the current problem). They warm-start the GP; their noise grows as
-    confidence drops, and they never count in the leave-one-out error.
+def fit(history, search_space, objective, honest_std=True, reference=None):
+    """Fit the GP on every measured run in `history` (this problem's and, for the
+    pooled arm, other chips'). Playbook rules never enter the fit: they shift the
+    predicted mean afterwards (forecast.shift_for), so the GP's uncertainty stays honest.
     reference: the current problem's baseline objective (defaults to the first
     history entry's own reference, else its value)."""
-    if priors is None:
-        priors = []
     if reference is None:
         first = history[0]
         reference = first.get("reference", first["metrics"][objective])
@@ -126,11 +120,6 @@ def fit(history, search_space, objective, priors=None, honest_std=True, referenc
         targets.append(to_log_speedup(entry["metrics"][objective], own_reference))
         noises.append(REAL_NOISE)
     real_count = len(rows)
-    for prior in priors:
-        rows.append(encode(prior["knobs"], columns))
-        targets.append(to_log_speedup(prior["value"], reference))
-        distrust = 1.0 - prior["confidence"]
-        noises.append(PRIOR_NOISE_MIN + distrust * (PRIOR_NOISE_MAX - PRIOR_NOISE_MIN))
 
     regressor = fit_regressor(rows, targets, noises, len(columns))
 

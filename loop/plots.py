@@ -1,7 +1,7 @@
-"""Paper figures from one experiment report. Usage: python -m loop.plots results/experiment_X.json
+"""Paper figures from one experiment report. Usage: python -m loop.plots results/experiment_X.json [reference]
 
-  fig_curves.png       best-so-far vs simulations, per arm (median over seeds)
-  fig_sims_to_target   simulations to reach 98% of optimum, per arm
+  fig_curves.png       best-so-far vs designs, per arm (median over seeds)
+  fig_sims_to_target   designs to reach 90% of the reference, per arm
   fig_brier.png        running Brier score per forecaster class over settled bets
   fig_reliability.png  reliability diagram: stated probability vs observed frequency
 """
@@ -13,60 +13,10 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as pyplot
 
-
-def forecaster_class(forecaster_id):
-    if forecaster_id == "SURROGATE":
-        return "surrogate"
-    if forecaster_id.startswith("RULE"):
-        return "rules"
-    return "hypotheses"
+from loop.summarize import all_bets, best_found, best_so_far, designs_to_target, forecaster_class, median
 
 
-def best_so_far(history, objective):
-    curve = []
-    best = None
-    for row in history:
-        if best is None or row[objective] > best:
-            best = row[objective]
-        curve.append(best)
-    return curve
-
-
-def reference_optimum(trace_report):
-    """Sweep optimum when known (Tier A); otherwise the best IPC any arm found (Tier B)."""
-    if trace_report["optimum"] is not None:
-        return trace_report["optimum"]
-    best = None
-    for arm in trace_report["arms"]:
-        for run in trace_report["arms"][arm].values():
-            for row in run["history"]:
-                if best is None or row["ipc"] > best:
-                    best = row["ipc"]
-    return best
-
-
-def sims_to_target(history, optimum, fraction=0.9):
-    """Re-scored from the history so the metric can change without rerunning."""
-    baseline = history[0]["ipc"]
-    target = baseline + fraction * (optimum - baseline)
-    best = None
-    for index, row in enumerate(history):
-        if best is None or row["ipc"] > best:
-            best = row["ipc"]
-        if best >= target:
-            return index
-    return None
-
-
-def median(values):
-    ordered = sorted(values)
-    middle = len(ordered) // 2
-    if len(ordered) % 2 == 1:
-        return ordered[middle]
-    return (ordered[middle - 1] + ordered[middle]) / 2.0
-
-
-def plot_curves(report, out_prefix):
+def plot_curves(report, out_prefix, reference=None):
     problems = list(report["test"].keys())
     figure, axes = pyplot.subplots(1, len(problems), figsize=(5 * len(problems), 4), squeeze=False)
     for column, problem_name in enumerate(problems):
@@ -81,31 +31,36 @@ def plot_curves(report, out_prefix):
             for step in range(length):
                 medians.append(median([curve[step] for curve in curves]))
             axis.plot(range(length), medians, label=arm)
-        axis.axhline(reference_optimum(trace_report), color="black", linestyle=":", label="optimum / best known")
+        cell_reference = reference
+        if cell_reference is None:
+            cell_reference = best_found(trace_report)
+        axis.axhline(cell_reference, color="black", linestyle=":", label="reference")
         axis.set_title(problem_name)
-        axis.set_xlabel("simulations")
+        axis.set_xlabel("designs")
         axis.set_ylabel("best IPC so far")
     axes[0][0].legend(fontsize=7)
     figure.tight_layout()
     figure.savefig(out_prefix + "_curves.png", dpi=150)
 
 
-def plot_sims_to_target(report, out_prefix):
-    arms = None
+def plot_sims_to_target(report, out_prefix, reference=None):
     values_by_arm = {}
     for problem_name in report["test"]:
         trace_report = report["test"][problem_name]
+        cell_reference = reference
+        if cell_reference is None:
+            cell_reference = best_found(trace_report)
         for arm in trace_report["arms"]:
             for seed in trace_report["arms"][arm]:
                 history = trace_report["arms"][arm][seed]["history"]
-                count = sims_to_target(history, reference_optimum(trace_report))
+                count = designs_to_target(history, cell_reference, 0.9)
                 if count is None:
                     count = len(history)   # never reached: cap at the budget
                 values_by_arm.setdefault(arm, []).append(count)
     arms = list(values_by_arm.keys())
     figure, axis = pyplot.subplots(figsize=(7, 4))
     axis.bar(arms, [median(values_by_arm[arm]) for arm in arms])
-    axis.set_ylabel("simulations to capture 90% of achievable gain (median)")
+    axis.set_ylabel("designs to capture 90% of the reference gain (median)")
     axis.tick_params(axis="x", rotation=30)
     figure.tight_layout()
     figure.savefig(out_prefix + "_sims_to_target.png", dpi=150)
@@ -125,7 +80,7 @@ def all_bets(report):
 def plot_brier(report, out_prefix):
     figure, axis = pyplot.subplots(figsize=(6, 4))
     bets = all_bets(report)
-    for klass in ["surrogate", "rules", "hypotheses"]:
+    for klass in ["surrogate", "rules", "analyst", "llm_direct"]:
         running = []
         total = 0.0
         count = 0
@@ -150,7 +105,7 @@ def plot_reliability(report, out_prefix):
     bins = [0.0, 0.2, 0.4, 0.6, 0.8, 1.01]
     figure, axis = pyplot.subplots(figsize=(4.5, 4.5))
     bets = all_bets(report)
-    for klass in ["surrogate", "rules", "hypotheses"]:
+    for klass in ["surrogate", "rules", "analyst", "llm_direct"]:
         xs = []
         ys = []
         for low, high in zip(bins[:-1], bins[1:]):
@@ -174,8 +129,11 @@ if __name__ == "__main__":
     with open(report_path) as report_file:
         report = json.load(report_file)
     prefix = report_path.replace(".json", "")
-    plot_curves(report, prefix)
-    plot_sims_to_target(report, prefix)
+    reference = None
+    if len(sys.argv) > 2:
+        reference = float(sys.argv[2])
+    plot_curves(report, prefix, reference)
+    plot_sims_to_target(report, prefix, reference)
     plot_brier(report, prefix)
     plot_reliability(report, prefix)
     print("figures written with prefix", prefix)

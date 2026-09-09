@@ -19,7 +19,7 @@ import math
 import numpy
 
 from loop import surrogate_gp, trace_profile
-from loop.configs import SEARCH_SPACE_C
+from loop.configs import SEARCH_SPACE
 
 SOCS = ["A_mobile", "B_midrange", "C_server"]
 POLICY_KNOBS = ["l1d_prefetcher", "l2_prefetcher", "llc_prefetcher", "llc_replacement"]
@@ -41,7 +41,7 @@ def design_capacities(knobs):
 def policy_columns(knobs):
     columns = []
     for knob in POLICY_KNOBS:
-        for value in SEARCH_SPACE_C[knob]:
+        for value in SEARCH_SPACE[knob]:
             if str(knobs[knob]) == str(value):
                 columns.append(1.0)
             else:
@@ -106,7 +106,7 @@ def minimal_features(row, chip):
 
 
 def knob_features(row, chip):
-    space = dict(SEARCH_SPACE_C)
+    space = dict(SEARCH_SPACE)
     space["soc"] = SOCS
     columns = surrogate_gp.build_columns(space)
     knobs = dict(row["knobs"])
@@ -137,7 +137,7 @@ def miss_count_features(row, chip):
     """Features for predicting a design's MISS COUNTS, not its speed.
 
     Deliberately blind to the chip: the same design on chips A, B and C misses
-    within a few percent of the same number of times (measured Sep 8: 1.8-4.2%
+    within a few percent of the same number of times (measured: 1.8-4.2%
     between B and C, rank correlation 0.99), while its IPC moves 26%. So the
     miss-count model has nothing to transfer - it is the same function on every
     chip - and every chip-dependent effect is left to the CPI stack's formula.

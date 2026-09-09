@@ -11,11 +11,12 @@ Simulator-agnostic. Everything domain-specific arrives in the `problem` dict:
   table_metrics - metric names shown to the analyst
   condition_metrics - metric names a rule condition may use
 
-One round: fit surrogate -> analyst hypotheses -> every forecaster predicts
-every candidate -> run the most disputed ones -> settle bets -> re-scope
-losing rules. Every forecast (chosen or not) is logged for calibration plots.
+One round: fit surrogate -> pick designs (expected improvement, tilted by the
+speaking rules; on a stall one claim test or scan, and the analyst's reply) ->
+every forecaster bets on the chosen designs -> run -> settle -> re-scope losing
+rules. Every forecast on a chosen design is logged for calibration plots.
 
-Mechanism v3 ("rules earn their bets"):
+How rules earn their say:
   - a rule's claimed gain is MEASURED from a controlled comparison before the
     rule enters the playbook (verify_claims); the LLM writes the condition and
     the words, never the number;
@@ -29,6 +30,7 @@ Mechanism v3 ("rules earn their bets"):
 """
 
 import json
+import random
 
 from loop import analyst, forecast, playbook
 from loop.surrogate_gp import normal_tail
@@ -40,27 +42,23 @@ RESCOPE_AFTER_LOSSES = 3
 MIN_CLAIM_GAIN_PCT = 1.0
 
 
-# One slot per round for an untried categorical value when the last round did
-# not improve the best design. Part of our mechanism (rules / full arms only).
-EXPLORE_ON_STALL = True
-
-
 def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analyst, tag,
              prior_history=None, seed=0):
     """Returns {"history": [...], "rounds": [...]}; bets land in `store`.
 
     surrogate:   module with fit / predict_many / probability_at_least
-    use_rules:   let playbook rules forecast, bet and warm-start the surrogate (transfer arm)
-    use_analyst: let the LLM propose hypotheses (they forecast, bet and warm-start too)
-    tag:         prefix for hypothesis ids so arms can be told apart in the ledger
-    prior_history: runs from OTHER designs the surrogate may learn from
-                 (pooled transfer); they never count as simulations
-    Selection: expected improvement over a GP that carries every forecaster's
-    belief as a prior; one slot per round goes to an owed claim test (baseline +
-    one knob) while credible rules have untested claims here; a silenced analyst
-    keeps one design to bet on; when the last round brought no improvement, one
-    slot scans an untried neighbour of the incumbent (rules / full arms only).
-    Textbook BO is the special case with no rules and no analyst.
+    use_rules:   playbook rules shift the surrogate's mean and bet (the rules arm)
+    use_analyst: the analyst gets a right of reply when the search stalls (the full arm)
+    tag:         prefix for reply ids so arms can be told apart in the ledger
+    prior_history: runs from OTHER chips the surrogate may learn from (pooled
+                 transfer); they never count as simulations
+
+    Selection: expected improvement over a GP whose mean the speaking rules shift
+    (bounded, decaying as real observations arrive). When the last round brought
+    no improvement, one slot goes to the most valuable owed claim test (baseline +
+    one knob) or, with none owed, to a stall scan of the incumbent; in the full arm
+    the analyst then gets one design of its own. Textbook BO is the special case
+    with no rules and no analyst: pure EI every round.
     """
     if prior_history is None:
         prior_history = []
@@ -71,9 +69,7 @@ def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analys
     reference = baseline_metrics[objective]
     # Conditions are checked on the workload descriptors (chip-independent); the
     # chip's own baseline run stays the reference for values and forecasts.
-    descriptors = problem.get("descriptors")
-    if descriptors is None:
-        descriptors = baseline_metrics
+    descriptors = problem["descriptors"]
     history = [{"name": baseline_name, "knobs": problem["baseline"], "metrics": baseline_metrics,
                 "reference": reference}]
     del candidates[baseline_name]
@@ -84,78 +80,65 @@ def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analys
     losses_here = {}          # rule id -> bets lost on THIS problem
     wins_here = {}
     rescoped_here = set()
-    analyst_record = {"wins": 0, "losses": 0}   # the analyst's hypothesis bets on THIS problem
+    analyst_record = {"wins": 0, "losses": 0}   # the analyst's reply bets on THIS problem
     honest_std = use_rules or use_analyst   # bets need honest doubt
-    # The stall scan is part of OUR mechanism: baselines (bo, bo_pooled) stay textbook.
-    stall_scan_enabled = EXPLORE_ON_STALL and (use_rules or use_analyst)
-    last_round_improved = True     # no stall scan in round 1
+    our_mechanism = use_rules or use_analyst   # baselines (bo, bo_pooled) stay textbook
+    last_round_improved = True     # nothing can have stalled before round 1
     round_logs = []
     for round_number in range(1, rounds + 1):
         rules = forecast.speaking_rules(all_rules, descriptors)
-        hypotheses = []
-        if use_analyst:
-            hypotheses = ask_hypotheses(problem, history, rules, candidates, per_round,
-                                        "{}-HYP-r{}".format(tag, round_number))
-        # Every forecaster's belief warm-starts the surrogate as a virtual experiment
-        # (re-built every round: a re-scoped or discredited rule stops or weakens its prior).
-        priors = forecast.rule_priors(rules, problem["baseline"], baseline_metrics, objective, history,
-                                      problem["search_space"])
-        priors = priors + forecast.hypothesis_priors(hypotheses, candidates, analyst_record)
-        model = surrogate.fit(prior_history + history, problem["search_space"], objective, priors,
+        model = surrogate.fit(prior_history + history, problem["search_space"], objective,
                               honest_std=honest_std, reference=reference)
+        shifts = None
+        if use_rules:
+            shifts = forecast.rule_shifts(rules, history, problem["baseline"], problem["search_space"], objective)
         best_so_far = max(entry["metrics"][objective] for entry in history)
 
         chosen = []
-        claim_test_of = {}
-        # One slot for the most valuable owed claim test, the rest by expected improvement.
-        owed = forecast.untested_claim_tests(rules, history, problem["baseline"], candidates,
-                                            problem["search_space"], objective)
-        if len(owed) > 0 and per_round > 1:
-            test_name, rule_id = owed[0]
-            chosen.append(test_name)
-            claim_test_of[test_name] = rule_id
-        # (d) Right of reply: a silenced analyst (credibility below the floor) keeps
-        # one simulated design per round to bet on, so it can earn its voice back.
-        # Without it one lost bet silenced it for good (Sep 7 autopsy).
-        analyst_silenced = forecast.analyst_credibility(analyst_record) < forecast.CREDIBLE_CONFIDENCE
-        if analyst_silenced and len(hypotheses) > 0 and len(chosen) < per_round:
-            reply = None
-            for hypothesis in hypotheses:
-                if hypothesis["name"] in chosen or hypothesis["name"] not in candidates:
-                    continue
-                if reply is None or hypothesis["confidence"] > reply["confidence"]:
-                    reply = hypothesis
-            if reply is not None:
-                chosen.append(reply["name"])
-                claim_test_of[reply["name"]] = "reply " + reply["id"]
-        # (a) Stall scan: when the last round brought no improvement, one slot goes
-        # to the incumbent with a never-tried categorical value (see forecast).
-        # It never takes the last slot, so EI always keeps at least one pick.
-        if stall_scan_enabled and not last_round_improved and len(chosen) < per_round - 1:
-            scan_name = forecast.stall_scan_candidate(history, candidates, problem["search_space"],
-                                                      surrogate, model, objective)
-            if scan_name is not None and scan_name not in chosen:
-                chosen.append(scan_name)
-                claim_test_of[scan_name] = "stall scan"
+        slot_of = {}          # design name -> why it was picked outside EI
+        replies = []
+        stalled = not last_round_improved
+        if stalled and our_mechanism:
+            # One slot for the architect's move: settle an owed claim as a controlled
+            # comparison, or, with nothing owed, try an untried neighbour of the incumbent.
+            owed = forecast.untested_claim_tests(rules, history, problem["baseline"], candidates,
+                                                problem["search_space"], objective)
+            if len(owed) > 0:
+                test_name, rule_id = owed[0]
+                chosen.append(test_name)
+                slot_of[test_name] = "claim test for " + rule_id
+            else:
+                scan_name = forecast.stall_scan_candidate(history, candidates, problem["search_space"],
+                                                          surrogate, model, objective)
+                if scan_name is not None:
+                    chosen.append(scan_name)
+                    slot_of[scan_name] = "stall scan"
+            # Right of reply: the analyst names one design and bets on it.
+            if use_analyst and len(chosen) < per_round:
+                reply = ask_reply(problem, history, rules, candidates, "{}-REPLY-r{}".format(tag, round_number))
+                if reply is not None and reply["name"] not in chosen:
+                    replies.append(reply)
+                    chosen.append(reply["name"])
+                    slot_of[reply["name"]] = "reply " + reply["id"]
         more = forecast.pick_expected_improvement(
             candidates, surrogate, model, prior_history + history, problem["search_space"],
             objective, per_round - len(chosen), best_so_far, seed=seed * 1000 + round_number,
-            priors=priors, already_chosen=chosen, honest_std=honest_std)
+            shifts=shifts, baseline_knobs=problem["baseline"], already_chosen=chosen, honest_std=honest_std)
         chosen = chosen + more
         forecasts = None
-        if len(rules) > 0 or len(hypotheses) > 0:
+        if len(rules) > 0 or len(replies) > 0:
             # Forecasts only for the chosen designs: that is all the bets need.
             chosen_candidates = {}
             for name in chosen:
                 chosen_candidates[name] = candidates[name]
-            forecasts = forecast.gather_forecasts(chosen_candidates, surrogate, model, rules, hypotheses,
+            forecasts = forecast.gather_forecasts(chosen_candidates, surrogate, model, rules, replies,
                                                   problem["baseline"], baseline_metrics, objective, history,
                                                   problem["search_space"])
         logged = None
         if forecasts is not None:
             logged = compact_forecasts(forecasts, chosen)
-        round_logs.append({"round": round_number, "forecasts": logged, "hypotheses": hypotheses,
-                           "chosen": chosen, "claim_tests": claim_test_of})
+        round_logs.append({"round": round_number, "stalled": stalled, "forecasts": logged,
+                           "replies": replies, "chosen": chosen, "slots": slot_of})
 
         # 1) every forecaster bets on every chosen config, BEFORE anything runs
         bets_by_name = {}
@@ -172,7 +155,7 @@ def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analys
                 event = "{} >= {:.4f}".format(objective, threshold)
                 for forecaster_id, predicted in opinions:
                     probability = to_probability(forecaster_id, predicted, threshold,
-                                                 surrogate_std, rules, hypotheses,
+                                                 surrogate_std, rules, replies,
                                                  forecast.analyst_credibility(analyst_record))
                     bets_by_name[name].append(
                         playbook.place_bet(store, forecaster_id, name, event, probability))
@@ -213,7 +196,7 @@ def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analys
                 happened = check_event(bet["event"], metrics)
                 playbook.settle_bet(store, bet_id, happened)
                 leaned_yes = bet["probability"] >= 0.5
-                if "-HYP-" in bet["forecaster"]:
+                if "-REPLY-" in bet["forecaster"]:
                     if leaned_yes == happened:
                         analyst_record["wins"] += 1
                     else:
@@ -226,11 +209,8 @@ def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analys
                 else:
                     losses_here[rule["id"]] = losses_here.get(rule["id"], 0) + 1
             label = "{} bets".format(len(bets_by_name[name]))
-            if name in claim_test_of:
-                if claim_test_of[name].startswith("RULE"):
-                    label = label + " | claim test for " + claim_test_of[name]
-                else:
-                    label = label + " | " + claim_test_of[name]     # reply / stall scan
+            if name in slot_of:
+                label = label + " | " + slot_of[name]
             print("[{}] round {} | {} | {}={:.4f} | {}".format(
                 tag, round_number, name, objective, metrics[objective], label), flush=True)
 
@@ -242,11 +222,94 @@ def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analys
             lost_claim = rule.get("claim_losses", 0) > 0 and lost > 0
             if (lost >= RESCOPE_AFTER_LOSSES and lost > won) or lost_claim:
                 rescope(rule, problem, descriptors, history[-1]["name"], history[-1]["metrics"],
-                        wins=won, losses=lost)
+                        wins=won, losses=lost, ask_analyst=use_analyst)
                 rescoped_here.add(rule["id"])
                 print("[{}] re-scoped {} after {}-{} here: {}".format(
                     tag, rule["id"], won, lost, json.dumps(rule["conditions"])), flush=True)
     return {"history": history, "rounds": round_logs}
+
+
+def run_llm_direct(problem, rounds, per_round, store, tag, seed=0):
+    """The plain agent (AgentDSE's setting): each round the LLM picks the designs
+    from the results table and the workload descriptors alone, and bets that each
+    lands within 5% of its own forecast. A proposal that is malformed, out of
+    budget or already measured is dropped and its slot filled with a random
+    untested design, which the round log records. Same history shape as run_loop."""
+    objective = problem["objective"]
+    candidates = dict(problem["candidates"])
+    baseline_name = name_of(problem, problem["baseline"])
+    baseline_metrics = problem["evaluate"](problem["baseline"])
+    history = [{"name": baseline_name, "knobs": problem["baseline"], "metrics": baseline_metrics,
+                "reference": baseline_metrics[objective]}]
+    del candidates[baseline_name]
+    descriptors_text = json.dumps(problem["descriptors"], indent=1)
+    filler = random.Random(seed)
+    round_logs = []
+    for round_number in range(1, rounds + 1):
+        proposals = analyst.pick_designs(problem["search_space"], objective,
+                                         format_table(history, problem["table_metrics"]),
+                                         descriptors_text, per_round, problem["area_budget_kb"])
+        chosen = []
+        forecasts_of = {}
+        for index, proposal in enumerate(proposals):
+            if len(chosen) == per_round:
+                break
+            if not valid_pick(proposal):
+                continue
+            for candidate_name in candidates:
+                if candidate_name in chosen:
+                    continue
+                if forecast.same_knobs(candidates[candidate_name], proposal["knobs"]):
+                    chosen.append(candidate_name)
+                    forecasts_of[candidate_name] = {"id": "{}-LLM-r{}-{}".format(tag, round_number, index + 1),
+                                                    "predicted": float(proposal["predicted"]),
+                                                    "confidence": float(proposal["confidence"])}
+                    break
+        filled = 0
+        names = list(candidates.keys())
+        while len(chosen) < per_round:
+            name = names[filler.randrange(len(names))]
+            if name not in chosen:
+                chosen.append(name)
+                filled += 1
+        round_logs.append({"round": round_number, "chosen": chosen, "proposals": proposals, "random_fill": filled})
+
+        # The bet: the measured objective lands at or above 95% of the forecast. With
+        # confidence c of landing within 5%, and the rest split evenly, P = (1 + c) / 2.
+        bets_by_name = {}
+        for name in chosen:
+            bets_by_name[name] = []
+            if name in forecasts_of:
+                pick = forecasts_of[name]
+                event = "{} >= {:.4f}".format(objective, 0.95 * pick["predicted"])
+                probability = (1.0 + pick["confidence"]) / 2.0
+                bets_by_name[name].append(playbook.place_bet(store, pick["id"], name, event, probability,
+                                                             kind="forecast"))
+        knobs_list = [candidates[name] for name in chosen]
+        metrics_list = problem["evaluate_many"](knobs_list)
+        for name, knobs, metrics in zip(chosen, knobs_list, metrics_list):
+            history.append({"name": name, "knobs": knobs, "metrics": metrics,
+                            "reference": baseline_metrics[objective]})
+            del candidates[name]
+            for bet_id in bets_by_name[name]:
+                bet = find_bet(store, bet_id)
+                playbook.settle_bet(store, bet_id, check_event(bet["event"], metrics))
+            label = "llm pick"
+            if name not in forecasts_of:
+                label = "random fill"
+            print("[{}] round {} | {} | {}={:.4f} | {}".format(
+                tag, round_number, name, objective, metrics[objective], label), flush=True)
+    return {"history": history, "rounds": round_logs}
+
+
+def valid_pick(proposal):
+    """A pick must carry knobs, a numeric forecast and a confidence in [0, 1]."""
+    try:
+        float(proposal["predicted"])
+        confidence = float(proposal["confidence"])
+        return isinstance(proposal.get("knobs"), dict) and 0.0 <= confidence <= 1.0
+    except (KeyError, TypeError, ValueError):
+        return False
 
 
 def compact_forecasts(forecasts, chosen):
@@ -272,26 +335,25 @@ def name_of(problem, knobs):
     raise KeyError("knobs not in candidates: " + json.dumps(knobs))
 
 
-def ask_hypotheses(problem, history, rules, candidates, how_many, id_prefix):
-    """Analyst proposals, filtered to valid, untested, in-budget configs."""
-    proposals = analyst.propose_hypotheses(problem["search_space"], problem["objective"],
-                                           format_table(history, problem["table_metrics"]),
-                                           format_rules(rules), how_many)
-    hypotheses = []
-    for index, proposal in enumerate(proposals):
+def ask_reply(problem, history, rules, candidates, reply_id):
+    """The analyst's one design on a stall, or None when its answer is malformed,
+    already measured or out of budget (LLM output is untrusted)."""
+    incumbent = history[0]
+    for entry in history:
+        if entry["metrics"][problem["objective"]] > incumbent["metrics"][problem["objective"]]:
+            incumbent = entry
+    proposals = analyst.propose_reply(problem["search_space"], problem["objective"],
+                                      format_table(history, problem["table_metrics"]),
+                                      format_rules(rules), incumbent["name"])
+    for proposal in proposals:
         if not valid_hypothesis(proposal) or not isinstance(proposal.get("knobs"), dict):
             continue
-        name = None
         for candidate_name in candidates:
             if forecast.same_knobs(candidates[candidate_name], proposal["knobs"]):
-                name = candidate_name
-        if name is None:
-            continue
-        hypotheses.append({"id": "{}-{}".format(id_prefix, index + 1), "name": name,
-                           "text": proposal["hypothesis"],
-                           "predicted": float(proposal["predicted"]),
-                           "confidence": float(proposal["confidence"])})
-    return hypotheses
+                return {"id": reply_id, "name": candidate_name, "text": proposal["hypothesis"],
+                        "predicted": float(proposal["predicted"]),
+                        "confidence": float(proposal["confidence"])}
+    return None
 
 
 def rule_clauses_of(rule):
@@ -371,7 +433,7 @@ def format_rules(rules):
     return "\n".join(lines)
 
 
-def to_probability(forecaster_id, predicted, threshold, surrogate_std, rules, hypotheses,
+def to_probability(forecaster_id, predicted, threshold, surrogate_std, rules, replies,
                    analyst_credibility=0.5):
     """P(objective >= threshold) for one forecaster's bet.
 
@@ -380,7 +442,7 @@ def to_probability(forecaster_id, predicted, threshold, surrogate_std, rules, hy
     forecaster is at least as unsure about the rest of the config as the
     surrogate is), then shrink toward 0.5 by how little we trust the forecaster.
     A rule at 0.7 credibility forecasting far above the threshold bets ~0.85;
-    one forecasting just above it bets ~0.55. v2 bet a flat 0.7 either way.
+    one forecasting just above it bets ~0.55.
     """
     if forecaster_id == "SURROGATE":
         return normal_tail(predicted, surrogate_std, threshold)
@@ -388,9 +450,9 @@ def to_probability(forecaster_id, predicted, threshold, surrogate_std, rules, hy
     for rule in rules:
         if rule["id"] == forecaster_id:
             credibility = forecast.rule_confidence(rule)
-    for hypothesis in hypotheses:
-        if hypothesis["id"] == forecaster_id:
-            credibility = hypothesis["confidence"] * analyst_credibility
+    for reply in replies:
+        if reply["id"] == forecaster_id:
+            credibility = reply["confidence"] * analyst_credibility
     sharp = normal_tail(predicted, surrogate_std, threshold)
     return credibility * sharp + (1.0 - credibility) * 0.5
 
@@ -410,12 +472,18 @@ def find_bet(store, bet_id):
     raise KeyError(bet_id)
 
 
-def rescope(rule, problem, descriptors, name, metrics, wins=0, losses=0):
-    """Ask the analyst to sharpen the condition; keep the old one in the rule's trail.
+def rescope(rule, problem, descriptors, name, metrics, wins=0, losses=0, ask_analyst=False):
+    """Sharpen a losing rule's condition so it stops firing on cases like this one;
+    the old condition stays in the rule's trail. With ask_analyst the LLM proposes
+    the new condition (the full arm); otherwise, and whenever the LLM's answer is
+    unusable, the first clause is tightened mechanically just past the failing
+    value (the rules arm runs with no LLM at test time).
     `descriptors`: the workload descriptors the conditions are checked against."""
     context = "problem: {}\nworkload descriptors (conditions are checked on these): {}\nrecord on this problem: {} wins, {} losses\nlast experiment {}: {}".format(
         problem["name"], json.dumps(descriptors), wins, losses, name, json.dumps(metrics))
-    updated = analyst.rescope_rule(rule, context, problem["condition_metrics"])
+    updated = {}
+    if ask_analyst:
+        updated = analyst.rescope_rule(rule, context, problem["condition_metrics"])
     candidate = dict(rule)
     if isinstance(updated.get("conditions"), list):
         candidate["conditions"] = updated["conditions"]

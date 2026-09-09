@@ -2,19 +2,21 @@
 
 Three kinds of forecaster give a predicted objective for a candidate config:
   - the surrogate (always has an opinion),
-  - playbook rules (only when their condition holds on this baseline, the
-    candidate uses the knob value they talk about, and their record is
+  - playbook rules (only when their condition holds on this workload and chip,
+    the candidate carries the knob value they talk about, and their record is
     still credible),
-  - the analyst's hypotheses (only for the config they proposed).
-We run the experiments where the forecasters DISAGREE most; a config
-everyone agrees on teaches us nothing.
+  - the analyst's reply (only for the one design it proposed on a stall).
+Designs are picked by expected improvement over the surrogate; a speaking rule
+tilts the surrogate's mean toward what it claims (a bounded shift that decays
+as real observations arrive), and every forecaster bets on every chosen design
+so the simulator can score it.
 
 A rule is a DELTA claim: "switching knob K to value V changes the objective
 by gain_pct %". Its forecast for a candidate is therefore relative to the
 candidate's SIBLING (same config with K at the baseline value): the measured
 sibling when we have it, the surrogate's estimate of it otherwise. Forecasting
-baseline * (1 + gain) for every candidate, as v2 did, gave the same number to
-hundreds of different configs and made rule bets a coin flip.
+baseline * (1 + gain) for every candidate would give the same number to
+hundreds of different configs and make rule bets a coin flip.
 """
 
 import math
@@ -23,7 +25,6 @@ import random
 PRIOR_CONFIDENCE = 0.7   # a brand-new rule's confidence, before any bets
 PRIOR_WEIGHT = 2         # how many imaginary bets that prior is worth
 CREDIBLE_CONFIDENCE = 0.5   # below this a rule stays silent on the current problem
-CLAIM_TEST_BONUS_FRACTION = 0.05   # selection bonus for a run that settles a claim as a controlled comparison
 
 
 def clause_holds(clause, baseline_metrics):
@@ -50,11 +51,6 @@ def rule_clauses(rule):
     if "conditions" in rule and isinstance(rule["conditions"], list) and len(rule["conditions"]) > 0:
         return rule["conditions"]
     return [rule["condition"]]
-
-
-def condition_holds(condition, baseline_metrics):
-    """Backward-compatible single-clause check (audit, plots)."""
-    return clause_holds(condition, baseline_metrics)
 
 
 def rule_applies(rule, baseline_metrics):
@@ -113,9 +109,6 @@ def same_knobs(knobs_a, knobs_b):
             return False
     return True
 
-
-TRANSFER_SHRINK = 0.5   # a gain measured on another chip is carried over at half strength
-RULE_SCOPE_OTHER_KNOBS = 1   # a rule speaks only about designs within this many OTHER knob changes of the baseline
 
 # ---- claims: a fixed value ("spp_dev") or a direction on an ordinal knob ("up" / "down") ----
 # A direction claim says "moving this knob ONE step up (down) from where it is
@@ -182,8 +175,8 @@ def claim_sibling(claim, knobs, baseline_knobs, search_space):
         direction = str(claim["value"])
         opposite = "down" if direction == "up" else "up"
         # Any adjacent step counts, on either side of the baseline: "bigger LLC
-        # helps" is the same claim at 1MB->2MB as at 2MB->4MB. Until Sep 7 only
-        # steps beyond the baseline counted, which made capacity claims untestable
+        # helps" is the same claim at 1MB->2MB as at 2MB->4MB. Counting only
+        # steps beyond the baseline would make capacity claims untestable
         # on chips whose budget cannot afford the step above the baseline.
         values = ordered_values(search_space, knob)
         position = None
@@ -207,18 +200,6 @@ def claim_sibling(claim, knobs, baseline_knobs, search_space):
     return sibling
 
 
-def within_rule_scope(knobs, baseline_knobs, claim_knob):
-    """A rule's measured gain is a MARGINAL effect near the baseline; with many
-    other knobs changed the interactions are unknown, so the rule stays silent."""
-    changed = 0
-    for knob in knobs:
-        if knob == claim_knob or knob == "soc":
-            continue
-        if str(knobs[knob]) != str(baseline_knobs.get(knob, knobs[knob])):
-            changed += 1
-    return changed <= RULE_SCOPE_OTHER_KNOBS
-
-
 def paired_gains(history, claim, baseline_knobs, search_space, objective):
     """Every controlled comparison in `history` for one claim: pairs of runs
     that differ ONLY by one claim-step in `knob`. Gains in percent."""
@@ -236,26 +217,99 @@ def paired_gains(history, claim, baseline_knobs, search_space, objective):
 
 def effective_gain(rule, history, baseline_knobs, search_space, objective):
     """The gain a rule uses on this chip: the mean of its controlled pairs here if
-    any exist (chip-adapted), else the transferred gain shrunk toward zero. The
-    magnitude of a one-knob effect rarely transfers exactly; its direction does."""
+    any exist (chip-adapted), else the gain measured where the rule was learned."""
     gains = paired_gains(history, rule["claim"], baseline_knobs, search_space, objective)
     if len(gains) > 0:
         return sum(gains) / len(gains)
-    return rule["claim"]["gain_pct"] * TRANSFER_SHRINK
+    return rule["claim"]["gain_pct"]
+
+
+# ---- rule shifts: how a speaking rule takes part in selection ----
+# The stacked shift on one candidate is capped at this many times the largest
+# single measured effect among the speaking rules, so several rules pointing at
+# one design cannot build a "super candidate" the search then exploits.
+SHIFT_CAP_FACTOR = 1.5
+
+
+def carries_claim(knobs, claim, baseline_knobs, search_space):
+    """Does this design sit inside the region a claim talks about? A value claim:
+    the knob has that value. A direction claim: the knob is anywhere above (up)
+    or below (down) the baseline value. Flat over the whole region on purpose:
+    the rule says "bigger helps here", not how much bigger."""
+    knob = claim["knob"]
+    if is_direction(claim):
+        values = ordered_values(search_space, knob)
+        position = None
+        base_position = None
+        for index, allowed in enumerate(values):
+            if str(allowed) == str(knobs[knob]):
+                position = index
+            if str(allowed) == str(baseline_knobs[knob]):
+                base_position = index
+        if position is None or base_position is None:
+            return False
+        if str(claim["value"]) == "up":
+            return position > base_position
+        return position < base_position
+    return str(knobs[knob]) == str(claim["value"])
+
+
+def rule_shifts(rules, history, baseline_knobs, search_space, objective):
+    """One mean shift per speaking rule, in log-speedup units: the measured effect
+    times the rule's credibility, divided by 1 + the number of real observations
+    already inside the rule's region (once the simulator has spoken there, the
+    rule goes quiet). Returns {"shifts": [...], "cap": max total shift per design}."""
+    shifts = []
+    largest_effect = 0.0
+    for rule in rules:
+        gain = effective_gain(rule, history, baseline_knobs, search_space, objective)
+        if gain < -90.0:
+            gain = -90.0
+        log_effect = math.log(1.0 + gain / 100.0)
+        if abs(log_effect) > largest_effect:
+            largest_effect = abs(log_effect)
+        observations = 0
+        for entry in history:
+            if carries_claim(entry["knobs"], rule["claim"], baseline_knobs, search_space):
+                observations += 1
+        shifts.append({"rule_id": rule["id"], "claim": rule["claim"],
+                       "log_shift": log_effect * rule_confidence(rule) / (1.0 + observations)})
+    return {"shifts": shifts, "cap": SHIFT_CAP_FACTOR * largest_effect}
+
+
+def shift_for(knobs, shifts, baseline_knobs, search_space):
+    """Total (capped) mean shift for one design, in log-speedup units."""
+    total = 0.0
+    for shift in shifts["shifts"]:
+        if carries_claim(knobs, shift["claim"], baseline_knobs, search_space):
+            total += shift["log_shift"]
+    if total > shifts["cap"]:
+        total = shifts["cap"]
+    if total < -shifts["cap"]:
+        total = -shifts["cap"]
+    return total
+
+
+def shifted_means(means, knobs_list, shifts, baseline_knobs, search_space):
+    """Apply the rule shifts to a batch of predicted means (objective units)."""
+    shifted = []
+    for mean, knobs in zip(means, knobs_list):
+        shifted.append(float(mean) * math.exp(shift_for(knobs, shifts, baseline_knobs, search_space)))
+    return shifted
 
 
 def rule_forecast(sibling_value, gain_pct):
     return sibling_value * (1.0 + gain_pct / 100.0)
 
 
-def gather_forecasts(candidates, surrogate, model, rules, hypotheses, baseline_knobs,
+def gather_forecasts(candidates, surrogate, model, rules, replies, baseline_knobs,
                      baseline_metrics, objective, history, search_space):
     """For each candidate name: {"opinions": [(forecaster_id, predicted)], "surrogate_std",
     "claim_tests": [rule ids whose claim this run would settle as a controlled comparison]}.
 
     `rules` must already be the speaking rules for this problem. A rule speaks
-    about a candidate only when the candidate carries its claim and lies within
-    the rule's scope (few other knobs changed from the baseline).
+    about every candidate that carries its claim (the same region its mean shift
+    covers): its forecast is the candidate's sibling times the claimed effect.
     """
     names = list(candidates.keys())
     knobs_list = []
@@ -273,8 +327,6 @@ def gather_forecasts(candidates, surrogate, model, rules, hypotheses, baseline_k
         knobs = candidates[name]
         for rule_index, rule in enumerate(rules):
             claim = rule["claim"]
-            if not within_rule_scope(knobs, baseline_knobs, claim["knob"]):
-                continue
             sibling = claim_sibling(claim, knobs, baseline_knobs, search_space)
             if sibling is None:
                 continue
@@ -301,9 +353,9 @@ def gather_forecasts(candidates, surrogate, model, rules, hypotheses, baseline_k
         else:
             sibling_value = float(sibling_means[request_index])
         forecasts[name]["opinions"].append((rule["id"], rule_forecast(sibling_value, gains[rule_index])))
-    for hypothesis in hypotheses:
-        if hypothesis["name"] in forecasts:
-            forecasts[hypothesis["name"]]["opinions"].append((hypothesis["id"], hypothesis["predicted"]))
+    for reply in replies:
+        if reply["name"] in forecasts:
+            forecasts[reply["name"]]["opinions"].append((reply["id"], reply["predicted"]))
     return forecasts
 
 
@@ -318,15 +370,13 @@ def expected_improvement(mean, std, best_so_far):
 
 
 def pick_expected_improvement(candidates, surrogate, model, history, search_space, objective,
-                              how_many, best_so_far, seed=0, priors=None, already_chosen=None,
-                              honest_std=False):
+                              how_many, best_so_far, seed=0, shifts=None, baseline_knobs=None,
+                              already_chosen=None, honest_std=False):
     """Textbook batch Bayesian optimisation: GP + Expected Improvement, batch of
     `how_many` via the kriging believer (each pick is added to the training set
     at its predicted mean and the GP is refit before the next pick).
-    priors: virtual points kept in every refit (rule / hypothesis warm-start).
-    already_chosen: names picked this round by another route (claim tests)."""
-    if priors is None:
-        priors = []
+    shifts: the speaking rules' mean shifts (rule_shifts); None for the pure BO arms.
+    already_chosen: names picked this round by another route (claim test, reply)."""
     names = list(candidates.keys())
     random.Random(seed).shuffle(names)
     believed_history = list(history)
@@ -334,14 +384,16 @@ def pick_expected_improvement(candidates, surrogate, model, history, search_spac
     if already_chosen is not None:
         chosen = list(already_chosen)
     reference = model["reference"]
+    knobs_list = []
+    for name in names:
+        knobs_list.append(candidates[name])
     for pick in range(how_many):
         if pick > 0:
-            model = surrogate.fit(believed_history, search_space, objective, priors,
+            model = surrogate.fit(believed_history, search_space, objective,
                                   honest_std=honest_std, reference=reference)
-        knobs_list = []
-        for name in names:
-            knobs_list.append(candidates[name])
         means, stds = surrogate.predict_many(model, knobs_list)
+        if shifts is not None:
+            means = shifted_means(means, knobs_list, shifts, baseline_knobs, search_space)
         best_name = None
         best_score = None
         for index, name in enumerate(names):
@@ -370,24 +422,6 @@ def analyst_credibility(record):
     starts at a coin flip and moves toward its win rate."""
     total = PRIOR_WEIGHT + record["wins"] + record["losses"]
     return (ANALYST_PRIOR_CREDIBILITY * PRIOR_WEIGHT + record["wins"]) / total
-
-
-def hypothesis_priors(hypotheses, candidates, record):
-    """The analyst's forecasts as virtual experiments: its belief warm-starts the
-    surrogate at (analyst credibility x stated confidence), and nothing at all
-    once its record on this problem falls below the credibility floor. v4 trusted
-    the LLM's stated 0.7-0.9 confidence; its bets won 32%, and the priors
-    steered the search into bad designs."""
-    credibility = analyst_credibility(record)
-    if credibility < CREDIBLE_CONFIDENCE:
-        return []
-    priors = []
-    for hypothesis in hypotheses:
-        if hypothesis["name"] not in candidates:
-            continue
-        priors.append({"knobs": candidates[hypothesis["name"]], "value": hypothesis["predicted"],
-                       "confidence": hypothesis["confidence"] * credibility})
-    return priors
 
 
 def one_knob_effects(designs, objective):
@@ -444,8 +478,8 @@ def stall_scan_candidate(history, candidates, search_space, surrogate, model, ob
     knob one step up or down. Among such unmeasured, in-budget designs, the one
     the surrogate is least sure about. None if there is none.
 
-    Sep 7 autopsy: with two rule priors, EI exploited the SPP + capacity basin
-    for 24 designs and never tried the LLC prefetcher, which was worth +2.7%."""
+    Without it, two rule priors were enough for EI to exploit one basin for 24
+    designs and never try a knob value worth +2.7%."""
     incumbent = None
     for entry in history:
         if incumbent is None or entry["metrics"][objective] > incumbent["metrics"][objective]:
@@ -471,8 +505,8 @@ def stall_scan_candidate(history, candidates, search_space, surrogate, model, ob
                     neighbour_values.append(value)
         else:
             # Ordinal (sizes, ways, MSHRs): one step up and one step down from the
-            # incumbent. Sep 7 seed 1: the missing move was llc_sets one step up,
-            # which a categorical-only scan can never propose.
+            # incumbent: a categorical-only scan can never propose "llc_sets one
+            # step up", and that has been the missing move.
             for direction in ["up", "down"]:
                 stepped = stepped_value(search_space, knob, incumbent["knobs"][knob], direction)
                 if stepped is not None:
@@ -527,33 +561,3 @@ def untested_claim_tests(rules, history, baseline_knobs, candidates, search_spac
     for score, name, rule_id in scored:
         tests.append((name, rule_id))
     return tests
-
-
-def rule_priors(rules, baseline_knobs, baseline_metrics, objective, history, search_space):
-    """One virtual experiment per DISTINCT claim among the speaking rules: the
-    baseline moved one claim-step, at the confidence-weighted mean of the
-    effective gains. `rules` must already be the speaking rules."""
-    grouped = {}
-    for rule in rules:
-        confidence = rule_confidence(rule)
-        key = (rule["claim"]["knob"], str(rule["claim"]["value"]))
-        gain = effective_gain(rule, history, baseline_knobs, search_space, objective)
-        grouped.setdefault(key, []).append((gain, confidence, rule["claim"]))
-
-    priors = []
-    for key, claims in grouped.items():
-        total_weight = 0.0
-        weighted_gain = 0.0
-        best_confidence = 0.0
-        for gain, confidence, _ in claims:
-            total_weight += confidence
-            weighted_gain += gain * confidence
-            if confidence > best_confidence:
-                best_confidence = confidence
-        mean_gain = weighted_gain / total_weight
-        knobs = claim_target(claims[0][2], baseline_knobs, search_space)
-        if knobs is None:
-            continue
-        priors.append({"knobs": knobs, "value": baseline_metrics[objective] * (1.0 + mean_gain / 100.0),
-                       "confidence": best_confidence})
-    return priors

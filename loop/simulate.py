@@ -7,6 +7,7 @@ returns — so swapping simulators or moving to GCP touches this file only.
 
 import fcntl
 import json
+import math
 import shutil
 import subprocess
 import time
@@ -17,8 +18,13 @@ import os
 CACHE_LEVELS = ["L1D", "L2C", "LLC"]
 
 
-def run_simulation(binary_path, trace_path, warmup_instructions, simulation_instructions):
-    """Run one simulation and return a flat metrics dict (ipc, misses, mpki)."""
+def run_simulation(binary_path, trace_paths, warmup_instructions, simulation_instructions):
+    """Run one simulation and return a flat metrics dict (ipc, misses, mpki).
+
+    trace_paths: one trace (a string) for a single-core chip, or a list with one
+    trace per core for a multi-core chip (ChampSim requires exactly one per core)."""
+    if isinstance(trace_paths, str):
+        trace_paths = [trace_paths]
     # ChampSim writes machine-readable stats to this file via --json.
     stats_path = tempfile.mktemp(suffix=".json", prefix="champsim_stats_")
 
@@ -27,8 +33,7 @@ def run_simulation(binary_path, trace_path, warmup_instructions, simulation_inst
         "--warmup-instructions", str(warmup_instructions),
         "--simulation-instructions", str(simulation_instructions),
         "--json", stats_path,
-        trace_path,
-    ]
+    ] + list(trace_paths)
     subprocess.run(command, check=True, capture_output=True, text=True)
 
     with open(stats_path) as stats_file:
@@ -42,21 +47,31 @@ def run_simulation(binary_path, trace_path, warmup_instructions, simulation_inst
             simulation_phase = phase
     stats = simulation_phase["roi"]
 
-    core = stats["cores"][0]
+    # One core: its IPC. Several cores: the geometric mean of the per-core IPCs
+    # (each core runs one program of the mix), with every core's own IPC kept.
     metrics = {}
-    metrics["ipc"] = core["instructions"] / core["cycles"]
+    total_instructions = 0
+    log_ipc_sum = 0.0
+    for index, core in enumerate(stats["cores"]):
+        core_ipc = core["instructions"] / core["cycles"]
+        total_instructions += core["instructions"]
+        log_ipc_sum += math.log(core_ipc)
+        if len(stats["cores"]) > 1:
+            metrics["core{}:ipc".format(index)] = core_ipc
+    metrics["ipc"] = math.exp(log_ipc_sum / len(stats["cores"]))
 
     for cache_name in CACHE_LEVELS:
-        cache = _find_cache(stats, cache_name)
         hits = 0
         misses = 0
-        # Demand traffic only (real requests, not prefetches).
-        for access_type in ["LOAD", "RFO", "WRITE"]:
-            hits += sum(cache[access_type]["hit"])
-            misses += sum(cache[access_type]["miss"])
+        # Private caches exist once per core (cpu0_L2C, cpu1_L2C, ...); the LLC once.
+        for cache in _find_caches(stats, cache_name):
+            # Demand traffic only (real requests, not prefetches).
+            for access_type in ["LOAD", "RFO", "WRITE"]:
+                hits += sum(cache[access_type]["hit"])
+                misses += sum(cache[access_type]["miss"])
         metrics[cache_name + "_hits"] = hits
         metrics[cache_name + "_misses"] = misses
-        metrics[cache_name + "_mpki"] = misses * 1000.0 / core["instructions"]
+        metrics[cache_name + "_mpki"] = misses * 1000.0 / total_instructions
 
     return metrics
 
@@ -95,10 +110,6 @@ def build_binary(config_path, champsim_root):
     shared_path = shared_binary_path(champsim_root, executable_name)
     if os.path.isfile(shared_path):
         return shared_path
-    legacy_path = os.path.join(champsim_root, "bin", executable_name)
-    if os.path.isfile(legacy_path):
-        return legacy_path
-
     # A suite evaluates one design on several workloads at once, so the same
     # binary is requested by several threads together. One lock per binary makes
     # them queue: the first builds, the rest find the finished file below.
@@ -174,9 +185,12 @@ def _configure_and_make(config_path, champsim_root, executable_name, binary_path
     raise RuntimeError("make failed for " + executable_name)
 
 
-def _find_cache(stats, cache_name):
-    """Find a cache's stats; ChampSim names them 'LLC' but also 'cpu0_L1D'."""
+def _find_caches(stats, cache_name):
+    """Every instance of one cache level; ChampSim names them 'LLC' but also 'cpu0_L1D'."""
+    found = []
     for key in stats:
         if key == cache_name or key.endswith("_" + cache_name):
-            return stats[key]
-    raise KeyError("cache not found in ChampSim output: " + cache_name)
+            found.append(stats[key])
+    if len(found) == 0:
+        raise KeyError("cache not found in ChampSim output: " + cache_name)
+    return found

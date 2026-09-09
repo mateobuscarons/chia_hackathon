@@ -49,6 +49,7 @@ Usage: python -m loop.offline ceiling | timeliness | compare | misses | fair | l
 import glob
 import json
 import math
+import random
 import os
 import sys
 
@@ -57,14 +58,14 @@ from scipy.optimize import least_squares
 from scipy.stats import spearmanr
 
 from loop import champsim_problem, cpi_stack, surrogates, trace_profile
-from loop.configs import SEARCH_SPACE_C, config_name
+from loop.configs import SEARCH_SPACE, config_name
 
 SOCS = ["A_mobile", "B_midrange", "C_server"]
 TRACES = ["605.mcf_s-665B", "619.lbm_s-2676B", "620.omnetpp_s-874B", "623.xalancbmk_s-700B"]
 LEVELS = ["L1D", "L2C", "LLC"]
 BASE_CONFIG = "champsim/champsim_config.json"
 # The frozen Tier C reference: best suite geomean among the 447 designs measured
-# on all four workloads (verified Sep 8; chip C baseline is 0.5990).
+# on all four workloads (chip C baseline is 0.5990).
 FIXED_REFERENCE = 0.7491
 
 # One entry per free coefficient: (name, start, lower bound, upper bound).
@@ -80,11 +81,11 @@ BASE_COEFFICIENTS = [
 def timeliness_coefficients():
     """One factor per prefetcher value; "no" is the reference and stays at zero."""
     specs = []
-    for value in SEARCH_SPACE_C["l2_prefetcher"]:
+    for value in SEARCH_SPACE["l2_prefetcher"]:
         if value == "no":
             continue
         specs.append(("timeliness_l2_" + value, 0.5, 0.0, 20.0))
-    for value in SEARCH_SPACE_C["llc_prefetcher"]:
+    for value in SEARCH_SPACE["llc_prefetcher"]:
         if value == "no":
             continue
         specs.append(("timeliness_llc_" + value, 0.2, 0.0, 20.0))
@@ -102,7 +103,7 @@ MOVABLE_MPKI_FLOOR = 1.0
 # fix, whatever family it belongs to.
 POLICY_MPKI_FLOOR = 5.0
 # Measured share of chip C's IPC variance owned by the two capacity knobs
-# (Tier A full factorial). The gate has to agree with these or it is wrong.
+# (dense 81-design sweep). The gate has to agree with these or it is wrong.
 CAPACITY_VARIANCE = {"605.mcf_s-665B": 0.46, "619.lbm_s-2676B": 0.01, "620.omnetpp_s-874B": 0.86}
 # The same, for the L2 prefetcher knob.
 PREFETCHER_VARIANCE = {"605.mcf_s-665B": 0.46, "619.lbm_s-2676B": 0.96, "620.omnetpp_s-874B": 0.00}
@@ -179,11 +180,11 @@ def admit():
     print("  admit as policy    -> enough misses for a prefetcher or replacement policy to")
     print("                        matter, WITHOUT claiming which one; the simulator says.")
     print("  cap.var / pf.var   = measured chip C variance shares of the capacity knobs and")
-    print("                        the L2 prefetcher (Tier A full factorial), the ground truth.")
+    print("                        the L2 prefetcher (dense 81-design sweep), the ground truth.")
     print("  stride is reported but NOT used to decide: mcf is 0.157 and still 0.46 pf.var.")
 
 
-# The suites, decided Sep 8 from the admission gate above.
+# The suites, decided from the admission gate above.
 TRAINING_SUITE = ["605.mcf_s-665B", "620.omnetpp_s-874B", "619.lbm_s-2676B",
                   "649.fotonik3d_s-10881B", "627.cam4_s-490B"]
 HELD_OUT_SUITE = ["bfs.urand-36B", "pr.urand-129B", "bfs.kron-128B"]
@@ -506,12 +507,13 @@ def within_workload_line(label, test_rows, predictions):
     print()
 
 
-def suite_line(label, test_rows, predictions):
+def suite_scores(test_rows, predictions):
     """The real objective: one design scored on all four workloads at once.
 
     The suite score is the geometric mean of per-workload IPC, so in log space
     it is the plain mean of the four per-workload log speedups. Only designs
-    measured on all four workloads count.
+    measured on all four workloads count. Returns (number of designs, spearman,
+    best real IPC in the top 1 / 5 / 10 predicted, rank of the top pick).
     """
     predicted_parts = {}
     true_parts = {}
@@ -548,10 +550,14 @@ def suite_line(label, test_rows, predictions):
         picked = order[:top]
         best_in_top.append(float(suite_ipcs[picked].max()))
     top_rank = int((suite_truths > suite_truths[int(order[0])]).sum())
+    return len(suite_predictions), rank_correlation, best_in_top, top_rank
 
+
+def suite_line(label, test_rows, predictions):
+    count, rank_correlation, best_in_top, top_rank = suite_scores(test_rows, predictions)
     print("  {:26s} n={:4d}  spearman={:.3f}  best real IPC in top1/5/10 = "
           "{:.4f}/{:.4f}/{:.4f}  ({:.1f}%/{:.1f}%/{:.1f}% of reference)  rank of top pick={}".format(
-              label, len(suite_predictions), rank_correlation,
+              label, count, rank_correlation,
               best_in_top[0], best_in_top[1], best_in_top[2],
               100.0 * best_in_top[0] / FIXED_REFERENCE,
               100.0 * best_in_top[1] / FIXED_REFERENCE,
@@ -786,6 +792,77 @@ def learned():
         suite_line(label, test_rows, predictions_by_name[label])
 
 
+REPLAY_OBSERVED = [0, 4, 8, 12, 16, 24]
+REPLAY_DRAWS = 5
+
+
+def suite_design_names(test_rows):
+    """Designs measured on every workload of the suite, in a fixed order."""
+    counts = {}
+    for row in test_rows:
+        name = config_name(row["knobs"], row["soc"])
+        counts[name] = counts.get(name, 0) + 1
+    names = []
+    for name in sorted(counts):
+        if counts[name] == len(TRACES):
+            names.append(name)
+    return names
+
+
+def replay():
+    """Decision 21, offline: as observations on chip C accumulate, does a GP that
+    learns MISS COUNTS (chip-blind, so every A/B row is usable as is) and hands
+    them to the CPI stack rank the remaining designs better than today's knob GP
+    on log speedup with a chip one-hot? k observed designs are drawn at random
+    from the cached C designs; the rest are scored on the suite objective."""
+    rows = load_rows()
+    train_rows, test_rows = split_by_chip(rows)
+    chips = chips_for(rows)
+    coefficients = fit_coefficients(train_rows, BASE_COEFFICIENTS)
+    names = suite_design_names(test_rows)
+    rows_by_name = {}
+    for row in test_rows:
+        rows_by_name.setdefault(config_name(row["knobs"], row["soc"]), []).append(row)
+    print("== replay on chip C: {} suite designs; {} draws per k; reference {:.4f}".format(
+        len(names), REPLAY_DRAWS, FIXED_REFERENCE))
+    print("  {:>4s}  {:>28s}  {:>28s}".format("k", "knob GP (today)", "miss-count GP + stack"))
+    print("  {:>4s}  {:>13s} {:>14s}  {:>13s} {:>14s}".format("", "spearman", "top-5 %ref", "spearman", "top-5 %ref"))
+    for observed_count in REPLAY_OBSERVED:
+        scores = {"knob": [], "misses": []}
+        for draw in range(REPLAY_DRAWS):
+            shuffled = list(names)
+            random.Random(draw).shuffle(shuffled)
+            observed_names = set(shuffled[:observed_count])
+            observed_rows = []
+            remaining_rows = []
+            for name in names:
+                if name in observed_names:
+                    observed_rows.extend(rows_by_name[name])
+                else:
+                    remaining_rows.extend(rows_by_name[name])
+            fit_rows = train_rows + observed_rows
+            # Today's pooled GP: knobs + chip one-hot, target log speedup.
+            knob_predictions = surrogates.fit_and_predict(
+                fit_rows, remaining_rows, chips, surrogates.FEATURIZERS["knob"], truths_of(fit_rows))
+            scores["knob"].append(suite_scores(remaining_rows, knob_predictions))
+            # Miss counts learned on every row (chip-blind), cost from the stack.
+            learned_rows = rows_with_learned_misses(fit_rows, remaining_rows)
+            stack = stack_predictions(learned_rows, chips, coefficients)
+            scores["misses"].append(suite_scores(remaining_rows, stack))
+        line = "  {:>4d}".format(observed_count)
+        for model in ["knob", "misses"]:
+            spearman_mean = 0.0
+            top5_mean = 0.0
+            for count, spearman, best_in_top, top_rank in scores[model]:
+                spearman_mean += spearman / len(scores[model])
+                top5_mean += 100.0 * best_in_top[1] / FIXED_REFERENCE / len(scores[model])
+            line += "  {:>13.3f} {:>13.1f}%".format(spearman_mean, top5_mean)
+        print(line, flush=True)
+        if observed_count == 0:
+            break_note = "  (k=0 is the offline table's setting: zero designs seen on C)"
+            print(break_note)
+
+
 def ceiling(specs=None, title="step 1: CPI stack on MEASURED miss counts"):
     if specs is None:
         specs = BASE_COEFFICIENTS
@@ -852,8 +929,57 @@ def compare():
         suite_line(label, test_rows, predictions_by_name[label])
 
 
+def language(playbook_path):
+    """Gate G-language, free: do the playbook's rules fire where the held-out class
+    can use them and stay silent where it cannot? For every held-out workload,
+    read the rules against chip C and the workload's descriptors, then compare
+    each speaking rule's claimed direction with the one-knob effects already
+    measured on that workload's cached designs. Written down before any test
+    cell runs; the test cells then measure how much the rules cut the search."""
+    from loop import forecast, playbook
+    from loop.configs import SEARCH_SPACE
+    store = playbook.load(playbook_path)
+    baseline = champsim_problem.profiled_baseline("C_server", "C")
+    print("== G-language: {} rules from {} read against chip C and the held-out workloads".format(
+        len(store["rules"]), playbook_path))
+    for trace in HELD_OUT_SUITE:
+        with open("results/profile_{}.json".format(trace)) as profile_file:
+            profile = json.load(profile_file)
+        descriptors = champsim_problem.chip_descriptors(profile, baseline, SEARCH_SPACE, "C_server")
+        speaking = forecast.speaking_rules(store["rules"], descriptors)
+        table = champsim_problem.load_table("results/tierC_C_server_{}.json".format(trace))
+        designs = []
+        for entry in table.values():
+            if entry["metrics"] is not None:
+                designs.append({"knobs": entry["knobs"], "metrics": entry["metrics"]})
+        effects = forecast.one_knob_effects(designs, "ipc")
+        print("-- {} | movable_llc {:.1f} movable_l2 {:.1f} stride {:.2f} | {} of {} rules speak | {} cached designs".format(
+            trace, descriptors["movable_llc_mpki"], descriptors["movable_l2_mpki"],
+            descriptors["stride_regular_fraction"], len(speaking), len(store["rules"]), len(designs)))
+        for rule in speaking:
+            claim = rule["claim"]
+            matches = []
+            for effect in effects:
+                if effect["knob"] != claim["knob"]:
+                    continue
+                is_direction = str(claim["value"]) in ["up", "down"]
+                if is_direction or effect["to"] == str(claim["value"]) or effect["from"] == str(claim["value"]):
+                    matches.append("{}->{} {:+.1f}%".format(effect["from"], effect["to"], effect["gain_pct"]))
+            shown = "no controlled pair cached"
+            if len(matches) > 0:
+                shown = "; ".join(matches[:4])
+            print("   {} {} {} claims {:+.1f}% | measured: {}".format(
+                rule["id"], claim["knob"], claim["value"], claim["gain_pct"], shown))
+
+
 if __name__ == "__main__":
     step = sys.argv[1] if len(sys.argv) > 1 else "ceiling"
+    if step == "language":
+        language(sys.argv[2])
+        raise SystemExit(0)
+    if step == "replay":
+        replay()
+        raise SystemExit(0)
     if step == "ceiling":
         ceiling()
     elif step == "timeliness":
