@@ -16,7 +16,10 @@ Every arm starts from the previous chip's (B's) best design on the training suit
 fitted to the cell's chip, and counts every design it buys. 24 designs per run
 (= 24 x suite-size simulations). Output: results/experiment_<tag>_<cell>.json
 (+ _playbook.json, _pool.json, _memory.json).
-Env: SEEDS, FIRST_SEED, ANALYST_MODEL, PARALLEL_RUNS, SIM_THREADS, MEMORY_PATH.
+Env: SEEDS, FIRST_SEED, ROUNDS, ANALYST_MODEL, PARALLEL_RUNS, SIM_THREADS, MEMORY_PATH,
+LOOP_WARMUP / LOOP_SIM (a fast pilot: e.g. 2000000 / 4000000, own tables).
+Fast pilot of the headline question, ~45 min on the VM:
+  LOOP_WARMUP=2000000 LOOP_SIM=4000000 ROUNDS=8 SEEDS=2 python -m loop.run_chia local gap <tag> <playbook> memory,llm_direct,handoff,rules,bo
 Consolidate the memory after a cell (for the next one):
   python -m loop.memory consolidate results/experiment_<tag>_memory.json results/experiment_<tag>_memory_after_gap.json
 """
@@ -114,8 +117,11 @@ def run_cell(cell_name, tag, playbook_path=None, arms=None, train_traces=None):
         arms = cell["arms"]
     if train_traces is None:
         train_traces = cell.get("train_traces", TRAINING_SUITE)
-    # SEEDS=1 runs seed 0 only (a quick look before committing to the whole run).
+    # SEEDS=1 runs seed 0 only (a quick look before committing to the whole run);
+    # ROUNDS=8 shortens a pilot. With LOOP_WARMUP / LOOP_SIM the short runs land in
+    # their own tables, so a fast pilot never mixes with the real cells.
     seeds = int(os.environ.get("SEEDS", cell["seeds"]))
+    rounds = int(os.environ.get("ROUNDS", cell["rounds"]))
     # FIRST_SEED=1 SEEDS=2 adds seeds 1-2 to a run that already has seed 0 (same playbook).
     first_seed = int(os.environ.get("FIRST_SEED", "0"))
     output_path = "results/experiment_{}_{}.json".format(tag, cell_name)
@@ -131,7 +137,7 @@ def run_cell(cell_name, tag, playbook_path=None, arms=None, train_traces=None):
         cell_name, tag, output_path, playbook_path, memory_path, arms,
         {key: start_knobs[key] for key in ["l2_sets", "l2_ways", "l2_prefetcher", "llc_sets", "llc_ways", "llc_replacement"]}), flush=True)
     experiment.run_experiment(train_socs=TRAIN_SOCS, test_soc=cell["test_soc"], traces=cell["test_traces"],
-                              rounds=cell["rounds"], per_round=PER_ROUND, seeds=seeds,
+                              rounds=rounds, per_round=PER_ROUND, seeds=seeds,
                               output_path=output_path, train_traces=train_traces,
                               space_name="C", arms=arms, playbook_path=playbook_path,
                               suite=True, first_seed=first_seed, start_knobs=start_knobs, memory_path=memory_path)

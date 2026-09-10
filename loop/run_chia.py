@@ -26,9 +26,12 @@ from loop.simulate import tree_paths
 def main(mode, cell_name, tag, playbook_path, arms):
     if mode == "local":
         cores = os.cpu_count()
-        # One simulation slot per core; one build slot per ChampSim tree copy.
+        # One simulation slot per core; one build slot per ChampSim tree copy. Ray
+        # also charges each task one CPU, so the CPU pool is cores + builds: a
+        # build never waits for a simulation to free a CPU.
         builds = len(tree_paths(CHAMPSIM_ROOT))
-        ray.init(resources={"champsim": cores, "champsim_build": builds, "vertex_creds": 1},
+        ray.init(num_cpus=cores + builds,
+                 resources={"champsim": cores, "champsim_build": builds, "vertex_creds": 1},
                  include_dashboard=False, logging_level="ERROR")
     else:
         ray.init(address="auto")
