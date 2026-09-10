@@ -6,8 +6,13 @@
 # -> [RUN_REF=1] 300-design uniform reference on the GAP suite -> [RUN_2B=1] cell gap2b
 # with the consolidated memory. Each step logs to results/<tag>_<step>.log; a failed
 # step never aborts the chain; the VM shuts itself down at the end.
+# Fast pilot: SKIP_SMOKE=1 SKIP_LEARN=1 LEARN_TAG=<tag of an existing playbook+memory>
+# PILOT_ARMS=memory,llm_direct,handoff,rules,bo ROUNDS=8 LOOP_WARMUP=2000000 LOOP_SIM=4000000.
 set -u
 TAG="${1:-v2}"
+echo $$ > ~/hackathon/results/${TAG}_chain.pid      # stop a chain with: kill $(cat results/<tag>_chain.pid)
+LEARN_TAG="${LEARN_TAG:-$TAG}"
+PILOT_ARMS="${PILOT_ARMS:-}"
 cd ~/hackathon
 export ANALYST_MODEL="${ANALYST_MODEL:-gemini-2.5-pro}"
 PY=.venv/bin/python
@@ -25,18 +30,22 @@ step() {  # step <name> <command...>: run, log, record the outcome, never abort 
 }
 
 # 1. Smoke: every arm for one round on two workloads, through CHIA, with an uncached seed.
-step smoke env FIRST_SEED=3 SEEDS=1 $PY -m loop.run_chia local smoke ${TAG} - random,bo,rules,llm_direct,handoff,memory
+if [ "${SKIP_SMOKE:-0}" != "1" ]; then
+  step smoke env FIRST_SEED=3 SEEDS=1 $PY -m loop.run_chia local smoke ${TAG} - random,bo,rules,llm_direct,handoff,memory
+fi
 
 # 2. Playbook (pooled over A+B), memory (from the same tables), frozen pool, gate G-language.
-step learn $PY -m loop.run learn ${TAG}
-PLAYBOOK=results/experiment_${TAG}_playbook.json
-MEMORY=results/experiment_${TAG}_memory.json
+if [ "${SKIP_LEARN:-0}" != "1" ]; then
+  step learn $PY -m loop.run learn ${LEARN_TAG}
+fi
+PLAYBOOK=results/experiment_${LEARN_TAG}_playbook.json
+MEMORY=results/experiment_${LEARN_TAG}_memory.json
 
-# 3. The pilot of the headline cell, every arm, from chip B's best design.
+# 3. The pilot of the headline cell (PILOT_ARMS or every arm), from chip B's best design.
 if [ -f $PLAYBOOK ]; then
-  step gap env SEEDS=${SEEDS:-2} $PY -m loop.run_chia local gap ${TAG} $PLAYBOOK
+  step gap env SEEDS=${SEEDS:-2} $PY -m loop.run_chia local gap ${TAG} $PLAYBOOK $PILOT_ARMS
   step summary $PY -m loop.summarize results/experiment_${TAG}_gap.json
-  # 4. The memory that includes what cell gap taught.
+  # 4. The memory that includes what cell gap taught (the runs wrote next to $MEMORY).
   step consolidate $PY -m loop.memory consolidate $MEMORY results/experiment_${TAG}_memory_after_gap.json
 fi
 
@@ -56,5 +65,9 @@ if [ "${RUN_2B:-0}" = "1" ] && [ -f results/experiment_${TAG}_memory_after_gap.j
   fi
 fi
 
-echo "== $(date '+%F %T') chain done; shutting down" | tee -a results/${TAG}_chain.log
-sudo shutdown -h now
+echo "== $(date '+%F %T') chain done" | tee -a results/${TAG}_chain.log
+# NO_SHUTDOWN=1 keeps the VM up (daytime iteration); the default is the unattended night.
+if [ "${NO_SHUTDOWN:-0}" != "1" ]; then
+  echo "== shutting down" | tee -a results/${TAG}_chain.log
+  sudo shutdown -h now
+fi
