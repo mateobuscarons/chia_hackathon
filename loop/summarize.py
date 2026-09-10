@@ -1,13 +1,14 @@
 """Tables from an experiment report, finished or still running.
 
-  python -m loop.summarize results/experiment_X.json [more reports] [--reference 0.7491]
+  python -m loop.summarize results/experiment_X.json [more reports] [--reference 0.7491 | --uniform 300]
 
 Per test problem: designs each arm needed to reach 90 / 95 / 99% of the
 reference (per seed, censored median), how many seeds got there, final best,
 area under the best-so-far curve; then the calibration scoreboard per forecaster
 class on the shared dispute bets. The reference is each cell's fixed best known
-design (pass it with --reference); without one the best design any arm found in
-the report is used and the table says so. Arms and seeds still running are
+design (pass it with --reference), or the best of the cell's uniform random
+sample of N designs (--uniform N, read from the cell's tables); without either the
+best design any arm found in the report is used and the table says so. Arms and seeds still running are
 simply the ones not yet in the report.
 """
 
@@ -198,6 +199,42 @@ def summarize(report, reference=None):
             verification.get("llm_gain_pct", 0.0), verification.get("pairs", 0), rule["text"][:90]))
 
 
+def uniform_reference(report, how_many):
+    """The best suite geomean among the cell's uniform random sample of designs
+    (loop.collect uniform, same seed), over those measured on every workload."""
+    import math
+    from loop import champsim_problem, collect
+    settings = report["settings"]
+    traces = settings["traces"][0]
+    if not isinstance(traces, list):
+        traces = settings["traces"]
+    soc_name = settings["test_soc"]
+    tables = []
+    for trace_path in traces:
+        tables.append(champsim_problem.load_table(champsim_problem.table_path(soc_name, trace_path)))
+    best = None
+    counted = 0
+    for knobs in collect.uniform_designs(soc_name, how_many)[1:]:
+        name = champsim_problem.config_name(knobs, soc_name)
+        log_sum = 0.0
+        complete = True
+        for table in tables:
+            entry = table.get(name)
+            if entry is None or entry["metrics"] is None:
+                complete = False
+                break
+            log_sum += math.log(max(entry["metrics"]["ipc"], 1e-9))
+        if not complete:
+            continue
+        counted += 1
+        value = math.exp(log_sum / len(tables))
+        if best is None or value > best:
+            best = value
+    print("== uniform reference: best of {} measured designs out of {} sampled = {}".format(
+        counted, how_many, "{:.4f}".format(best) if best is not None else "none yet"))
+    return best
+
+
 def load_merged(paths):
     """Several reports of the same experiment (different seeds) read as one."""
     merged = None
@@ -218,8 +255,16 @@ def load_merged(paths):
 if __name__ == "__main__":
     arguments = sys.argv[1:]
     reference = None
+    uniform_count = None
     if "--reference" in arguments:
         position = arguments.index("--reference")
         reference = float(arguments[position + 1])
         arguments = arguments[:position] + arguments[position + 2:]
-    summarize(load_merged(arguments), reference)
+    if "--uniform" in arguments:
+        position = arguments.index("--uniform")
+        uniform_count = int(arguments[position + 1])
+        arguments = arguments[:position] + arguments[position + 2:]
+    report = load_merged(arguments)
+    if uniform_count is not None:
+        reference = uniform_reference(report, uniform_count)
+    summarize(report, reference)
