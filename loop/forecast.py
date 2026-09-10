@@ -224,11 +224,21 @@ def effective_gain(rule, history, baseline_knobs, search_space, objective):
     return rule["claim"]["gain_pct"]
 
 
+def measured_here(rule, history, baseline_knobs, search_space, objective):
+    """True once at least one controlled pair for the claim exists on this problem."""
+    gains = paired_gains(history, rule["claim"], baseline_knobs, search_space, objective)
+    return len(gains) > 0
+
+
 # ---- rule shifts: how a speaking rule takes part in selection ----
 # The stacked shift on one candidate is capped at this many times the largest
-# single measured effect among the speaking rules, so several rules pointing at
-# one design cannot build a "super candidate" the search then exploits.
+# single effect among the speaking rules, so several rules pointing at one
+# design cannot build a "super candidate" the search then exploits.
 SHIFT_CAP_FACTOR = 1.5
+# Until a controlled pair on THIS chip has measured a rule's size, the rule
+# tilts by a fixed modest step in its claimed direction only: sizes learned on
+# another chip and class over-promised (the first cell-2 run), directions held.
+DIRECTION_STEP_PCT = 5.0
 
 
 def carries_claim(knobs, claim, baseline_knobs, search_space):
@@ -262,7 +272,12 @@ def rule_shifts(rules, history, baseline_knobs, search_space, objective):
     shifts = []
     largest_effect = 0.0
     for rule in rules:
-        gain = effective_gain(rule, history, baseline_knobs, search_space, objective)
+        if measured_here(rule, history, baseline_knobs, search_space, objective):
+            gain = effective_gain(rule, history, baseline_knobs, search_space, objective)
+        else:
+            gain = DIRECTION_STEP_PCT
+            if rule["claim"]["gain_pct"] < 0:
+                gain = -DIRECTION_STEP_PCT
         if gain < -90.0:
             gain = -90.0
         log_effect = math.log(1.0 + gain / 100.0)
@@ -305,7 +320,8 @@ def rule_forecast(sibling_value, gain_pct):
 def gather_forecasts(candidates, surrogate, model, rules, replies, baseline_knobs,
                      baseline_metrics, objective, history, search_space):
     """For each candidate name: {"opinions": [(forecaster_id, predicted)], "surrogate_std",
-    "claim_tests": [rule ids whose claim this run would settle as a controlled comparison]}.
+    "siblings": {rule id: {"knobs", "value", "measured"}} for every rule whose claim the
+    candidate carries (the sibling is the design one claim-step behind it).
 
     `rules` must already be the speaking rules for this problem. A rule speaks
     about every candidate that carries its claim (the same region its mean shift
@@ -342,16 +358,17 @@ def gather_forecasts(candidates, surrogate, model, rules, replies, baseline_knob
     for candidate_index, name in enumerate(names):
         forecasts[name] = {"opinions": [("SURROGATE", float(means[candidate_index]))],
                            "surrogate_std": float(stds[candidate_index]),
-                           "claim_tests": []}
+                           "siblings": {}}
     for request_index, (candidate_index, rule_index, sibling) in enumerate(sibling_requests):
         name = names[candidate_index]
         rule = rules[rule_index]
         measured = find_measured(history, sibling)
         if measured is not None:
             sibling_value = measured[objective]
-            forecasts[name]["claim_tests"].append(rule["id"])
         else:
             sibling_value = float(sibling_means[request_index])
+        forecasts[name]["siblings"][rule["id"]] = {"knobs": sibling, "value": sibling_value,
+                                                   "measured": measured is not None}
         forecasts[name]["opinions"].append((rule["id"], rule_forecast(sibling_value, gains[rule_index])))
     for reply in replies:
         if reply["name"] in forecasts:
@@ -371,12 +388,14 @@ def expected_improvement(mean, std, best_so_far):
 
 def pick_expected_improvement(candidates, surrogate, model, history, search_space, objective,
                               how_many, best_so_far, seed=0, shifts=None, baseline_knobs=None,
-                              already_chosen=None, honest_std=False):
+                              already_chosen=None, honest_std=False, explore=0.0):
     """Textbook batch Bayesian optimisation: GP + Expected Improvement, batch of
     `how_many` via the kriging believer (each pick is added to the training set
     at its predicted mean and the GP is refit before the next pick).
     shifts: the speaking rules' mean shifts (rule_shifts); None for the pure BO arms.
-    already_chosen: names picked this round by another route (claim test, reply)."""
+    already_chosen: names picked this round by another route (claim test, reply).
+    explore: a mild bonus of `explore` x predicted std added to EI (the
+    `bo_pooled_x` arm); 0 is textbook EI."""
     names = list(candidates.keys())
     random.Random(seed).shuffle(names)
     believed_history = list(history)
@@ -400,6 +419,7 @@ def pick_expected_improvement(candidates, surrogate, model, history, search_spac
             if name in chosen:
                 continue
             score = expected_improvement(float(means[index]), float(stds[index]), best_so_far)
+            score = score + explore * float(stds[index])
             if best_score is None or score > best_score:
                 best_score = score
                 best_name = name

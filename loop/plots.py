@@ -66,17 +66,6 @@ def plot_sims_to_target(report, out_prefix, reference=None):
     figure.savefig(out_prefix + "_sims_to_target.png", dpi=150)
 
 
-def all_bets(report):
-    bets = list(report["learn_bets"])
-    for problem_name in report["test"]:
-        for arm in report["test"][problem_name]["arms"]:
-            for seed in report["test"][problem_name]["arms"][arm]:
-                bets += report["test"][problem_name]["arms"][arm][seed]["bets"]
-    # Classes are compared on the shared dispute questions; a rule's own claim
-    # bets are a different (easier) question and would flatter the rules.
-    return [bet for bet in bets if bet["outcome"] is not None and bet.get("kind", "dispute") == "dispute"]
-
-
 def plot_brier(report, out_prefix):
     figure, axis = pyplot.subplots(figsize=(6, 4))
     bets = all_bets(report)

@@ -13347,5 +13347,117 @@
       "LLC_misses": 437820,
       "LLC_mpki": 43.782
     }
+  },
+  "C_server_l1d_prefetcher-no_l1d_sets-32_l1d_ways-12_l2_mshr-32_l2_prefetcher-ip_stride_l2_sets-2048_l2_ways-8_llc_mshr-64_llc_prefetcher-no_llc_replacement-ship_llc_sets-2048_llc_ways-16": {
+    "knobs": {
+      "l1d_sets": 32,
+      "l1d_ways": 12,
+      "l1d_prefetcher": "no",
+      "l2_sets": 2048,
+      "l2_ways": 8,
+      "l2_prefetcher": "ip_stride",
+      "llc_sets": 2048,
+      "llc_ways": 16,
+      "llc_prefetcher": "no",
+      "llc_replacement": "ship",
+      "l2_mshr": 32,
+      "llc_mshr": 64
+    },
+    "metrics": {
+      "ipc": 0.7354117683656367,
+      "L1D_hits": 1781271,
+      "L1D_misses": 1458823,
+      "L1D_mpki": 145.88227082354584,
+      "L2C_hits": 957004,
+      "L2C_misses": 442103,
+      "L2C_mpki": 44.21029115794177,
+      "LLC_hits": 144093,
+      "LLC_misses": 637647,
+      "LLC_mpki": 63.764687247062554
+    }
+  },
+  "C_server_l1d_prefetcher-next_line_l1d_sets-64_l1d_ways-12_l2_mshr-16_l2_prefetcher-no_l2_sets-256_l2_ways-16_llc_mshr-128_llc_prefetcher-no_llc_replacement-drrip_llc_sets-4096_llc_ways-16": {
+    "knobs": {
+      "l1d_sets": 64,
+      "l1d_ways": 12,
+      "l1d_prefetcher": "next_line",
+      "l2_sets": 256,
+      "l2_ways": 16,
+      "l2_prefetcher": "no",
+      "llc_sets": 4096,
+      "llc_ways": 16,
+      "llc_prefetcher": "no",
+      "llc_replacement": "drrip",
+      "l2_mshr": 16,
+      "llc_mshr": 128
+    },
+    "metrics": {
+      "ipc": 0.7208990126138534,
+      "L1D_hits": 1874801,
+      "L1D_misses": 1365289,
+      "L1D_mpki": 136.52884538846183,
+      "L2C_hits": 848680,
+      "L2C_misses": 506535,
+      "L2C_mpki": 50.653479738608105,
+      "LLC_hits": 487298,
+      "LLC_misses": 448356,
+      "LLC_mpki": 44.83558206576718
+    }
+  },
+  "C_server_l1d_prefetcher-no_l1d_sets-32_l1d_ways-12_l2_mshr-32_l2_prefetcher-ip_stride_l2_sets-1024_l2_ways-8_llc_mshr-64_llc_prefetcher-no_llc_replacement-ship_llc_sets-2048_llc_ways-16": {
+    "knobs": {
+      "l1d_sets": 32,
+      "l1d_ways": 12,
+      "l1d_prefetcher": "no",
+      "l2_sets": 1024,
+      "l2_ways": 8,
+      "l2_prefetcher": "ip_stride",
+      "llc_sets": 2048,
+      "llc_ways": 16,
+      "llc_prefetcher": "no",
+      "llc_replacement": "ship",
+      "l2_mshr": 32,
+      "llc_mshr": 64
+    },
+    "metrics": {
+      "ipc": 0.736548982144955,
+      "L1D_hits": 1797729,
+      "L1D_misses": 1442363,
+      "L1D_mpki": 144.23624230550308,
+      "L2C_hits": 945576,
+      "L2C_misses": 453553,
+      "L2C_mpki": 45.355281857887256,
+      "LLC_hits": 283882,
+      "LLC_misses": 521326,
+      "LLC_mpki": 52.13257914696834
+    }
+  },
+  "C_server_l1d_prefetcher-no_l1d_sets-32_l1d_ways-12_l2_mshr-32_l2_prefetcher-ip_stride_l2_sets-2048_l2_ways-8_llc_mshr-64_llc_prefetcher-no_llc_replacement-ship_llc_sets-1024_llc_ways-16": {
+    "knobs": {
+      "l1d_sets": 32,
+      "l1d_ways": 12,
+      "l1d_prefetcher": "no",
+      "l2_sets": 2048,
+      "l2_ways": 8,
+      "l2_prefetcher": "ip_stride",
+      "llc_sets": 1024,
+      "llc_ways": 16,
+      "llc_prefetcher": "no",
+      "llc_replacement": "ship",
+      "l2_mshr": 32,
+      "llc_mshr": 64
+    },
+    "metrics": {
+      "ipc": 0.7359811624187191,
+      "L1D_hits": 1782817,
+      "L1D_misses": 1457275,
+      "L1D_mpki": 145.72747085450584,
+      "L2C_hits": 956948,
+      "L2C_misses": 442140,
+      "L2C_mpki": 44.21399115720177,
+      "LLC_hits": 17852,
+      "LLC_misses": 764043,
+      "LLC_mpki": 76.40428471914305
+    }
   }
 }

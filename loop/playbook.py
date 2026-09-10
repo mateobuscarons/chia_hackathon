@@ -58,8 +58,8 @@ def add_rule(store, condition, claim, example, text, conditions=None, verificati
         "origin": [],
         "wins": 0,
         "losses": 0,
-        "claim_wins": 0,
-        "claim_losses": 0,
+        "size_wins": 0,
+        "size_losses": 0,
         "brier_scores": [],
         "status": "active",
     }
@@ -75,13 +75,18 @@ def reject_rule(store, rule, reason):
     store.setdefault("rejected_rules", []).append(rejected)
 
 
-def place_bet(store, forecaster_id, experiment, event, probability, kind="dispute"):
+def place_bet(store, forecaster_id, experiment, event, probability, kind="sign", level="suite"):
     """Log a prediction BEFORE its experiment runs. Returns the bet id.
 
-    event is an objectively checkable claim like "ipc >= 0.35"; the loop
-    settles it with a boolean. kind is "dispute" (the shared question all
-    forecasters answer, used to compare them) or "claim" (a rule's own
-    promise; only these decide whether the rule is re-scoped).
+    event is an objectively checkable claim like "ipc >= 0.35" (or
+    "bfs.urand:ipc >= 0.41" for one workload of a suite); the loop settles it
+    with a boolean. Every forecaster answers the same three fixed questions
+    about a design that carries a claim, relative to the design's sibling:
+      kind "sign"  - does the objective move the claimed way at all?
+      kind "half"  - by at least half the claimed gain?
+      kind "full"  - by at least the full claimed gain?
+    A "forecast" bet is an agent's own within-5% forecast. level is "suite" or
+    "workload".
     """
     bet_id = "BET-{:04d}".format(len(store["bets"]) + 1)
     bet = {
@@ -91,6 +96,7 @@ def place_bet(store, forecaster_id, experiment, event, probability, kind="disput
         "event": event,
         "probability": probability,
         "kind": kind,
+        "level": level,
         "outcome": None,
     }
     store["bets"].append(bet)
@@ -111,27 +117,29 @@ def settle_bet(store, bet_id, event_happened):
     leaned_yes = bet["probability"] >= 0.5
     won = (leaned_yes == event_happened)
 
-    # A rule's record counts EVERY bet it placed: the shared dispute questions
-    # and its own claims. (Claims alone need a paired run and almost never happen
-    # on a new chip, so a rule scored on claims only would keep full confidence.)
+    # A rule's credibility comes from its SIGN bets only: a rule whose direction
+    # is right is never silenced for getting the size wrong. Size bets (half,
+    # full) are recorded apart and decide re-bucketing instead.
     for rule in store["rules"]:
         if rule["id"] == bet["forecaster"]:
             rule["brier_scores"].append(brier)
-            if won:
-                rule["wins"] += 1
-            else:
-                rule["losses"] += 1
-            if bet["kind"] == "claim":
+            if bet["kind"] == "sign":
                 if won:
-                    rule["claim_wins"] = rule.get("claim_wins", 0) + 1
+                    rule["wins"] += 1
                 else:
-                    rule["claim_losses"] = rule.get("claim_losses", 0) + 1
+                    rule["losses"] += 1
+            else:
+                if won:
+                    rule["size_wins"] = rule.get("size_wins", 0) + 1
+                else:
+                    rule["size_losses"] = rule.get("size_losses", 0) + 1
     return brier
 
 
 def rule_record(rule):
-    """One-line human summary: '2-1, Brier 0.12'."""
+    """One-line human summary: 'sign 2-1, size 1-2, Brier 0.12'."""
     if len(rule["brier_scores"]) == 0:
         return "no bets yet"
     average_brier = sum(rule["brier_scores"]) / len(rule["brier_scores"])
-    return "{}-{}, Brier {:.2f}".format(rule["wins"], rule["losses"], average_brier)
+    return "sign {}-{}, size {}-{}, Brier {:.2f}".format(
+        rule["wins"], rule["losses"], rule.get("size_wins", 0), rule.get("size_losses", 0), average_brier)

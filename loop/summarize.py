@@ -22,10 +22,16 @@ def forecaster_class(forecaster_id):
         return "surrogate"
     if forecaster_id.startswith("RULE"):
         return "rules"
+    if forecaster_id.startswith("CARD"):
+        return "cards"
     if "-REPLY-" in forecaster_id:
         return "analyst"
     if "-LLM-" in forecaster_id:
         return "llm_direct"
+    if "-MEM-" in forecaster_id:
+        return "memory"
+    if "-HANDOFF-" in forecaster_id:
+        return "handoff"
     return "other"
 
 
@@ -85,21 +91,31 @@ def area_under_curve(history, objective="ipc"):
 
 
 def all_bets(report):
+    """Every settled bet in the report. Kinds: sign / half / full (the three fixed
+    questions about a claim, answered by rules, surrogate and replies alike),
+    forecast (an agent's own within-5% forecast). Levels: suite / workload."""
     bets = list(report.get("learn_bets", []))
     for problem_name in report["test"]:
         for arm in report["test"][problem_name]["arms"]:
             for seed in report["test"][problem_name]["arms"][arm]:
                 bets += report["test"][problem_name]["arms"][arm][seed]["bets"]
-    # Classes are compared on the shared dispute questions; a rule's own claim
-    # bets are a different (easier) question and would flatter the rules. The
-    # plain agent's forecast bets are its only bets and are kept.
     settled = []
     for bet in bets:
-        if bet["outcome"] is None:
-            continue
-        if bet.get("kind", "dispute") in ["dispute", "forecast"]:
+        if bet["outcome"] is not None:
             settled.append(bet)
     return settled
+
+
+def brier_line(label, class_bets):
+    brier = 0.0
+    wins = 0
+    for bet in class_bets:
+        outcome = 1.0 if bet["outcome"] else 0.0
+        brier += (bet["probability"] - outcome) ** 2
+        if (bet["probability"] >= 0.5) == bet["outcome"]:
+            wins += 1
+    return "   {:<28} bets={:>4} brier={:.3f} win-rate={:.2f}".format(
+        label, len(class_bets), brier / len(class_bets), wins / len(class_bets))
 
 
 def summarize(report, reference=None):
@@ -146,24 +162,32 @@ def summarize(report, reference=None):
             print("   {:<11} {:>5} {} {} {} {:>10.4f} {:>7.2f}".format(
                 arm, len(runs), columns[0], columns[1], columns[2], sum(bests) / len(bests), sum(aucs) / len(aucs)))
 
-    print("== calibration: surrogate / rules / analyst on shared dispute bets; llm_direct on its own forecasts (within 5%)")
+    print("== calibration: the same three questions per claim (sign / half / full), suite level, per forecaster")
     bets = all_bets(report)
-    for klass in ["surrogate", "rules", "analyst", "llm_direct"]:
+    for klass in ["surrogate", "rules", "analyst"]:
+        for kind in ["sign", "half", "full"]:
+            class_bets = []
+            for bet in bets:
+                if forecaster_class(bet["forecaster"]) == klass and bet["kind"] == kind and bet.get("level", "suite") == "suite":
+                    class_bets.append(bet)
+            if len(class_bets) > 0:
+                print(brier_line("{} / {}".format(klass, kind), class_bets))
+    print("== calibration: rules per workload (same three questions)")
+    for kind in ["sign", "half", "full"]:
         class_bets = []
         for bet in bets:
-            if forecaster_class(bet["forecaster"]) == klass:
+            if forecaster_class(bet["forecaster"]) == "rules" and bet["kind"] == kind and bet.get("level") == "workload":
                 class_bets.append(bet)
-        if len(class_bets) == 0:
-            continue
-        brier = 0.0
-        wins = 0
-        for bet in class_bets:
-            outcome = 1.0 if bet["outcome"] else 0.0
-            brier += (bet["probability"] - outcome) ** 2
-            if (bet["probability"] >= 0.5) == bet["outcome"]:
-                wins += 1
-        print("   {:<11} bets={:>4} brier={:.3f} win-rate={:.2f}".format(
-            klass, len(class_bets), brier / len(class_bets), wins / len(class_bets)))
+        if len(class_bets) > 0:
+            print(brier_line("rules / {} / workload".format(kind), class_bets))
+    print("== calibration: agents on their own forecasts (measured within 5% of the prediction or above)")
+    for klass in ["analyst", "llm_direct", "memory", "handoff"]:
+        class_bets = []
+        for bet in bets:
+            if forecaster_class(bet["forecaster"]) == klass and bet["kind"] == "forecast":
+                class_bets.append(bet)
+        if len(class_bets) > 0:
+            print(brier_line(klass, class_bets))
 
     print("== playbook: {} rules, {} rejected, {} failed jobs".format(
         len(report.get("rules", [])), len(report.get("rejected_rules", [])), len(report.get("failed_jobs", []))))

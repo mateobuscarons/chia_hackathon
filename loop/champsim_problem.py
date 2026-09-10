@@ -335,9 +335,10 @@ def profiled_baseline(soc_name, space_name):
     return baseline
 
 
-def make_problem(soc_name, trace_path, allow_simulation=True, dispatch=None, space_name="C"):
+def make_problem(soc_name, trace_path, allow_simulation=True, dispatch=None, space_name="C", start_knobs=None):
     """One workload on one chip. `trace_path` is one trace, or a list with one trace
-    per core on a multi-core chip (a mix)."""
+    per core on a multi-core chip (a mix). `start_knobs`: the design every arm starts
+    from (default: the untouched chip); descriptors are read against its geometry."""
     if dispatch is None:
         dispatch = DEFAULT_DISPATCH
     if isinstance(trace_path, list) and len(trace_path) != num_cores(soc_name):
@@ -346,6 +347,10 @@ def make_problem(soc_name, trace_path, allow_simulation=True, dispatch=None, spa
     holder = ChampSimProblem(soc_name, trace_path, allow_simulation, dispatch, space_name)
     space = SPACES[space_name]
     baseline = profiled_baseline(soc_name, space_name)
+    if start_knobs is not None:
+        baseline = dict(start_knobs)
+        if not within_budget(baseline, soc_name, BASE_CONFIG):
+            raise ValueError("start design does not fit {}'s budget: {}".format(soc_name, json.dumps(baseline)))
 
     # Conditions live on the workload descriptors: the trace profile (built once
     # per trace, cached in results/profile_*.json) read against this chip's geometry.
@@ -368,6 +373,7 @@ def make_problem(soc_name, trace_path, allow_simulation=True, dispatch=None, spa
 
     return {
         "name": soc_name + "/" + trace_name,
+        "soc_name": soc_name,
         "search_space": space,
         "candidates": candidates,
         "baseline": baseline,
@@ -390,7 +396,7 @@ def make_problem(soc_name, trace_path, allow_simulation=True, dispatch=None, spa
 SUITE_AGGREGATE_METRICS = ["L1D_mpki", "L2C_mpki", "LLC_mpki", "L2C_hit_ratio", "LLC_hit_ratio", "LLC_over_L2C_mpki"]
 
 
-def make_suite_problem(soc_name, trace_paths, allow_simulation=True, dispatch=None, space_name="C"):
+def make_suite_problem(soc_name, trace_paths, allow_simulation=True, dispatch=None, space_name="C", start_knobs=None):
     """One design is scored on a SUITE of workloads: the objective is the geometric
     mean of per-workload IPC (one simulation per workload per design). This is how
     a design team scores a hierarchy; no chip is built for one program.
@@ -399,10 +405,10 @@ def make_suite_problem(soc_name, trace_paths, allow_simulation=True, dispatch=No
     descriptor across the suite (plain name) and its max ("max_" prefix).
     On a multi-core chip each `trace_paths` entry is itself a list: a mix."""
     if len(trace_paths) == 1:
-        return make_problem(soc_name, trace_paths[0], allow_simulation, dispatch, space_name)
+        return make_problem(soc_name, trace_paths[0], allow_simulation, dispatch, space_name, start_knobs)
     single_problems = []
     for trace_path in trace_paths:
-        single_problems.append(make_problem(soc_name, trace_path, allow_simulation, dispatch, space_name))
+        single_problems.append(make_problem(soc_name, trace_path, allow_simulation, dispatch, space_name, start_knobs))
     first = single_problems[0]
     short_names = []
     for trace_path in trace_paths:
@@ -454,6 +460,7 @@ def make_suite_problem(soc_name, trace_paths, allow_simulation=True, dispatch=No
 
     return {
         "name": soc_name + "/suite-" + "+".join(short_names),
+        "soc_name": soc_name,
         "search_space": first["search_space"],
         "candidates": candidates,
         "baseline": first["baseline"],
