@@ -2898,5 +2898,92 @@
       "LLC_misses": 115128,
       "LLC_mpki": 11.512798848720115
     }
+  },
+  "C_server_l1d_prefetcher-next_line_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-va_ampm_lite_l2_replacement-lru_l2_sets-512_l2_ways-16_llc_mshr-128_llc_prefetcher-no_llc_replacement-ship_llc_sets-4096_llc_ways-16": {
+    "knobs": {
+      "l1d_sets": 64,
+      "l1d_ways": 12,
+      "l1d_prefetcher": "next_line",
+      "l2_sets": 512,
+      "l2_ways": 16,
+      "l2_prefetcher": "va_ampm_lite",
+      "llc_sets": 4096,
+      "llc_ways": 16,
+      "llc_prefetcher": "no",
+      "llc_replacement": "ship",
+      "l2_mshr": 64,
+      "llc_mshr": 128,
+      "l2_replacement": "lru"
+    },
+    "metrics": {
+      "ipc": 0.694340796732377,
+      "L1D_hits": 2691060,
+      "L1D_misses": 681304,
+      "L1D_mpki": 68.13039318696067,
+      "L2C_hits": 470035,
+      "L2C_misses": 239593,
+      "L2C_mpki": 23.95929760407024,
+      "LLC_hits": 288264,
+      "LLC_misses": 103046,
+      "LLC_mpki": 10.304598969540104
+    }
+  },
+  "C_server_l1d_prefetcher-next_line_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-va_ampm_lite_l2_replacement-lru_l2_sets-256_l2_ways-16_llc_mshr-128_llc_prefetcher-next_line_llc_replacement-ship_llc_sets-4096_llc_ways-16": {
+    "knobs": {
+      "l1d_sets": 64,
+      "l1d_ways": 12,
+      "l1d_prefetcher": "next_line",
+      "l2_sets": 256,
+      "l2_ways": 16,
+      "l2_prefetcher": "va_ampm_lite",
+      "l2_replacement": "lru",
+      "llc_sets": 4096,
+      "llc_ways": 16,
+      "llc_prefetcher": "next_line",
+      "llc_replacement": "ship",
+      "l2_mshr": 64,
+      "llc_mshr": 128
+    },
+    "metrics": {
+      "ipc": 0.7135879985928046,
+      "L1D_hits": 2693440,
+      "L1D_misses": 678666,
+      "L1D_mpki": 67.86659321334068,
+      "L2C_hits": 433184,
+      "L2C_misses": 275737,
+      "L2C_mpki": 27.573697242630274,
+      "LLC_hits": 337174,
+      "LLC_misses": 99557,
+      "LLC_mpki": 9.9556990044301
+    }
+  },
+  "C_server_l1d_prefetcher-next_line_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-spp_dev_l2_replacement-lru_l2_sets-1024_l2_ways-8_llc_mshr-64_llc_prefetcher-next_line_llc_replacement-ship_llc_sets-4096_llc_ways-16": {
+    "knobs": {
+      "l1d_sets": 64,
+      "l1d_ways": 12,
+      "l1d_prefetcher": "next_line",
+      "l2_sets": 1024,
+      "l2_ways": 8,
+      "l2_prefetcher": "spp_dev",
+      "llc_sets": 4096,
+      "llc_ways": 16,
+      "llc_prefetcher": "next_line",
+      "llc_replacement": "ship",
+      "l2_mshr": 64,
+      "llc_mshr": 64,
+      "l2_replacement": "lru"
+    },
+    "metrics": {
+      "ipc": 0.7045908670236358,
+      "L1D_hits": 2678283,
+      "L1D_misses": 695605,
+      "L1D_mpki": 69.5604930439507,
+      "L2C_hits": 436667,
+      "L2C_misses": 272866,
+      "L2C_mpki": 27.286597271340273,
+      "LLC_hits": 322339,
+      "LLC_misses": 102366,
+      "LLC_mpki": 10.236598976340103
+    }
   }
 }

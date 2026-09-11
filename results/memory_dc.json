@@ -49,7 +49,7 @@
     "llc_mshr": 128
    },
    "best_ipc": 0.5252971500324003,
-   "designs_measured": 505,
+   "designs_measured": 516,
    "effects": [
     {
      "knob": "llc_sets",
@@ -69,8 +69,8 @@
      "knob": "l2_prefetcher",
      "from": "no",
      "to": "spp_dev",
-     "effect_pct": 30.49953506609637,
-     "pairs": 8
+     "effect_pct": 30.532321465946026,
+     "pairs": 9
     },
     {
      "knob": "l2_prefetcher",
@@ -106,6 +106,13 @@
      "to": "8192",
      "effect_pct": 18.498844100912525,
      "pairs": 2
+    },
+    {
+     "knob": "l1d_prefetcher",
+     "from": "no",
+     "to": "ip_stride",
+     "effect_pct": 17.086056331448574,
+     "pairs": 1
     },
     {
      "knob": "llc_sets",
@@ -164,11 +171,18 @@
      "pairs": 12
     },
     {
+     "knob": "llc_prefetcher",
+     "from": "no",
+     "to": "spp_dev",
+     "effect_pct": 7.5777155013766695,
+     "pairs": 1
+    },
+    {
      "knob": "l1d_prefetcher",
      "from": "no",
      "to": "next_line",
-     "effect_pct": 5.5677769909499455,
-     "pairs": 22
+     "effect_pct": 5.540934265717923,
+     "pairs": 23
     },
     {
      "knob": "l2_sets",
@@ -181,15 +195,15 @@
      "knob": "l2_sets",
      "from": "1024",
      "to": "2048",
-     "effect_pct": 4.09791054463148,
-     "pairs": 14
+     "effect_pct": 4.04333142196156,
+     "pairs": 15
     },
     {
      "knob": "l2_ways",
      "from": "8",
      "to": "16",
-     "effect_pct": 3.7851268243435907,
-     "pairs": 8
+     "effect_pct": 3.7913946277819397,
+     "pairs": 9
     },
     {
      "knob": "llc_prefetcher",
@@ -262,6 +276,13 @@
      "pairs": 14
     },
     {
+     "knob": "llc_prefetcher",
+     "from": "next_line",
+     "to": "spp_dev",
+     "effect_pct": -1.0582264927553653,
+     "pairs": 1
+    },
+    {
      "knob": "l2_sets",
      "from": "256",
      "to": "1024",
@@ -297,13 +318,6 @@
      "pairs": 7
     },
     {
-     "knob": "l2_ways",
-     "from": "4",
-     "to": "8",
-     "effect_pct": -0.2860774528837056,
-     "pairs": 7
-    },
-    {
      "knob": "l1d_sets",
      "from": "64",
      "to": "128",
@@ -322,6 +336,13 @@
      "from": "16",
      "to": "32",
      "effect_pct": 0.040829322528640466,
+     "pairs": 8
+    },
+    {
+     "knob": "l2_ways",
+     "from": "4",
+     "to": "8",
+     "effect_pct": -0.0355090898720517,
      "pairs": 8
     },
     {
@@ -396,22 +417,22 @@
    },
    "stock_ipc": 0.4495585808538202,
    "best_design": {
-    "l1d_sets": 128,
+    "l1d_sets": 64,
     "l1d_ways": 12,
-    "l1d_prefetcher": "no",
-    "l2_sets": 256,
-    "l2_ways": 4,
-    "l2_prefetcher": "spp_dev",
+    "l1d_prefetcher": "next_line",
+    "l2_sets": 512,
+    "l2_ways": 16,
+    "l2_prefetcher": "va_ampm_lite",
+    "l2_replacement": "lru",
     "llc_sets": 4096,
     "llc_ways": 16,
-    "llc_prefetcher": "next_line",
-    "llc_replacement": "lru",
-    "l2_mshr": 32,
-    "llc_mshr": 32,
-    "l2_replacement": "lru"
+    "llc_prefetcher": "no",
+    "llc_replacement": "ship",
+    "l2_mshr": 64,
+    "llc_mshr": 128
    },
-   "best_ipc": 0.5023003589185779,
-   "designs_measured": 451,
+   "best_ipc": 0.5042393147067741,
+   "designs_measured": 453,
    "effects": [
     {
      "knob": "llc_sets",
@@ -757,23 +778,23 @@
     "l2_sets": 2048,
     "l2_ways": 8,
     "l2_prefetcher": "spp_dev",
+    "l2_replacement": "lru",
     "llc_sets": 2048,
     "llc_ways": 16,
     "llc_prefetcher": "next_line",
     "llc_replacement": "ship",
     "l2_mshr": 64,
-    "llc_mshr": 128,
-    "l2_replacement": "lru"
+    "llc_mshr": 128
    },
    "best_ipc": 1.0513363109969314,
-   "designs_measured": 505,
+   "designs_measured": 516,
    "effects": [
     {
      "knob": "l2_prefetcher",
      "from": "no",
      "to": "spp_dev",
-     "effect_pct": 34.34132232108203,
-     "pairs": 8
+     "effect_pct": 34.48074907764397,
+     "pairs": 9
     },
     {
      "knob": "l2_prefetcher",
@@ -870,8 +891,15 @@
      "knob": "l1d_prefetcher",
      "from": "no",
      "to": "next_line",
-     "effect_pct": -2.5890142218135135,
-     "pairs": 22
+     "effect_pct": -2.600456160203811,
+     "pairs": 23
+    },
+    {
+     "knob": "llc_prefetcher",
+     "from": "next_line",
+     "to": "spp_dev",
+     "effect_pct": -2.546569564221768,
+     "pairs": 1
     },
     {
      "knob": "l1d_prefetcher",
@@ -937,6 +965,13 @@
      "pairs": 10
     },
     {
+     "knob": "llc_prefetcher",
+     "from": "no",
+     "to": "spp_dev",
+     "effect_pct": -0.3248322371551149,
+     "pairs": 1
+    },
+    {
      "knob": "llc_replacement",
      "from": "drrip",
      "to": "ship",
@@ -961,8 +996,8 @@
      "knob": "l2_sets",
      "from": "1024",
      "to": "2048",
-     "effect_pct": 0.21904379178748293,
-     "pairs": 14
+     "effect_pct": 0.2084662891898222,
+     "pairs": 15
     },
     {
      "knob": "llc_replacement",
@@ -1024,8 +1059,8 @@
      "knob": "l2_ways",
      "from": "8",
      "to": "16",
-     "effect_pct": 0.05896938819360403,
-     "pairs": 8
+     "effect_pct": 0.0616562121838693,
+     "pairs": 9
     },
     {
      "knob": "l2_sets",
@@ -1042,6 +1077,13 @@
      "pairs": 5
     },
     {
+     "knob": "l2_ways",
+     "from": "4",
+     "to": "8",
+     "effect_pct": 0.021688966136679255,
+     "pairs": 8
+    },
+    {
      "knob": "l1d_sets",
      "from": "64",
      "to": "128",
@@ -1056,11 +1098,11 @@
      "pairs": 22
     },
     {
-     "knob": "l2_ways",
-     "from": "4",
-     "to": "8",
-     "effect_pct": 0.009836524732653729,
-     "pairs": 7
+     "knob": "l1d_prefetcher",
+     "from": "no",
+     "to": "ip_stride",
+     "effect_pct": 0.018110078586963674,
+     "pairs": 1
     },
     {
      "knob": "llc_mshr",
@@ -1119,13 +1161,13 @@
     "l2_sets": 512,
     "l2_ways": 16,
     "l2_prefetcher": "va_ampm_lite",
+    "l2_replacement": "lru",
     "llc_sets": 4096,
     "llc_ways": 16,
     "llc_prefetcher": "no",
     "llc_replacement": "ship",
     "l2_mshr": 64,
-    "llc_mshr": 128,
-    "l2_replacement": "lru"
+    "llc_mshr": 128
    },
    "best_ipc": 0.23138633437809633,
    "designs_measured": 1263,
@@ -2053,13 +2095,13 @@
     "l2_sets": 256,
     "l2_ways": 4,
     "l2_prefetcher": "spp_dev",
+    "l2_replacement": "lru",
     "llc_sets": 8192,
     "llc_ways": 8,
     "llc_prefetcher": "next_line",
     "llc_replacement": "lru",
     "l2_mshr": 64,
-    "llc_mshr": 32,
-    "l2_replacement": "lru"
+    "llc_mshr": 32
    },
    "best_ipc": 0.6823368508707778,
    "designs_measured": 1501,
@@ -2480,5 +2522,24 @@
    ],
    "id": "CASE-06"
   }
- ]
+ ],
+ "pooled": {
+  "knobs": {
+   "l1d_sets": 64,
+   "l1d_ways": 12,
+   "l1d_prefetcher": "next_line",
+   "l2_sets": 512,
+   "l2_ways": 16,
+   "l2_prefetcher": "va_ampm_lite",
+   "l2_replacement": "lru",
+   "llc_sets": 4096,
+   "llc_ways": 16,
+   "llc_prefetcher": "no",
+   "llc_replacement": "ship",
+   "l2_mshr": 64,
+   "llc_mshr": 128
+  },
+  "mean_share": 0.9152355083441285,
+  "workloads_measured": 6
+ }
 }

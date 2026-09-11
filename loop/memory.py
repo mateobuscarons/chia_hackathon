@@ -26,7 +26,7 @@ MIN_PAIRS = 2            # an effect needs this many controlled pairs to count
 
 
 def empty():
-    return {"cases": []}
+    return {"cases": [], "pooled": None}
 
 
 def load(path):
@@ -115,7 +115,10 @@ def case_from_table(trace_path):
 
 
 def build(trace_paths, output_path):
+    """Cases from the tables, plus the pooled default design, frozen here so every
+    run of the cell reads the same one."""
     memory = empty()
+    rows_by_workload = {}
     for trace_path in trace_paths:
         case = case_from_table(trace_path)
         if case is None:
@@ -123,12 +126,56 @@ def build(trace_paths, output_path):
             continue
         case["id"] = "CASE-{:02d}".format(len(memory["cases"]) + 1)
         memory["cases"].append(case)
+        rows_by_workload[case["workload"]] = table_rows(case["workload"])
         print("[memory] {} {}: {} designs, stock {} -> best {:.4f}, {} effects ({} with >= {} pairs)".format(
             case["id"], case["workload"], case["designs_measured"], format_ipc(case["stock_ipc"]), case["best_ipc"],
             len(case["effects"]), count_solid(case["effects"]), MIN_PAIRS), flush=True)
+    pooled = pooled_design(memory["cases"], rows_by_workload, pooled_guard(memory["cases"]))
+    if pooled is not None:
+        memory["pooled"] = {"knobs": pooled[1], "mean_share": pooled[0], "workloads_measured": pooled[2]}
+        print("[memory] pooled default: mean share {:.0f}% over {} workloads".format(100.0 * pooled[0], pooled[2]), flush=True)
     save(memory, output_path)
     print("[memory] {} cases -> {}".format(len(memory["cases"]), output_path), flush=True)
     return memory
+
+
+def table_rows(workload):
+    return champsim_problem.measured_rows(champsim_problem.load_table(champsim_problem.table_path(workload)))
+
+
+def pooled_guard(cases):
+    """A pooled design must be measured on all the memory workloads but one (at least two)."""
+    return max(2, len(cases) - 1)
+
+
+def prior_rows(memory):
+    """Training rows for the memory prior: every design any memory workload
+    measured. Target: the design's share of that workload's stock-to-best gap in
+    log-IPC units, averaged over the workloads that measured it, then scaled by
+    the median log gap of the memory workloads so it lives in the run GP's units
+    (log speed-up over stock). Shares transfer across workloads whose gains differ
+    tenfold; raw speed-ups let the largest gains dominate (checked on the
+    datacenter designs: rank correlation 0.73 against 0.29)."""
+    sums = {}
+    counts = {}
+    knobs_of = {}
+    log_gaps = []
+    for case in memory["cases"]:
+        if case["stock_ipc"] is None or case["best_ipc"] <= case["stock_ipc"]:
+            continue
+        log_gap = math.log(case["best_ipc"] / case["stock_ipc"])
+        log_gaps.append(log_gap)
+        for row in table_rows(case["workload"]):
+            share = math.log(max(row["ipc"], 1e-9) / case["stock_ipc"]) / log_gap
+            sums[row["name"]] = sums.get(row["name"], 0.0) + share
+            counts[row["name"]] = counts.get(row["name"], 0) + 1
+            knobs_of[row["name"]] = row["knobs"]
+    log_gaps.sort()
+    scale = log_gaps[len(log_gaps) // 2]
+    rows = []
+    for name in sums:
+        rows.append({"knobs": knobs_of[name], "log_speedup": scale * sums[name] / counts[name]})
+    return rows
 
 
 def format_ipc(value):
@@ -303,9 +350,11 @@ def short_workload(workload):
     return name
 
 
-def digest(memory, problem, retrieval):
+def digest(memory, problem, retrieval, slot="pooled"):
     """The memory as the agent reads it: conclusions first, computed from the
-    nearest cases, anchored on the stock chip the agent starts from."""
+    nearest cases, anchored on the stock chip the agent starts from. `slot` says
+    which remembered design fills the copyable slot at the end: "nearest" (the
+    closest workload's best design) or "pooled" (the best across the memory)."""
     if retrieval is None:
         return ""
     stock = problem["stock"]
@@ -407,14 +456,22 @@ def digest(memory, problem, retrieval):
         for workload, effect, pairs in entries:
             parts.append("{:+.0f}% ({})".format(effect, short_workload(workload)))
         lines.append("- {} -> {} is workload-dependent: {}".format(knob, value, ", ".join(parts)))
-    closest = cases[0]
-    gain_text = ""
-    if closest["stock_ipc"] is not None:
-        gain_text = ", {:+.0f}% over its own stock".format(100.0 * (closest["best_ipc"] / closest["stock_ipc"] - 1.0))
-    lines.append("")
-    lines.append("Best known design of the closest workload ({}{}; {} designs searched), to copy and adapt:".format(
-        short_workload(closest["workload"]), gain_text, closest["designs_measured"]))
-    lines.append(json.dumps(fit_to_budget(closest["best_design"])))
+    pooled = memory.get("pooled")
+    if slot == "pooled" and pooled is not None:
+        lines.append("")
+        lines.append("The remembered design that did best across the remembered workloads (measured on {} of them, "
+                     "reaching on average {:.0f}% of each one's stock-to-best gap), to copy and adapt:".format(
+                         pooled["workloads_measured"], 100.0 * pooled["mean_share"]))
+        lines.append(json.dumps(fit_to_budget(pooled["knobs"])))
+    else:
+        closest = cases[0]
+        gain_text = ""
+        if closest["stock_ipc"] is not None:
+            gain_text = ", {:+.0f}% over its own stock".format(100.0 * (closest["best_ipc"] / closest["stock_ipc"] - 1.0))
+        lines.append("")
+        lines.append("Best known design of the closest workload ({}{}; {} designs searched), to copy and adapt:".format(
+            short_workload(closest["workload"]), gain_text, closest["designs_measured"]))
+        lines.append(json.dumps(fit_to_budget(closest["best_design"])))
     return "\n".join(lines)
 
 
@@ -482,8 +539,12 @@ def leave_one_out(memory_traces, test_traces):
         print("need at least two memory workloads with tables")
         return
     stats = standardization(cases)
-    print("== leave one out: nearest case, its best design replayed, its effects re-measured")
-    print("   {:<20s} {:<20s} {:>8s} {:>12s} {:>9s} {:>9s}".format("workload", "nearest", "distance", "replay", "effects", "sign held"))
+    rows_by_workload = {}
+    for case in cases + tests:
+        rows_by_workload[case["workload"]] = table_rows(case["workload"])
+    print("== leave one out: nearest case, its best design replayed; the pooled design (best mean gap share over the")
+    print("   other memory workloads, measured on all but one of them) replayed; the nearest case's effects re-measured")
+    print("   {:<20s} {:<20s} {:>8s} {:>12s} {:>12s} {:>9s} {:>9s}".format("workload", "nearest", "distance", "replay", "pooled", "effects", "sign held"))
     for held in cases + tests:
         others = []
         for case in cases:
@@ -496,10 +557,23 @@ def leave_one_out(memory_traces, test_traces):
             if nearest_distance is None or case_distance < nearest_distance:
                 nearest_distance = case_distance
                 nearest = case
-        rows = champsim_problem.measured_rows(champsim_problem.load_table(champsim_problem.table_path(held["workload"])))
+        rows = rows_by_workload[held["workload"]]
         checked, survived = sign_survival(nearest, held)
-        print("   {:<20s} {:<20s} {:8.2f} {:>12s} {:9d} {:9d}".format(
-            held["workload"][:20], nearest["workload"][:20], nearest_distance, replay_rank(nearest["best_design"], rows, held), checked, survived))
+        pooled = pooled_design(others, rows_by_workload, pooled_guard(others))
+        pooled_text = "none"
+        if pooled is not None:
+            pooled_text = replay_rank(pooled[1], rows, held)
+        print("   {:<20s} {:<20s} {:8.2f} {:>12s} {:>12s} {:9d} {:9d}".format(
+            held["workload"][:20], nearest["workload"][:20], nearest_distance, replay_rank(nearest["best_design"], rows, held),
+            pooled_text, checked, survived))
+    pooled_all = pooled_design(cases, rows_by_workload, pooled_guard(cases))
+    if pooled_all is not None:
+        changes = knobs_changed(pooled_all[1], champsim_problem.stock_design())
+        parts = []
+        for knob in changes:
+            parts.append("{}={}".format(knob, changes[knob][1]))
+        print("   pooled design over the whole memory (mean share {:.0f}% on {} workloads): {}".format(
+            100.0 * pooled_all[0], pooled_all[2], ", ".join(parts)))
     print()
     print("== sign survival of remembered effects against distance, over every ordered pair of memory workloads")
     points = []
@@ -527,6 +601,29 @@ def leave_one_out(memory_traces, test_traces):
                 held_count += 1
         print("   distance {:.2f} .. {:.2f}: {} of {} effects kept their sign ({:.0f}%)".format(
             chunk[0][0], chunk[-1][0], held_count, len(chunk), 100.0 * held_count / len(chunk)))
+
+
+def pooled_design(cases, rows_by_workload, min_cases):
+    """The design with the best mean gap share over the remembered workloads that
+    measured it, counting only designs measured on at least `min_cases` of them.
+    Returns (mean share, knobs, how many workloads) or None."""
+    shares = {}
+    knobs_of = {}
+    for case in cases:
+        if case["stock_ipc"] is None or case["best_ipc"] <= case["stock_ipc"]:
+            continue
+        gap = case["best_ipc"] - case["stock_ipc"]
+        for row in rows_by_workload[case["workload"]]:
+            shares.setdefault(row["name"], []).append((row["ipc"] - case["stock_ipc"]) / gap)
+            knobs_of[row["name"]] = row["knobs"]
+    best = None
+    for name, values in shares.items():
+        if len(values) < min_cases:
+            continue
+        mean = sum(values) / len(values)
+        if best is None or mean > best[0]:
+            best = (mean, knobs_of[name], len(values))
+    return best
 
 
 def replay_rank(design, rows, held):

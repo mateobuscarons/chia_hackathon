@@ -8,12 +8,13 @@
 
 Every arm starts from the stock chip (design D0) and buys BUDGET designs in rounds
 of PER_ROUND, on the same seeds and at the same fidelity. Arms:
-  bo             Gaussian process + expected improvement (loop.bo)
-  llm_direct     the plain LLM agent (loop.agent)
-  memory         the agent reading the memory's digest of the nearest remembered cases
-  llm_bo         the agent proposes 8 designs a round, a GP fit on the run picks 2
-  llm_bo_memory  both switches on
-  replay         one design: the nearest remembered workload's best design, as is
+  bo                    Gaussian process + expected improvement (loop.bo)
+  llm_direct            the plain LLM agent (loop.agent)
+  memory                the agent reading the memory's digest (closest workload's best design in the copyable
+                        slot), proposing 8 designs a round, a GP fit on the run picking 2
+  memory_pooled         the same with the pooled design (best across the memory) in the copyable slot
+  memory_pooled_prior   the same, and the selecting GP starts from the memory prior: the full stack
+  pooled                one design: the pooled design, the bar every search arm must clear
 Env: SEEDS (default 2), FIRST_SEED, BUDGET (default 8), PARALLEL_RUNS, SIM_THREADS,
 ANALYST_MODEL (default gemini-2.5-flash), MEMORY_PATH (default the cell's).
 """
@@ -60,9 +61,11 @@ CELLS = {
     # The gate before any launch: every arm, one round, two workloads.
     "smoke": {"test": [TRACE["mcf"], TRACE["lbm"]], "memory": [TRACE["omnetpp"], TRACE["bfs.urand"]]},
 }
-ARMS = ["bo", "llm_direct", "memory", "llm_bo", "llm_bo_memory", "replay"]
-# The LLM arms' two switches: (use_memory, use_gp).
-AGENT_SWITCHES = {"llm_direct": (False, False), "memory": (True, False), "llm_bo": (False, True), "llm_bo_memory": (True, True)}
+ARMS = ["bo", "llm_direct", "memory", "memory_pooled", "memory_pooled_prior", "pooled"]
+ONE_DESIGN_ARMS = ["pooled", "replay"]
+# The LLM arms' switches: (memory slot, use_gp, use_prior).
+AGENT_SWITCHES = {"llm_direct": (None, False, False), "memory": ("nearest", True, False),
+                  "memory_pooled": ("pooled", True, False), "memory_pooled_prior": ("pooled", True, True)}
 BUDGET = 8
 PER_ROUND = 2
 PARALLEL_RUNS = int(os.environ.get("PARALLEL_RUNS", "6"))
@@ -82,22 +85,34 @@ def build_memory(cell_name):
 
 # ---------------------------------------------------------------- one run ----
 
-def run_replay(problem, tag, memory_file):
-    """The one-shot baseline: stock, then the nearest case's best design."""
+def run_one_design(problem, tag, memory_file, arm):
+    """The one-shot baselines: stock, then one remembered design. replay: the
+    nearest case's best design; pooled: the design with the best mean gap share
+    across the memory workloads (frozen in the memory file)."""
     remembered = memory.load(memory_file)
-    retrieval = memory.retrieve(remembered, problem)
     stock_metrics = problem["evaluate"](problem["stock"])
     history = [{"index": 0, "round": 0, "name": problem["name_of"](problem["stock"]), "knobs": problem["stock"],
                 "metrics": stock_metrics, "source": "stock", "hypothesis": None}]
-    replay = memory.replay_design(remembered, problem, retrieval)
-    if replay is None:
-        return {"designs": history, "rounds": []}
-    metrics = problem["evaluate"](replay["knobs"])
-    history.append({"index": 1, "round": 1, "name": replay["name"], "knobs": replay["knobs"], "metrics": metrics,
-                    "source": "replay", "hypothesis": "best design of {} ({}, distance {:.2f})".format(
-                        replay["case_workload"], replay["case_id"], replay["distance"])})
-    print("[{}] round 1 | D1 | ipc={:.4f} | replay".format(tag, metrics["ipc"]), flush=True)
+    if arm == "replay":
+        replay = memory.replay_design(remembered, problem, memory.retrieve(remembered, problem))
+        if replay is None:
+            return {"designs": history, "rounds": []}
+        knobs = replay["knobs"]
+        note = "best design of {} ({}, distance {:.2f})".format(replay["case_workload"], replay["case_id"], replay["distance"])
+    else:
+        knobs = pooled_knobs(remembered)
+        note = "best mean gap share across {} memory workloads: {:.0f}%".format(
+            remembered["pooled"]["workloads_measured"], 100.0 * remembered["pooled"]["mean_share"])
+    metrics = problem["evaluate"](knobs)
+    history.append({"index": 1, "round": 1, "name": problem["name_of"](knobs), "knobs": knobs, "metrics": metrics,
+                    "source": arm, "hypothesis": note})
+    print("[{}] round 1 | D1 | ipc={:.4f} | {}".format(tag, metrics["ipc"], arm), flush=True)
     return {"designs": history, "rounds": []}
+
+
+def pooled_knobs(remembered):
+    from loop.configs import typed_knobs
+    return typed_knobs(memory.fit_to_budget(remembered["pooled"]["knobs"]))
 
 
 def run_one(arm, cell_name, seed, rounds, tag_prefix):
@@ -108,10 +123,10 @@ def run_one(arm, cell_name, seed, rounds, tag_prefix):
     if arm == "bo":
         result = bo.run_bo(problem, rounds, PER_ROUND, seed, tag)
     elif arm in AGENT_SWITCHES:
-        use_memory, use_gp = AGENT_SWITCHES[arm]
-        result = agent.run_agent(problem, rounds, PER_ROUND, tag, memory_file, use_memory, use_gp, seed=seed)
-    elif arm == "replay":
-        result = run_replay(problem, tag, memory_file)
+        memory_slot, use_gp, use_prior = AGENT_SWITCHES[arm]
+        result = agent.run_agent(problem, rounds, PER_ROUND, tag, memory_file, memory_slot, use_gp, use_prior, seed=seed)
+    elif arm in ONE_DESIGN_ARMS:
+        result = run_one_design(problem, tag, memory_file, arm)
     else:
         raise ValueError("unknown arm " + arm)
     result["designs"] = compact(result["designs"], problem)
@@ -191,7 +206,7 @@ def run_cell(cell_name, tag, arms=None):
     # Seed-major: the first wave already covers every arm on seed 0.
     for seed in range(first_seed, first_seed + seeds):
         for arm in arms:
-            if arm == "replay" and seed != first_seed:
+            if arm in ONE_DESIGN_ARMS and seed != first_seed:
                 continue            # deterministic: one seed is every seed
             handles.append((arm, seed, jobs.submit(run_one, arm, cell_name, seed, rounds, cell_name)))
     for arm, seed, handle in handles:

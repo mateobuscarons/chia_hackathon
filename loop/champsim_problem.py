@@ -173,7 +173,10 @@ def measured_rows(table):
         entry = table[name]
         if entry["metrics"] is None or "ipc" not in entry["metrics"]:
             continue
-        rows.append({"name": name, "knobs": entry["knobs"], "ipc": entry["metrics"]["ipc"], "metrics": entry["metrics"]})
+        knobs = {}
+        for knob in SEARCH_SPACE:
+            knobs[knob] = entry["knobs"][knob]      # only the space's knobs: old rows may carry extra tags
+        rows.append({"name": name, "knobs": knobs, "ipc": entry["metrics"]["ipc"], "metrics": entry["metrics"]})
     return rows
 
 
