@@ -1,15 +1,21 @@
-# Few-shot cache tuning from a memory of earlier searches (a CHIA loop)
+# LLM + memory + Bayesian optimisation: few-shot cache tuning for workloads never seen before (a CHIA loop)
 
-An LLM agent tunes a ChampSim cache hierarchy for a workload suite it has never
-seen, with a budget of 8 simulated designs. It carries a **memory** written by the
-code from earlier searches on other workloads: one **case** per workload, holding
-its descriptors, its best design and every measured single-knob effect. The agent
-reads a **digest** of the nearest cases: the moves that paid everywhere, the traps,
-where the best designs disagree, and the closest best design to copy. A hybrid arm
-lets the LLM propose eight designs a round and a Gaussian process pick the two to
-simulate. Baselines under the identical budget: textbook Bayesian optimisation, the
-same agent without memory, and a one-shot replay of the nearest case's best design. The headline cell remembers SPEC and graph searches and
-is tested on Google datacenter traces.
+The direction of this project is one search agent made of three parts, each covering
+what the others cannot: an **LLM** that reads the workloads and proposes designs, a
+**memory** of earlier searches on other workloads that tells it what paid, what hurt
+and where the open questions are, and **Bayesian optimisation** that picks among the
+LLM's proposals with a surrogate fit on the current run. The setting is few-shot: a
+ChampSim cache hierarchy, a workload suite the agent has never seen, and a budget of
+8 simulated designs.
+
+The memory is written by the code from result tables: one **case** per workload,
+holding its descriptors, its best design and every measured single-knob effect. The
+agent reads a **digest** of the nearest cases: the moves that paid everywhere, the
+traps, where the best designs disagree, and the closest best design to copy. Every
+arm is an ablation of the three parts under the identical budget: textbook Bayesian
+optimisation alone, the LLM alone, the LLM with memory, the LLM with the GP, and all
+three together, plus a one-shot replay of the nearest case's best design. The headline
+cell remembers SPEC and graph searches and is tested on Google datacenter traces.
 
 ## Layout
 
