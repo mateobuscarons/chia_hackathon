@@ -62,7 +62,9 @@ class AnalystNode:
     """Gemini on Vertex through CHIA's model layer. One instance per worker process."""
 
     def __init__(self, model, project, location="us-central1"):
-        self.llm = VertexGeminiLLM(model=model, project=project, location=location,
+        # 65k output tokens: the model's thinking counts against this cap, and an
+        # answer of eight full designs was truncated at the layer's 16k default.
+        self.llm = VertexGeminiLLM(model=model, project=project, location=location, max_tokens=65536,
                                    system_message="Answer with valid JSON only, no prose.")
 
     @ChiaFunction(resources={"vertex_creds": 0.01})

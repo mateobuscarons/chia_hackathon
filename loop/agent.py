@@ -82,18 +82,22 @@ def chia_node():
 def ask(prompt):
     """One call, parsed JSON back. Malformed or empty answers are retried a few times."""
     if os.environ.get("LOOP_DISPATCH", "local") == "chia":
+        # CHIA's layer raises on rate limits (429), truncation and malformed JSON
+        # without waiting; with many runs asking at once, wait and try again.
         node = chia_node()
-        for attempt in range(5):
+        delays = [15, 30, 60, 120, 240, 300]
+        for attempt in range(len(delays) + 1):
             try:
                 answer = node.ask(ROLE + "\n\n" + prompt)
-            except (json.JSONDecodeError, RuntimeError) as error:
-                print("  [gemini] bad answer ({}), retrying".format(repr(error)[:120]), flush=True)
-                time.sleep(10)
+            except Exception as error:
+                if attempt == len(delays):
+                    raise RuntimeError("Gemini failed {} times: {}".format(attempt + 1, repr(error)[:200]))
+                print("  [gemini] {} - waiting {}s".format(repr(error)[:100], delays[attempt]), flush=True)
+                time.sleep(delays[attempt])
                 continue
             tokens = node.llm._last_metadata
             log_cost(tokens.get("input_tokens", 0), tokens.get("output_tokens", 0))
             return answer
-        raise RuntimeError("Gemini returned no usable JSON five times")
     for attempt in range(5):
         started = time.time()
         response = generate_with_backoff(prompt)
