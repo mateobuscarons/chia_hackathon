@@ -34,8 +34,7 @@ known design a method has covered after N simulated designs.
 
 The memory's single retrieved design beats sixteen designs of either search on average. The combined arm
 starts from that design and improves on it; its longer runs are being redone after an infrastructure cap
-cut them short. Earlier 8-design runs and every prompt are in `results/run_dc_d1.json` and `run_dc_d2.json`;
-`REVIEW.md` walks through the mechanism and those runs for an outside reader.
+cut them short. Earlier 8-design runs and every prompt are in `results/run_dc_d1.json` and `run_dc_d2.json`.
 
 ## Layout
 
