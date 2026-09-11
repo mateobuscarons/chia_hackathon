@@ -678,3 +678,21 @@ For each memory workload, hold it out, build the memory from the other five, and
 10. **The area model** charges nothing for L1D geometry or MSHRs, so those knobs are a free lunch; the digest and the fallback deprioritise them, the space still contains them.
 11. **Budget unit.** Designs, not simulated cycles; a stock-chip start makes every design about 2.5x costlier than from a tuned design. Adaptive fidelity would require restating the budget in cycles.
 12. **The verification probe was removed**, not disproved: it verified true things and spent the budget doing so. A version that only verifies remembered gains, or that the LLM requests, is untested.
+
+
+## 9. Update: run d3 (16 designs, 5 seeds) and the arm set that followed
+
+After d2 the arms were reduced to the questions still open: `bo`, `llm_direct`, `memory` (LLM + digest whose copyable slot holds the closest workload's best design + GP selecting 2 of the LLM's 8 proposals), `memory_pooled` (the digest hands over the **pooled** design instead: the remembered design with the best mean gap share across the memory workloads, measured on all but one of them), `memory_pooled_prior` (the selecting GP starts from a **prior** fit on every design the memory workloads measured, target = gap share in log units), and `pooled` (that one design alone). The pooled rule was chosen by a free leave-one-out: it beats nearest-case copying on 5 of 6 held-out workloads and never falls below 82%, where nearest falls to 27%. The prior fit on gap shares ranks the 103 known datacenter designs at Spearman 0.73; fit on raw speed-ups, 0.29.
+
+d3 completed `bo`, `llm_direct` and `pooled` on 5 seeds; all 15 memory-arm runs died between designs 2 and 10 on two infrastructure faults (an 8-candidate answer plus the model's thinking exceeded CHIA's 16k output cap; 15 parallel runs hit Vertex rate limits; the CHIA call path raised both without waiting). Both are fixed; the memory arms are being rerun.
+
+```
+share of the stock-to-best-known gap (0.4927), mean over 5 seeds, min..max
+arm          D1   D4   D7   D16   seeds at D16
+bo           43%  51%  76%  86%   51..98
+llm_direct   54%  81%  82%  89%   85..96
+pooled       94%  (one design)
+memory_pooled, before the runs died: 94% at D1 in every seed (the LLM copies the pooled design), 95% by D4 in two seeds
+```
+
+Reading: one design retrieved from the memory outscores sixteen designs of either search on average; BO's seeds spread from 51% to 98%; the LLM alone plateaus after design 4. The open question, and the reason for the rerun, is how much the combined arm adds after the copy.

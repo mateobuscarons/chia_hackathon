@@ -18,6 +18,25 @@ proposals; the same with the pooled best remembered design handed over; the same
 the GP starting from a prior fit on the memory; and the pooled design alone, as the bar. The headline
 cell remembers SPEC and graph searches and is tested on Google datacenter traces.
 
+## Results so far
+
+Cell `dc`: memory from SPEC17 (mcf, omnetpp, lbm) and GAP graph searches (bfs.urand, pr.urand, bfs.kron),
+tested on three Google datacenter traces the loop has never seen (sierra.a.4, merced, tahoe), Gemini 2.5
+Flash, 16 designs per run, 5 seeds. The score is how much of the distance from the stock chip to the best
+known design a method has covered after N simulated designs.
+
+| arm | after 1 | after 4 | after 8 | after 16 |
+|---|---|---|---|---|
+| Bayesian optimisation alone | 43% | 51% | 76% | 86% |
+| LLM alone | 54% | 81% | 85% | 89% |
+| one design retrieved from the memory (`pooled`) | 94% | | | |
+| LLM + memory + GP (`memory_pooled`) | 94% | 95% | in progress | in progress |
+
+The memory's single retrieved design beats sixteen designs of either search on average. The combined arm
+starts from that design and improves on it; its longer runs are being redone after an infrastructure cap
+cut them short. Earlier 8-design runs and every prompt are in `results/run_dc_d1.json` and `run_dc_d2.json`;
+`REVIEW.md` walks through the mechanism and those runs for an outside reader.
+
 ## Layout
 
 | file | role |

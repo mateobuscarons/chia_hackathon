@@ -27,6 +27,7 @@ from concurrent.futures import ProcessPoolExecutor
 
 from loop import agent, bo, memory
 from loop.champsim_problem import make_suite_problem, trace_short_name
+from loop.configs import typed_knobs
 
 TRACE = {"mcf": "traces/605.mcf_s-665B.champsimtrace.xz",
          "lbm": "traces/619.lbm_s-2676B.champsimtrace.xz",
@@ -111,7 +112,6 @@ def run_one_design(problem, tag, memory_file, arm):
 
 
 def pooled_knobs(remembered):
-    from loop.configs import typed_knobs
     return typed_knobs(memory.fit_to_budget(remembered["pooled"]["knobs"]))
 
 
