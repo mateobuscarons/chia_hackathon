@@ -80,13 +80,20 @@ def chia_node():
 
 
 def ask(prompt):
-    """One call, parsed JSON back. Malformed JSON is retried a few times."""
+    """One call, parsed JSON back. Malformed or empty answers are retried a few times."""
     if os.environ.get("LOOP_DISPATCH", "local") == "chia":
         node = chia_node()
-        answer = node.ask(ROLE + "\n\n" + prompt)
-        tokens = node.llm._last_metadata
-        log_cost(tokens.get("input_tokens", 0), tokens.get("output_tokens", 0))
-        return answer
+        for attempt in range(5):
+            try:
+                answer = node.ask(ROLE + "\n\n" + prompt)
+            except (json.JSONDecodeError, RuntimeError) as error:
+                print("  [gemini] bad answer ({}), retrying".format(repr(error)[:120]), flush=True)
+                time.sleep(10)
+                continue
+            tokens = node.llm._last_metadata
+            log_cost(tokens.get("input_tokens", 0), tokens.get("output_tokens", 0))
+            return answer
+        raise RuntimeError("Gemini returned no usable JSON five times")
     for attempt in range(5):
         started = time.time()
         response = generate_with_backoff(prompt)
@@ -285,7 +292,11 @@ def propose(problem, prompt, how_many, taken):
     unmeasured, in-budget proposals in the LLM's order, and what was rejected."""
     accepted = []
     rejected = []
-    proposals = as_list(ask(prompt))
+    try:
+        proposals = as_list(ask(prompt))
+    except RuntimeError as error:
+        # The LLM is down for this round: the fallback fills the slots, the run goes on.
+        return accepted, [], ["LLM failed: " + repr(error)[:160]]
     for attempt in range(2):
         for proposal in proposals:
             if len(accepted) == how_many:
@@ -303,7 +314,11 @@ def propose(problem, prompt, how_many, taken):
         if len(accepted) == how_many or attempt == 1 or len(rejected) == 0:
             break
         retry_prompt = prompt + "\n\n## Already tested or not allowed (do not propose these again)\n" + "\n".join(rejected)
-        proposals = as_list(ask(retry_prompt))
+        try:
+            proposals = as_list(ask(retry_prompt))
+        except RuntimeError as error:
+            rejected.append("LLM failed on the retry: " + repr(error)[:160])
+            break
     return accepted, proposals, rejected
 
 
