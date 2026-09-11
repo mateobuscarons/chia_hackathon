@@ -23,6 +23,6 @@ LOOP_DISPATCH=chia .venv/bin/python -m loop.run $CELL $TAG $ARMS > $LOG 2>&1
 .venv/bin/python -m loop.summarize results/run_${CELL}_${TAG}.json >> $LOG 2>&1
 echo "CELL_DONE $(date)" >> $LOG
 if [ "${POWER_OFF:-0}" = "1" ]; then
-  sleep 60
+  sleep 600            # time to fetch the results before the machine goes down
   sudo shutdown -h now
 fi

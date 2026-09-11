@@ -1,7 +1,7 @@
 # Upstream contributions to CHIA (planned PRs)
 
-The judges are the CHIA team; these are the pieces of our loop that belong in
-the framework itself. `chia/` is a shallow clone, so PRs go through a fork.
+These are the pieces of our loop that belong in the framework itself rather than
+in this repo. `chia/` is a shallow clone, so PRs go through a fork.
 
 1. **`0001-champsim-gs-trace-resolver.patch`** — `chia.simulators.champsim._resolve_trace`
    raises `NotImplementedError` for `gs://` traces; GCP clusters need them.
@@ -15,12 +15,15 @@ the framework itself. `chia/` is a shallow clone, so PRs go through a fork.
    forwards only `max_output_tokens`, the system message and tools, so a loop cannot
    set temperature, JSON response mode or a thinking budget on Vertex Gemini; every
    call runs at the model defaults. A `generation_config` passthrough (and the
-   thinking token count in `_last_metadata`) is a small, general fix.
-4. **Case memory + verification probe** - `loop/memory.py` is simulator-agnostic
-   (it reads knobs and descriptors from a `problem` dict): cases built from result
-   tables, descriptor-distance retrieval, one design per round that verifies a
-   remembered effect. Candidate for a `chia.analysis` block any agentic loop can
-   wrap around its simulator node.
+   thinking token count in `_last_metadata`) is a small, general fix. Cell d3 lost
+   all fifteen of its memory-arm runs to this: eight-candidate answers plus the
+   model's thinking exceeded the layer's 16k default, and the layer raises on rate
+   limits without waiting, so one bad call killed a whole run.
+4. **Case memory block** - `loop/memory.py` is simulator-agnostic (it reads knobs
+   and descriptors from a `problem` dict): cases built from result tables,
+   descriptor-distance retrieval, the digest the agent reads, the pooled default
+   design and the GP prior. Candidate for a `chia.analysis` block any agentic loop
+   can wrap around its simulator node.
 
 ## ChampSim (not CHIA)
 
