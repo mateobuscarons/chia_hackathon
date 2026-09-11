@@ -1,72 +1,85 @@
-"""ChampSim glue: turns (SoC, trace) into the generic `problem` dict loop.py needs.
+"""ChampSim glue: turns a list of traces into the `problem` dict the arms search.
 
-This is the only place where the loop learns it is tuning caches.
+This is the only place where the loop learns it is tuning caches. A problem is:
+  name, search_space, stock (the untouched chip's knobs), is_candidate(knobs),
+  name_of(knobs), evaluate(knobs) -> metrics, evaluate_many([knobs]) -> [metrics],
+  objective ("ipc": the geometric mean over the suite), table_metrics (what the
+  agent's table shows), workloads (short names), descriptors per workload,
+  chip_text, area_budget_kb, holders (one result table per workload).
 """
 
 import fcntl
 import json
+import math
 import os
 import time
 from concurrent.futures import ThreadPoolExecutor
 
-from loop.configs import (KNOB_LOCATION, SPACES, build_config, config_name, in_space, make_config,
-                          random_feasible_designs, typed_knobs, within_budget)
-from loop.socs import AREA_BUDGET_KB, describe, num_cores
 from loop import trace_profile
+from loop.configs import (AREA_BUDGET_KB, KNOB_LOCATION, SEARCH_SPACE, build_config, config_name, describe, in_space,
+                          make_config, random_feasible_designs, typed_knobs, within_budget)
 from loop.simulate import build_binary, run_simulation
 
 CHAMPSIM_ROOT = "champsim"
 BASE_CONFIG = "champsim/champsim_config.json"
 GENERATED_DIR = "configs/generated"
-# The search runs short simulations; the fidelity check and the final validation
-# run the same designs longer (LOOP_WARMUP / LOOP_SIM, in instructions) and land
-# in their own tables, so long and short rows never mix.
+# The search runs short simulations (validated: Spearman 0.919 against 50M/50M
+# over 26 designs). LOOP_WARMUP / LOOP_SIM run the same designs longer into their
+# own tables, so long and short rows never mix.
 DEFAULT_WARMUP = 5_000_000
 DEFAULT_SIMULATION = 10_000_000
 WARMUP_INSTRUCTIONS = int(os.environ.get("LOOP_WARMUP", DEFAULT_WARMUP))
 SIMULATION_INSTRUCTIONS = int(os.environ.get("LOOP_SIM", DEFAULT_SIMULATION))
 
-# The untouched chip: every SoC/trace loop starts by measuring this. (ChampSim's
-# stock config names no L2 replacement policy and uses LRU; the knob says so.)
-BASELINE_KNOBS = {"l2_sets": 1024, "llc_sets": 2048,
-                  "l2_prefetcher": "no", "llc_replacement": "lru", "l2_replacement": "lru"}
+# The untouched chip: what ChampSim's stock config says for the knobs it names
+# (no L2 replacement policy is named there, which means LRU).
+STOCK_KNOBS = {"l2_sets": 1024, "llc_sets": 2048, "l2_prefetcher": "no", "llc_replacement": "lru", "l2_replacement": "lru"}
 
-# The GP and random arms score a fixed random sample of the feasible designs (the
-# space has millions); the agent arms may name ANY feasible design (is_candidate).
+# The GP arm scores a fixed random sample of the feasible designs (the space has
+# millions); the agent may name ANY feasible design (is_candidate).
 CANDIDATE_POOL = 20000
 
-# "local" or "chia" (LOOP_DISPATCH=chia is set by run_chia): with "chia" every
-# build and simulation is a CHIA task, so experiment.py needs no changes.
+# "local" or "chia" (LOOP_DISPATCH=chia, set in the environment): with "chia" every
+# build and simulation is a CHIA task.
 DEFAULT_DISPATCH = os.environ.get("LOOP_DISPATCH", "local")
 
-# Workload descriptors: a rule condition sees (a) the PROGRAM, profiled once from
-# its trace with no simulator (loop.trace_profile), and (b) that program against
-# THIS chip's public geometry: working set over cache size, predicted LRU miss
-# ratio at the chip's L2 / LLC, and the misses a bigger cache could still remove
-# within the chip's area budget. The chip's own measured speed is never a
-# condition, so a threshold means the same thing on every chip.
+# Workload descriptors: the PROGRAM, profiled once from its trace with no
+# simulator (loop.trace_profile), and that program against THIS chip's geometry:
+# working set over cache size, predicted LRU miss ratio at the chip's caches, and
+# the misses a bigger cache could still remove within the area budget. The
+# chip's measured speed is never a descriptor.
 DESCRIPTOR_METRICS = ["mem_accesses_per_kinstr", "write_fraction", "footprint_kb",
                       "stride_regular_fraction", "reuse_local_fraction",
                       "l2_footprint_ratio", "llc_footprint_ratio",
                       "pred_l1d_miss_ratio", "pred_l2_miss_ratio", "pred_llc_miss_ratio",
                       "movable_l2_mpki", "movable_llc_mpki"]
 
+DESCRIPTOR_LEGEND = """Two kinds of descriptor. Program-only, profiled from the trace with no simulator:
+memory accesses per 1000 instructions, write fraction, working set (footprint_kb),
+fraction of stride-regular accesses (what a stride prefetcher catches), fraction of
+reuses within 1024 accesses (temporal locality). Program against THIS chip's cache
+sizes: working set over L2 size and over L2+LLC size, the predicted LRU miss ratio
+at this chip's L1D, L2 and LLC capacity (footprint theory, from the trace), and
+movable_l2_mpki / movable_llc_mpki: the misses per 1000 instructions that a bigger
+L2 / LLC would remove, from this chip's size up to the largest its area budget
+affords. A program with a huge footprint but movable_llc_mpki near zero reads its
+data once and no cache size helps it; a large movable MPKI means capacity pays."""
 
-def largest_affordable_kb(search_space, soc_name, llc_share=1.0):
-    """The biggest L2 and the biggest L2 + (own share of the) LLC capacity, in KB,
-    any design in the space can have on this chip within its area budget."""
+
+def largest_affordable_kb():
+    """The biggest L2 and the biggest L2 + LLC capacity, in KB, any design in the
+    space can have within the area budget."""
     largest_l2_kb = 0.0
     largest_total_kb = 0.0
-    for l2_sets in search_space["l2_sets"]:
-        for l2_ways in search_space["l2_ways"]:
-            for llc_sets in search_space["llc_sets"]:
-                for llc_ways in search_space["llc_ways"]:
-                    knobs = {"l2_sets": l2_sets, "l2_ways": l2_ways,
-                             "llc_sets": llc_sets, "llc_ways": llc_ways}
-                    if not within_budget(knobs, soc_name, BASE_CONFIG):
+    for l2_sets in SEARCH_SPACE["l2_sets"]:
+        for l2_ways in SEARCH_SPACE["l2_ways"]:
+            for llc_sets in SEARCH_SPACE["llc_sets"]:
+                for llc_ways in SEARCH_SPACE["llc_ways"]:
+                    knobs = {"l2_sets": l2_sets, "l2_ways": l2_ways, "llc_sets": llc_sets, "llc_ways": llc_ways}
+                    if not within_budget(knobs):
                         continue
                     l2_kb = l2_sets * l2_ways * 64 / 1024.0
-                    total_kb = l2_kb + llc_sets * llc_ways * 64 / 1024.0 * llc_share
+                    total_kb = l2_kb + llc_sets * llc_ways * 64 / 1024.0
                     if l2_kb > largest_l2_kb:
                         largest_l2_kb = l2_kb
                     if total_kb > largest_total_kb:
@@ -74,29 +87,21 @@ def largest_affordable_kb(search_space, soc_name, llc_share=1.0):
     return largest_l2_kb, largest_total_kb
 
 
-def chip_descriptors(profile, baseline_knobs, search_space, soc_name, llc_share=1.0):
-    """The workload profile read against one chip's cache geometry (its baseline
-    knobs: sets x ways x 64 B per level) and area budget. No simulation involved.
-    llc_share: the fraction of the LLC this program can count on (1 on a single
-    core; 1/N when N programs share it - an approximation, since footprint theory
-    predicts a dedicated cache's miss ratio)."""
-    l1d_kb = baseline_knobs["l1d_sets"] * baseline_knobs["l1d_ways"] * 64 / 1024.0
-    l2_kb = baseline_knobs["l2_sets"] * baseline_knobs["l2_ways"] * 64 / 1024.0
-    llc_kb = baseline_knobs["llc_sets"] * baseline_knobs["llc_ways"] * 64 / 1024.0 * llc_share
-    largest_l2_kb, largest_total_kb = largest_affordable_kb(search_space, soc_name, llc_share)
+def chip_descriptors(profile, stock):
+    """The workload profile read against the untouched chip's cache geometry
+    (sets x ways x 64 B per level) and the area budget. No simulation involved."""
+    l1d_kb = stock["l1d_sets"] * stock["l1d_ways"] * 64 / 1024.0
+    l2_kb = stock["l2_sets"] * stock["l2_ways"] * 64 / 1024.0
+    llc_kb = stock["llc_sets"] * stock["llc_ways"] * 64 / 1024.0
+    largest_l2_kb, largest_total_kb = largest_affordable_kb()
     descriptors = {}
-    for metric in ["mem_accesses_per_kinstr", "write_fraction", "footprint_kb",
-                   "stride_regular_fraction", "reuse_local_fraction"]:
+    for metric in trace_profile.PROFILE_METRICS:
         descriptors[metric] = profile[metric]
     descriptors["l2_footprint_ratio"] = profile["footprint_kb"] / l2_kb
     descriptors["llc_footprint_ratio"] = profile["footprint_kb"] / (l2_kb + llc_kb)
     descriptors["pred_l1d_miss_ratio"] = trace_profile.predicted_miss_ratio(profile, l1d_kb)
     descriptors["pred_l2_miss_ratio"] = trace_profile.predicted_miss_ratio(profile, l2_kb)
     descriptors["pred_llc_miss_ratio"] = trace_profile.predicted_miss_ratio(profile, l2_kb + llc_kb)
-    # Movable MPKI: the misses per 1000 instructions a bigger cache would remove,
-    # from this chip's baseline capacity to the largest its budget affords. A huge
-    # footprint read once front to back has a large footprint ratio and movable
-    # MPKI near zero: capacity cannot help it, and this is the descriptor that says so.
     accesses = profile["mem_accesses_per_kinstr"]
     l2_drop = descriptors["pred_l2_miss_ratio"] - trace_profile.predicted_miss_ratio(profile, largest_l2_kb)
     llc_drop = descriptors["pred_llc_miss_ratio"] - trace_profile.predicted_miss_ratio(profile, largest_total_kb)
@@ -105,54 +110,8 @@ def chip_descriptors(profile, baseline_knobs, search_space, soc_name, llc_share=
     return descriptors
 
 
-# Descriptors that add up across the programs of a mix (N cores sharing an LLC
-# collectively need the sum of their working sets); every other descriptor is a
-# rate and is averaged, weighted by each program's memory accesses.
-MIX_SUMMED = ["footprint_kb"]
-MIX_PLAIN_MEAN = ["mem_accesses_per_kinstr"]
-
-
-def mix_descriptors(profiles, baseline_knobs, search_space, soc_name):
-    """Descriptors of a mix of programs, one per core, on a chip with private L2s
-    and one shared LLC: each program is read against its own L2 and its 1/N share
-    of the LLC, then the per-program descriptors are combined."""
-    cores = len(profiles)
-    per_program = []
-    for profile in profiles:
-        per_program.append(chip_descriptors(profile, baseline_knobs, search_space, soc_name,
-                                            llc_share=1.0 / cores))
-    weights = []
-    for descriptors in per_program:
-        weights.append(descriptors["mem_accesses_per_kinstr"])
-    total_weight = sum(weights)
-    combined = {}
-    for metric in DESCRIPTOR_METRICS:
-        values = []
-        for descriptors in per_program:
-            values.append(descriptors[metric])
-        if metric in MIX_SUMMED:
-            combined[metric] = sum(values)
-        elif metric in MIX_PLAIN_MEAN:
-            combined[metric] = sum(values) / cores
-        else:
-            weighted = 0.0
-            for value, weight in zip(values, weights):
-                weighted += value * weight
-            combined[metric] = weighted / total_weight
-    # The mix's footprint over the capacity all its programs see together.
-    l2_kb = baseline_knobs["l2_sets"] * baseline_knobs["l2_ways"] * 64 / 1024.0
-    llc_kb = baseline_knobs["llc_sets"] * baseline_knobs["llc_ways"] * 64 / 1024.0
-    combined["llc_footprint_ratio"] = combined["footprint_kb"] / (cores * l2_kb + llc_kb)
-    return combined
-
-
 def enrich_metrics(metrics):
-    """Add derived descriptors to a result row (in place; safe to call twice).
-
-    Hit ratios say how much of the traffic each level absorbs; the LLC/L2 miss
-    ratio says whether L2 misses find reuse in the LLC. Rules may condition on
-    them; they describe the workload's access pattern better than MPKI alone.
-    """
+    """Hit ratios per level, derived from the simulator's hit and miss counts."""
     if metrics is None:
         return None
     for level in ["L1D", "L2C", "LLC"]:
@@ -165,43 +124,28 @@ def enrich_metrics(metrics):
             metrics[level + "_hit_ratio"] = hits / total
         else:
             metrics[level + "_hit_ratio"] = 0.0
-    if metrics.get("L2C_mpki") and metrics.get("LLC_mpki") is not None:
-        if metrics["L2C_mpki"] > 0:
-            metrics["LLC_over_L2C_mpki"] = metrics["LLC_mpki"] / metrics["L2C_mpki"]
     return metrics
 
 
-def table_path(soc_name, trace_path):
-    """The shared result table for one chip and one trace (or one mix of traces):
-    the simulation cache every process reads and appends to. Non-default
-    simulation lengths get their own table."""
-    if isinstance(trace_path, list):
-        trace_name = "mix-" + trace_short_name(trace_path)
-    else:
-        trace_name = os.path.basename(trace_path).split(".champsimtrace")[0]
+# ---------------------------------------------------------------- names and tables ----
+
+def trace_short_name(trace_path):
+    """The trace's name without directory or compression suffix (trace_profile.short_name)."""
+    return trace_profile.short_name(trace_path)
+
+
+def table_path(trace_name):
+    """The shared result table for one workload: the simulation cache every
+    process reads and appends to. Non-default simulation lengths get their own."""
     suffix = ""
     if WARMUP_INSTRUCTIONS != DEFAULT_WARMUP or SIMULATION_INSTRUCTIONS != DEFAULT_SIMULATION:
         suffix = "_w{}M_s{}M".format(WARMUP_INSTRUCTIONS // 1_000_000, SIMULATION_INSTRUCTIONS // 1_000_000)
-    return "results/tierC_{}_{}{}.json".format(soc_name, trace_name, suffix)
-
-
-def trace_short_name(trace_path):
-    """The trace's whole name, without directory and without the compression
-    suffix: "605.mcf_s-665B", "bfs.urand-36B", "llama2.c-stories15M.2". The
-    names joined with "+" for a mix (a list of traces). No parsing: a shortened
-    name collides as soon as two traces share a prefix (the four llama2 model
-    sizes all begin "llama2.c"), and the agent reads this name in its prompt."""
-    if isinstance(trace_path, list):
-        parts = []
-        for member in trace_path:
-            parts.append(trace_short_name(member))
-        return "+".join(parts)
-    return os.path.basename(trace_path).split(".champsimtrace")[0]
+    return "results/table_{}{}.json".format(trace_name, suffix)
 
 
 def load_table(path):
     """Many processes read this table while one rewrites it; a reader may catch a
-    half-written file. Retry briefly instead of crashing the arm."""
+    half-written file. Retry briefly instead of crashing the run."""
     if not os.path.exists(path):
         return {}
     for attempt in range(10):
@@ -222,29 +166,34 @@ def save_table(table, path):
     os.replace(temporary_path, path)
 
 
+def measured_rows(table):
+    """Every complete row of a table as {"name", "knobs", "ipc", "metrics"}."""
+    rows = []
+    for name in table:
+        entry = table[name]
+        if entry["metrics"] is None or "ipc" not in entry["metrics"]:
+            continue
+        rows.append({"name": name, "knobs": entry["knobs"], "ipc": entry["metrics"]["ipc"], "metrics": entry["metrics"]})
+    return rows
+
+
+# ---------------------------------------------------------------- one workload's simulator ----
+
 class ChampSimProblem:
     """Answers evaluate() from the result table when it can; otherwise simulates.
 
-    dispatch="local": build + run in this process, one config at a time.
+    dispatch="local": build + run in this process, one thread per design.
     dispatch="chia":  build_from_config and simulate are dispatched as CHIA
-                      tasks (ray must be initialised); a round's configs run
-                      in parallel on whatever workers advertise "champsim".
-    """
+                      tasks (ray must be initialised)."""
 
-    def __init__(self, soc_name, trace_path, allow_simulation, dispatch, space_name):
-        self.soc_name = soc_name
+    def __init__(self, trace_path, allow_simulation, dispatch):
         self.trace_path = trace_path
+        self.trace_name = trace_short_name(trace_path)
         self.allow_simulation = allow_simulation
         self.dispatch = dispatch
-        self.space_name = space_name
-        self.table_path = table_path(soc_name, trace_path)
+        self.table_path = table_path(self.trace_name)
         self.sweep_table = load_table(self.table_path)
-        self.simulations_run = 0
-        # A round's configs simulate at the same time (threads; each is a subprocess).
         self.local_pool = ThreadPoolExecutor(max_workers=int(os.environ.get("SIM_THREADS", "4")))
-
-    def evaluate(self, knobs):
-        return self.evaluate_many([knobs])[0]
 
     def evaluate_many(self, knobs_list):
         waiters = self.evaluate_many_async(knobs_list)
@@ -259,15 +208,14 @@ class ChampSimProblem:
         waiters = []
         self.sweep_table = load_table(self.table_path)      # pick up other processes' results
         for knobs in knobs_list:
-            self.simulations_run += 1
-            name = config_name(knobs, self.soc_name)
+            name = config_name(knobs)
             if name in self.sweep_table:
                 if self.sweep_table[name]["metrics"] is None:
-                    raise RuntimeError("config crashed in the sweep: " + name)
+                    raise RuntimeError("design crashed earlier on this workload: " + name)
                 waiters.append(self.ready(enrich_metrics(dict(self.sweep_table[name]["metrics"]))))
                 continue
             if not self.allow_simulation:
-                raise KeyError("not in sweep table and simulation disabled: " + name)
+                raise KeyError("not in the table and simulation disabled: " + name)
             if self.dispatch == "chia":
                 waiters.append(self.wait_chia(knobs, self.dispatch_chia(knobs)))
             else:
@@ -296,253 +244,159 @@ class ChampSimProblem:
 
     def remember(self, knobs, metrics):
         """Append one result to the shared table under a lock (many processes write it)."""
-        name = config_name(knobs, self.soc_name)
+        name = config_name(knobs)
         self.sweep_table[name] = {"knobs": knobs, "metrics": metrics}
         with open(self.table_path + ".lock", "w") as lock_file:
             fcntl.flock(lock_file, fcntl.LOCK_EX)
             table = load_table(self.table_path)
             table[name] = {"knobs": knobs, "metrics": metrics}
-            save_table(table, self.table_path)          # atomic rename: readers never see a partial file
+            save_table(table, self.table_path)
             fcntl.flock(lock_file, fcntl.LOCK_UN)
 
     def simulate_here(self, knobs):
-        config_path = make_config(knobs, self.soc_name, BASE_CONFIG, GENERATED_DIR, self.space_name)
+        config_path = make_config(knobs, BASE_CONFIG, GENERATED_DIR)
         binary_path = build_binary(config_path, CHAMPSIM_ROOT)
-        return run_simulation(binary_path, self.trace_path,
-                              WARMUP_INSTRUCTIONS, SIMULATION_INSTRUCTIONS)
+        return run_simulation(binary_path, self.trace_path, WARMUP_INSTRUCTIONS, SIMULATION_INSTRUCTIONS)
 
     def dispatch_chia(self, knobs):
         """Two chained CHIA tasks: build -> simulate. Returns the simulate future."""
         from loop.chia_nodes import build_from_config, simulate
-        config = build_config(knobs, self.soc_name, BASE_CONFIG, self.space_name)
+        config = build_config(knobs, BASE_CONFIG)
         binary_future = build_from_config.chia_remote(config, os.path.abspath(CHAMPSIM_ROOT))
-        trace_paths = self.trace_path
-        if isinstance(trace_paths, str):
-            trace_paths = [trace_paths]
-        absolute_paths = []
-        for trace_path in trace_paths:
-            absolute_paths.append(os.path.abspath(trace_path))
-        return simulate.chia_remote(binary_future, absolute_paths,
-                                    WARMUP_INSTRUCTIONS, SIMULATION_INSTRUCTIONS,
-                                    _chia_tag=config["executable_name"])
+        return simulate.chia_remote(binary_future, [os.path.abspath(self.trace_path)],
+                                    WARMUP_INSTRUCTIONS, SIMULATION_INSTRUCTIONS, _chia_tag=config["executable_name"])
 
 
-def profiled_baseline(soc_name, space_name):
-    """The chip as profiled: BASELINE_KNOBS plus every other knob of the space at
-    the SoC profile's own value, read back from the built config."""
-    profiled = build_config(BASELINE_KNOBS, soc_name, BASE_CONFIG, space_name)
-    baseline = dict(BASELINE_KNOBS)
-    for knob in SPACES[space_name]:
-        if knob not in baseline:
+# ---------------------------------------------------------------- the problem ----
+
+def stock_design():
+    """The untouched chip: STOCK_KNOBS plus every other knob at the value the
+    chip's own config carries, read back from the built config."""
+    profiled = build_config(STOCK_KNOBS, BASE_CONFIG)
+    stock = dict(STOCK_KNOBS)
+    for knob in SEARCH_SPACE:
+        if knob not in stock:
             section, field = KNOB_LOCATION[knob]
-            baseline[knob] = profiled[section][field]
-    return baseline
+            stock[knob] = profiled[section][field]
+    return stock
 
 
-def make_problem(soc_name, trace_path, allow_simulation=True, dispatch=None, space_name="C", start_knobs=None):
-    """One workload on one chip. `trace_path` is one trace, or a list with one trace
-    per core on a multi-core chip (a mix). `start_knobs`: the design every arm starts
-    from (default: the untouched chip); descriptors are read against its geometry."""
+def workload_descriptors(trace_path):
+    """One workload's descriptors, from its cached profile against the stock chip."""
+    profile = trace_profile.load_or_build(trace_path, WARMUP_INSTRUCTIONS, SIMULATION_INSTRUCTIONS)
+    return chip_descriptors(profile, stock_design())
+
+
+def make_suite_problem(trace_paths, allow_simulation=True, dispatch=None):
+    """One design is scored on a SUITE of workloads: the objective is the geometric
+    mean of the per-workload IPC (one simulation per workload per design). This is
+    how a design team scores a hierarchy; no chip is built for one program."""
     if dispatch is None:
         dispatch = DEFAULT_DISPATCH
-    if isinstance(trace_path, list) and len(trace_path) != num_cores(soc_name):
-        raise ValueError("{} has {} cores; a mix needs one trace per core".format(soc_name, num_cores(soc_name)))
-    trace_name = trace_short_name(trace_path)
-    holder = ChampSimProblem(soc_name, trace_path, allow_simulation, dispatch, space_name)
-    space = SPACES[space_name]
-    untouched = profiled_baseline(soc_name, space_name)
-    baseline = dict(untouched)
-    if start_knobs is not None:
-        baseline = dict(start_knobs)
-        if not within_budget(baseline, soc_name, BASE_CONFIG):
-            raise ValueError("start design does not fit {}'s budget: {}".format(soc_name, json.dumps(baseline)))
-
-    # Conditions live on the workload descriptors: the trace profile (built once
-    # per trace, cached in results/profile_*.json) read against this chip's geometry.
-    # Always the UNTOUCHED chip's geometry: a descriptor is a property of the
-    # workload on this chip, and must not change with the design a search starts from.
-    if isinstance(trace_path, list):
-        profiles = []
-        for member in trace_path:
-            profiles.append(trace_profile.load_or_build(member, WARMUP_INSTRUCTIONS, SIMULATION_INSTRUCTIONS))
-        descriptors = mix_descriptors(profiles, untouched, space, soc_name)
-    else:
-        profile = trace_profile.load_or_build(trace_path, WARMUP_INSTRUCTIONS, SIMULATION_INSTRUCTIONS)
-        descriptors = chip_descriptors(profile, untouched, space, soc_name)
-    condition_metrics = list(DESCRIPTOR_METRICS)
+    holders = []
+    names = []
+    descriptors = {}
+    for trace_path in trace_paths:
+        holder = ChampSimProblem(trace_path, allow_simulation, dispatch)
+        holders.append(holder)
+        names.append(holder.trace_name)
+        descriptors[holder.trace_name] = workload_descriptors(trace_path)
+    stock = stock_design()
 
     def is_candidate(knobs):
-        """Any design the loop may run: in the space, inside the budget, not crashed here."""
-        if not in_space(knobs, space):
+        """Any design the loop may run: in the space, inside the budget, not crashed anywhere."""
+        if not in_space(knobs):
             return False
-        typed = typed_knobs(knobs, space)
-        if not within_budget(typed, soc_name, BASE_CONFIG):
+        typed = typed_knobs(knobs)
+        if not within_budget(typed):
             return False
-        name = config_name(typed, soc_name)
-        crashed = name in holder.sweep_table and holder.sweep_table[name]["metrics"] is None
-        return not crashed
+        name = config_name(typed)
+        for holder in holders:
+            if name in holder.sweep_table and holder.sweep_table[name]["metrics"] is None:
+                return False
+        return True
 
     def name_of(knobs):
-        return config_name(typed_knobs(knobs, space), soc_name)
-
-    candidates = {}
-    for knobs in [baseline] + random_feasible_designs(soc_name, CANDIDATE_POOL, space=space):
-        if is_candidate(knobs):
-            candidates[name_of(knobs)] = knobs
-
-    return {
-        "name": soc_name + "/" + trace_name,
-        "soc_name": soc_name,
-        "search_space": space,
-        "candidates": candidates,
-        "is_candidate": is_candidate,
-        "name_of": name_of,
-        "baseline": baseline,
-        # The chip as shipped: what "bigger than the chip's own cache" means for a
-        # rule, whatever design the search starts from.
-        "untouched": untouched,
-        "chip_text": describe(soc_name),
-        "evaluate": holder.evaluate,
-        "evaluate_many": holder.evaluate_many,
-        "objective": "ipc",
-        "table_metrics": ["ipc", "L1D_mpki", "L2C_mpki", "LLC_mpki", "LLC_hit_ratio"],
-        # Rule conditions must describe the WORKLOAD, not the chip: they are checked
-        # on `descriptors`, never on the chip's own runs.
-        "condition_metrics": condition_metrics,
-        "descriptors": descriptors,
-        # Per-workload descriptors (one workload here): used to FIT condition
-        # thresholds from where a claim's effect appears and where it does not.
-        "workload_descriptors": {trace_name: descriptors},
-        "area_budget_kb": AREA_BUDGET_KB[soc_name],
-        "holder": holder,
-    }
-
-
-SUITE_AGGREGATE_METRICS = ["L1D_mpki", "L2C_mpki", "LLC_mpki", "L2C_hit_ratio", "LLC_hit_ratio", "LLC_over_L2C_mpki"]
-
-
-def make_suite_problem(soc_name, trace_paths, allow_simulation=True, dispatch=None, space_name="C", start_knobs=None):
-    """One design is scored on a SUITE of workloads: the objective is the geometric
-    mean of per-workload IPC (one simulation per workload per design). This is how
-    a design team scores a hierarchy; no chip is built for one program.
-
-    Rule conditions see the suite through aggregates: the mean of each workload
-    descriptor across the suite (plain name) and its max ("max_" prefix).
-    On a multi-core chip each `trace_paths` entry is itself a list: a mix."""
-    if len(trace_paths) == 1:
-        return make_problem(soc_name, trace_paths[0], allow_simulation, dispatch, space_name, start_knobs)
-    single_problems = []
-    for trace_path in trace_paths:
-        single_problems.append(make_problem(soc_name, trace_path, allow_simulation, dispatch, space_name, start_knobs))
-    first = single_problems[0]
-    short_names = []
-    for trace_path in trace_paths:
-        short_names.append(trace_short_name(trace_path))
+        return config_name(typed_knobs(knobs))
 
     def evaluate_many(knobs_list):
         # Fan out: every (design, workload) pair runs at once through its own holder.
-        per_trace_results = []
-        for problem in single_problems:
-            per_trace_results.append(problem["holder"].evaluate_many_async(knobs_list))
+        per_workload_waiters = []
+        for holder in holders:
+            per_workload_waiters.append(holder.evaluate_many_async(knobs_list))
         results = []
         for index in range(len(knobs_list)):
-            per_trace = []
-            for trace_index in range(len(single_problems)):
-                per_trace.append(per_trace_results[trace_index][index]())
-            results.append(aggregate_suite(per_trace, short_names))
+            per_workload = []
+            for holder_index in range(len(holders)):
+                per_workload.append(per_workload_waiters[holder_index][index]())
+            results.append(aggregate_suite(per_workload, names))
         return results
 
     def evaluate(knobs):
         return evaluate_many([knobs])[0]
 
-    # Candidates: a design must fit the budget (same for every workload); crashed
-    # designs on any workload are excluded.
-    def is_candidate(knobs):
-        for problem in single_problems:
-            if not problem["is_candidate"](knobs):
-                return False
-        return True
-
-    candidates = {}
-    for name, knobs in first["candidates"].items():
-        if is_candidate(knobs):
-            candidates[name] = knobs
-
-    # The table shows the suite objective and, per workload, the objective and the
-    # cache diagnostics the agent reasons with (a suite-mean MPKI mixes workloads).
+    # The table shows the suite objective and, per workload, IPC and the LLC diagnostics.
     table_metrics = ["ipc"]
-    for short in short_names:
-        for metric in ["ipc", "L2C_mpki", "LLC_mpki", "LLC_hit_ratio"]:
-            table_metrics.append(short + ":" + metric)
-    # Suite descriptors: mean and max of each workload's descriptor.
-    base_metrics = list(first["condition_metrics"])
-    condition_metrics = list(base_metrics)
-    for metric in base_metrics:
-        condition_metrics.append("max_" + metric)
-    workload_descriptors = {}
-    for short, problem in zip(short_names, single_problems):
-        workload_descriptors[short] = problem["descriptors"]
-    descriptors = {}
-    for metric in base_metrics:
-        values = []
-        for problem in single_problems:
-            values.append(problem["descriptors"][metric])
-        descriptors[metric] = sum(values) / len(values)
-        descriptors["max_" + metric] = max(values)
+    for name in names:
+        for metric in ["ipc", "LLC_mpki", "LLC_hit_ratio"]:
+            table_metrics.append(name + ":" + metric)
 
     return {
-        "name": soc_name + "/suite-" + "+".join(short_names),
-        "soc_name": soc_name,
-        "search_space": first["search_space"],
-        "candidates": candidates,
+        "name": "suite-" + "+".join(names),
+        "search_space": SEARCH_SPACE,
+        "stock": stock,
         "is_candidate": is_candidate,
-        "name_of": first["name_of"],
-        "baseline": first["baseline"],
-        "untouched": first["untouched"],
-        "chip_text": first["chip_text"],
+        "name_of": name_of,
         "evaluate": evaluate,
         "evaluate_many": evaluate_many,
         "objective": "ipc",
         "table_metrics": table_metrics,
-        "condition_metrics": condition_metrics,
+        "workloads": names,
         "descriptors": descriptors,
-        "workload_descriptors": workload_descriptors,
-        "area_budget_kb": first["area_budget_kb"],
-        "holder": first["holder"],
-        "holders": [problem["holder"] for problem in single_problems],
+        "chip_text": describe(),
+        "area_budget_kb": AREA_BUDGET_KB,
+        "holders": holders,
     }
 
 
 def candidate_pool(problem, seed):
-    """The sample of feasible designs the GP and random arms score, drawn with the
-    run's own seed: every seed scores a different sample, as the agents' seeds
-    give different searches. Always holds the start design."""
-    baseline = problem["baseline"]
-    pool = {problem["name_of"](baseline): baseline}
-    drawn = random_feasible_designs(problem["soc_name"], CANDIDATE_POOL, seed=seed, space=problem["search_space"])
-    for knobs in drawn:
+    """The sample of feasible designs the GP arm scores, drawn with the run's own
+    seed, so every seed scores a different sample. Always holds the stock design."""
+    pool = {problem["name_of"](problem["stock"]): problem["stock"]}
+    for knobs in random_feasible_designs(CANDIDATE_POOL, seed=seed):
         if problem["is_candidate"](knobs):
             pool[problem["name_of"](knobs)] = knobs
     return pool
 
 
-def aggregate_suite(per_trace_metrics, short_names):
-    """Geometric-mean IPC plus mean/max of every workload descriptor; per-workload
-    values kept under "<trace>:<metric>" for the analyst's table."""
-    import math
+def aggregate_suite(per_workload_metrics, names):
+    """Geometric-mean IPC over the suite; per-workload values kept under "<workload>:<metric>"."""
     combined = {}
     log_sum = 0.0
-    for short, metrics in zip(short_names, per_trace_metrics):
+    for name, metrics in zip(names, per_workload_metrics):
         log_sum += math.log(max(metrics["ipc"], 1e-9))
         for metric in metrics:
-            combined[short + ":" + metric] = metrics[metric]
-    combined["ipc"] = math.exp(log_sum / len(per_trace_metrics))
-    for metric in SUITE_AGGREGATE_METRICS:
-        values = []
-        for metrics in per_trace_metrics:
-            if metric in metrics:
-                values.append(metrics[metric])
-        if len(values) > 0:
-            combined[metric] = sum(values) / len(values)
-            combined["max_" + metric] = max(values)
+            combined[name + ":" + metric] = metrics[metric]
+    combined["ipc"] = math.exp(log_sum / len(per_workload_metrics))
     return combined
+
+
+def measured_designs(problem):
+    """Every design measured on EVERY workload of the suite, with suite metrics
+    (the best of them is the cell's best known design)."""
+    first_table = problem["holders"][0].sweep_table
+    designs = []
+    for name in first_table:
+        per_workload = []
+        complete = True
+        for holder in problem["holders"]:
+            entry = holder.sweep_table.get(name)
+            if entry is None or entry["metrics"] is None:
+                complete = False
+                break
+            per_workload.append(enrich_metrics(dict(entry["metrics"])))
+        if not complete:
+            continue
+        designs.append({"name": name, "knobs": first_table[name]["knobs"],
+                        "metrics": aggregate_suite(per_workload, problem["workloads"])})
+    return designs

@@ -11,14 +11,20 @@ the framework itself. `chia/` is a shallow clone, so PRs go through a fork.
    accepts a prefetcher module; `loop/chia_nodes.py::build_from_config` builds
    from an arbitrary config JSON (cache sizes, policies, prefetchers, core
    parameters). Candidate for `chia.simulators.champsim`.
-3. **Bet ledger / forecaster / disagreement-selector blocks** —
-   `loop/playbook.py`, `loop/forecast.py`, `loop/loop.py` are simulator-agnostic:
-   any `evaluate(config) -> metrics` fits. Candidate for a `chia.analysis`
-   "calibration layer" any agentic CHIA loop can wrap around its simulator node.
+3. **Generation config through `chia.models.vertex.VertexGeminiLLM`** - the layer
+   forwards only `max_output_tokens`, the system message and tools, so a loop cannot
+   set temperature, JSON response mode or a thinking budget on Vertex Gemini; every
+   call runs at the model defaults. A `generation_config` passthrough (and the
+   thinking token count in `_last_metadata`) is a small, general fix.
+4. **Case memory + verification probe** - `loop/memory.py` is simulator-agnostic
+   (it reads knobs and descriptors from a `problem` dict): cases built from result
+   tables, descriptor-distance retrieval, one design per round that verifies a
+   remembered effect. Candidate for a `chia.analysis` block any agentic loop can
+   wrap around its simulator node.
 
 ## ChampSim (not CHIA)
 
-4. **`0002-champsim-spp-dev-ghr-victim.patch`** — two bugs in `prefetcher/spp_dev/spp_dev.cc`,
+5. **`0002-champsim-spp-dev-ghr-victim.patch`** — two bugs in `prefetcher/spp_dev/spp_dev.cc`,
    both found Sep 2 2026 running SPP on a small-core profile (L2 MSHR 16, DDR-1600) with lbm:
    - **Heap-buffer-overflow in the lookahead loop.** `confidence_q`/`delta_q` are sized to the
      L2 MSHR count, but `read_pattern` appends up to `PT_WAY + 1` entries per lookahead step

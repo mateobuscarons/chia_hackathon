@@ -12,7 +12,6 @@ TRACES=(
   "605.mcf_s-665B"
   "619.lbm_s-2676B"
   "620.omnetpp_s-874B"
-  "623.xalancbmk_s-700B"
 )
 TRACE_URL="https://dpc3.compas.cs.stonybrook.edu/champsim-traces/speccpu"
 

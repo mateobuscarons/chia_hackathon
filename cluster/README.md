@@ -1,71 +1,44 @@
 # Running on GCP
 
-Two ways to run: one big VM with Ray in-process (`loop.run_chia local`, fast to
-set up), or a CHIA cluster (`gcp.yaml`, Ray + Tailscale; kept for the
-CHIA-integration story, see the end of this file).
-
-## One VM
-
-Project `project-c23a6080-f5d0-4871-9cb`. No spot quota (PREEMPTIBLE_CPUS = 0), so
-the VM is on-demand. The project-wide cap is **32 vCPUs** (CPUS-ALL-REGIONS, found
-Sep 7; the per-region C2D quota of 100 is not the binding one), so the biggest VM is
-c2d-standard-32 (~$1.5/h). europe-west4-a had stock on Sep 7.
-
-The analyst calls Gemini through Vertex AI with the VM's default service account,
-which needs `roles/aiplatform.user` once per project (granted Sep 7):
-`gcloud projects add-iam-policy-binding $P --member=serviceAccount:<project-number>-compute@developer.gserviceaccount.com --role=roles/aiplatform.user`
-
-Auth on the Mac: `gcloud auth login` (or reuse ADC with
-`--access-token-file=<(gcloud auth application-default print-access-token)`).
+One VM with Ray in-process (`LOOP_DISPATCH=chia python -m loop.run`). Project `project-c23a6080-f5d0-4871-9cb`,
+VM `champsim-1`, c2d-standard-32 (~1.5 USD/h), europe-west4-a. The project-wide cap is
+32 vCPUs (`CPUS-ALL-REGIONS`), so this is the biggest VM; a quota raise is the only way
+to shorten a round. No spot quota. The VM's service account has `roles/aiplatform.user`,
+so the loop calls Gemini through Vertex with no key. ChampSim, 8 build trees, the traces
+and `.venv` live on its disk; a stopped VM bills only the disk.
 
 ```bash
 P=project-c23a6080-f5d0-4871-9cb; Z=europe-west4-a; VM=champsim-1
-# 1. create (retry another zone on "stockout")
-gcloud compute instances create $VM --project $P --zone $Z \
-  --machine-type c2d-standard-32 --image-family debian-12 --image-project debian-cloud \
-  --boot-disk-size 200GB --boot-disk-type pd-balanced --scopes cloud-platform
-# 2. sync the repo (code only; tables are the result cache and are worth carrying)
-gcloud compute scp --project $P --zone $Z --recurse \
-  loop cluster upstream $VM:~/hackathon/
-# 3. bootstrap: ChampSim + 12 build trees + traces (~30-45 min)
-gcloud compute ssh $VM --project $P --zone $Z --command 'cd ~/hackathon && mkdir -p results && TREES=8 nohup bash cluster/vm_bootstrap.sh > bootstrap.log 2>&1 &'
-# 4. run (detached; the VM keeps running if the Mac sleeps)
+gcloud compute instances start $VM --project $P --zone $Z
+# code and data: the loop, the launcher, the tables and the cell's memory (traces are already there)
+gcloud compute scp --project $P --zone $Z --recurse loop cluster $VM:~/hackathon/
+gcloud compute scp --project $P --zone $Z results/table_*.json results/memory_*.json results/profile_*.json $VM:~/hackathon/results/
+# the gate: every arm, one round, flash model
+gcloud compute ssh $VM --project $P --zone $Z --command 'cd ~/hackathon && SEEDS=1 LOOP_DISPATCH=chia .venv/bin/python -m loop.run smoke s1 2>&1 | tail -20'
+# the cell, detached (survives the Mac sleeping)
 gcloud compute ssh $VM --project $P --zone $Z --command \
-  'cd ~/hackathon && SEEDS=1 setsid nohup bash cluster/launch_cell.sh w1 v1 bo,llm_direct,memory > /dev/null 2>&1 < /dev/null & disown'
-# 5. watch / fetch
-gcloud compute ssh $VM --project $P --zone $Z --command 'cd ~/hackathon && .venv/bin/python -m loop.summarize results/experiment_v1_w1.json --uniform 300'
-gcloud compute scp --project $P --zone $Z --recurse $VM:~/hackathon/results ./results_vm
-# 6. STOP or DELETE when done (a stopped VM only bills its disk)
-gcloud compute instances delete $VM --project $P --zone $Z --quiet
+  'cd ~/hackathon && SEEDS=2 setsid nohup bash cluster/launch_cell.sh dc d1 > /dev/null 2>&1 < /dev/null & disown'
+# watch, fetch, merge, stop
+gcloud compute ssh $VM --project $P --zone $Z --command 'cd ~/hackathon && .venv/bin/python -m loop.summarize progress results/dc_d1.log'
+gcloud compute scp --project $P --zone $Z --recurse $VM:~/hackathon/results ./results_vm && python -m loop.workloads merge results_vm
+gcloud compute instances stop $VM --project $P --zone $Z
 ```
 
-Parallelism knobs (env): `PARALLEL_RUNS` arm runs at once, each simulating
-`per_round x suite-size` designs through `SIM_THREADS` threads per workload;
-builds run in parallel across the `champsim_N` tree copies (`TREES` in the
-bootstrap, capped by `CHAMPSIM_TREES`), each `make -j(nproc/CHAMPSIM_BUILD_SHARE)`.
+Stop a running cell by its process group (the launcher's pid is in `results/<cell>_<tag>.pid`):
+`kill -- -$(cat results/<cell>_<tag>.pid)`. Never `pkill -f` a broad pattern.
 
-Cost/time estimate for the PoC (4 workloads, 5 arms, 3 seeds, 24 designs):
-~1,400 simulations + ~350 builds; ~4 h on 56 vCPUs or ~6-7 h on 32 vCPUs
-including bootstrap; ~$10-12 compute + ~$2 LLM either way.
+Parallelism: `PARALLEL_RUNS` runs at once (default 6), each simulating `per_round x suite size`
+designs through `SIM_THREADS` threads per workload; builds run across the `champsim_N` tree
+copies. Rounds are synchronous, so more concurrent runs is the only utilisation lever.
 
-## CHIA cluster (`gcp.yaml`)
+A fresh VM: `cluster/vm_bootstrap.sh` (ChampSim pinned to the commit the tables were made with,
+the SPP patch from `upstream/`, build trees, the Python env, the SPEC traces). GAP traces come
+from Zenodo with `loop.workloads fetch_gap`, datacenter traces as 100 MB prefixes with
+`loop.workloads fetch <url> <out> 100`.
 
-- `local.yaml` — this Mac only. `python -m loop.run_chia local ...` does the same
-  without `chia up` (starts Ray in-process with the same resources).
-- `gcp.yaml` — Mac head + GCP VMs running `ghcr.io/ucb-bar/chia-champsim`.
+## CHIA cluster (`gcp.yaml`, kept for the integration story)
 
-Bring-up (one-time user steps):
-
-1. `uv pip install -p .venv/bin/python google-cloud-compute`
-2. `gcloud auth application-default login` and
-   `gcloud services enable compute.googleapis.com --project project-c23a6080-f5d0-4871-9cb`
-3. Tailscale account (free) -> Settings -> Keys -> generate an auth key
-   (reusable + ephemeral). `export TS_AUTHKEY=tskey-...`
-4. `ssh-add ~/.ssh/id_ed25519`; `export GCP_PRIVATE_KEY_PATH=~/.ssh/id_ed25519`
-5. `export HEAD_IP=$(hostname) GCP_PROJECT=project-c23a6080-f5d0-4871-9cb`
-6. `.venv/bin/chia up cluster/gcp.yaml`, then
-   `python -m loop.run_chia auto w1 v1 results/experiment_v1_playbook.json` and `chia down cluster/gcp.yaml`.
-
-Traces on the VMs: the image has none. Either mount a bucket or use `gs://`
-trace URIs once `upstream/0001-champsim-gs-trace-resolver.patch` is applied
-(the DPC-4 traces CHIA's own case study uses are in `gs://dpc4-all-traces`).
+`local.yaml` is this Mac; `gcp.yaml` is a Mac head plus GCP workers on `ghcr.io/ucb-bar/chia-champsim`
+over Tailscale (`chia up cluster/gcp.yaml`, then `LOOP_DISPATCH=chia CHIA_ADDRESS=auto python -m loop.run <cell> <tag>`, then
+`chia down`). The workers have no traces: mount a bucket, or use `gs://` URIs once
+`upstream/0001-champsim-gs-trace-resolver.patch` is applied.

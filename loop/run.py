@@ -1,183 +1,243 @@
-"""The transfer experiment, one command per cell.
+"""The experiment, one command per cell.
 
-  python -m loop.run learn <cell> <tag>                       # the cell's playbook, pool and memory from its training tables
-  python -m loop.run <cell> <tag> [playbook.json|-] [arm,arm,...]
+  python -m loop.run memory <cell>                 # the cell's memory from the cached tables of its memory workloads
+  python -m loop.run <cell> <tag> [arm,arm,...]    # run the cell's arms; report -> results/run_<cell>_<tag>.json
+  LOOP_DISPATCH=chia python -m loop.run <cell> <tag> [arms]   # the same as a CHIA loop: builds and simulations are CHIA
+      tasks, runs are Ray tasks, the LLM goes through chia.models.vertex, and the profiler records the task graph
+      (results/chia_profiles/, `chia viz-profile`). CHIA_ADDRESS=auto attaches to a cluster started by `chia up`.
 
-Headline: workload transfer on ONE chip. Memory written from chip C's own SPEC
-results is tested on graph workloads on chip C, then memory that includes those
-searches is tested on other graph workloads on chip C. Chip transfer is a small
-positive control. Cells:
-  w1     memory from chip C's SPEC tables; tested on GAP set 1 on chip C
-         (class boundary, chip fixed: facts vs strategies)
-  w2     memory = w1's memory + every w1 run, consolidated once and frozen
-         (python -m loop.memory consolidate); tested on GAP set 2 on chip C
-         (same family: the headline)
-  k      memory from chips A+B's SPEC tables; tested on the SPEC suite on chip C
-         (chip boundary, workloads fixed: the near-free transfer)
-  smoke  every arm, one round, two workloads, through CHIA (the gate before any launch)
-Every arm of a cell starts from the same design: the best design measured on the
-cell's SOURCE chip over the SPEC suite (chip C itself for w1/w2, chip B for k),
-fitted to the target's budget; it counts as design 0, every design bought after
-it counts. Rounds of 2 designs; 24 rounds = 48 designs and two seeds while iterating.
-Output: results/experiment_<tag>_<cell>.json (+ _playbook.json, _pool.json,
-_memory.json from the learn step, _memory_run-*.json written by the agent arms).
-Env: SEEDS, FIRST_SEED, ROUNDS, ANALYST_MODEL, PARALLEL_RUNS, SIM_THREADS,
-MEMORY_PATH (w2 reads the consolidated memory), LOOP_WARMUP / LOOP_SIM (a short
-pilot lands in its own tables).
+Every arm starts from the stock chip (design D0) and buys BUDGET designs in rounds
+of PER_ROUND, on the same seeds and at the same fidelity. Arms:
+  bo             Gaussian process + expected improvement (loop.bo)
+  llm_direct     the plain LLM agent (loop.agent)
+  memory         the agent reading the memory's digest of the nearest remembered cases
+  llm_bo         the agent proposes 8 designs a round, a GP fit on the run picks 2
+  llm_bo_memory  both switches on
+  replay         one design: the nearest remembered workload's best design, as is
+Env: SEEDS (default 2), FIRST_SEED, BUDGET (default 8), PARALLEL_RUNS, SIM_THREADS,
+ANALYST_MODEL (default gemini-2.5-flash), MEMORY_PATH (default the cell's).
 """
 
+import json
 import os
 import sys
 import time
+from concurrent.futures import ProcessPoolExecutor
 
-from loop import experiment
+from loop import agent, bo, memory
+from loop.champsim_problem import make_suite_problem, trace_short_name
 
 TRACE = {"mcf": "traces/605.mcf_s-665B.champsimtrace.xz",
          "lbm": "traces/619.lbm_s-2676B.champsimtrace.xz",
          "omnetpp": "traces/620.omnetpp_s-874B.champsimtrace.xz",
-         "fotonik3d": "traces/649.fotonik3d_s-10881B.champsimtrace.xz",
-         "cam4": "traces/627.cam4_s-490B.champsimtrace.xz",
          "bfs.urand": "traces/bfs.urand-36B.champsimtrace.xz",
          "pr.urand": "traces/pr.urand-129B.champsimtrace.xz",
          "bfs.kron": "traces/bfs.kron-128B.champsimtrace.xz",
-         "bfs.road": "traces/bfs.road-99B.champsimtrace.xz",
-         "pr.web": "traces/pr.web-16B.champsimtrace.xz",
-         "pr.road": "traces/pr.road-28B.champsimtrace.xz",
          "sssp.kron": "traces/sssp.kron-246B.champsimtrace.xz",
          "cc.urand": "traces/cc.urand-353B.champsimtrace.xz",
-         "cc.twitter": "traces/cc.twitter-15B.champsimtrace.xz"}
-# The SPEC suite every chip has measured rows on (chip C has no fotonik3d / cam4
-# rows): the source of w1's memory, k's test suite, and the suite the start
-# design is chosen on.
-SPEC_SUITE = [TRACE["mcf"], TRACE["omnetpp"], TRACE["lbm"]]
-# Chips A and B also measured the two capacity workloads added later; k's memory reads all five.
-SPEC_SUITE_AB = SPEC_SUITE + [TRACE["fotonik3d"], TRACE["cam4"]]
+         "cc.twitter": "traces/cc.twitter-15B.champsimtrace.xz",
+         "sierra.a.4": "traces/sierra.a.4_0000.champsim.gz",
+         "merced": "traces/merced_0000.champsim.gz",
+         "tahoe": "traces/tahoe_0000.champsim.gz",
+         "whiskey": "traces/whiskey_0000.champsim.gz",
+         "bravo": "traces/bravo.a_0000.champsim.gz",
+         "delta": "traces/delta_0000.champsim.gz"}
+
+SPEC = [TRACE["mcf"], TRACE["omnetpp"], TRACE["lbm"]]
 GAP_SET_1 = [TRACE["bfs.urand"], TRACE["pr.urand"], TRACE["bfs.kron"]]
-# Set 2, chosen by measuring 11 designs on six candidates (not by the gate alone):
-# +33.5% headroom from the untouched chip, of which 61.8% no single knob reaches
-# (GAP set 1: +144.5% but only 29.7% beyond one knob, which is why its arms tied).
-# The two shortest-path workloads want a replacement policy, the two connected-
-# components workloads want a prefetcher, so no single move satisfies the suite.
 GAP_SET_2 = [TRACE["sssp.kron"], TRACE["cc.urand"], TRACE["cc.twitter"]]
+DATACENTER = [TRACE["sierra.a.4"], TRACE["merced"], TRACE["tahoe"]]
+
+# The memory every cell reads: the workloads the chip has been searched on in
+# depth (hundreds of designs each). A test workload is never in its own memory.
+MEMORY_WORKLOADS = SPEC + GAP_SET_1
 
 CELLS = {
-    "w1": {"test_soc": "C_server", "test_traces": GAP_SET_1,
-           "memory_socs": ["C_server"], "memory_traces": SPEC_SUITE, "start_soc": "C_server",
-           "arms": ["bo", "llm_direct", "memory"],
-           "rounds": 24, "seeds": 2},
-    # w2 starts from the untouched chip: from the SPEC-best start GAP set 1 had
-    # only +6.7% and every arm landed within 1%, inside seed variance.
-    "w2": {"test_soc": "C_server", "test_traces": GAP_SET_2,
-           "memory_socs": ["C_server"], "memory_traces": SPEC_SUITE, "start_soc": None,
-           "arms": ["bo", "llm_direct", "memory"],
-           "rounds": 24, "seeds": 2},
-    "k": {"test_soc": "C_server", "test_traces": SPEC_SUITE,
-          "memory_socs": ["A_mobile", "B_midrange"], "memory_traces": SPEC_SUITE_AB, "start_soc": "B_midrange",
-          "arms": ["bo_pooled", "llm_direct", "memory"],
-          "rounds": 24, "seeds": 2},
-    "smoke": {"test_soc": "C_server", "test_traces": [TRACE["mcf"], TRACE["lbm"]],
-              "memory_socs": ["C_server"], "memory_traces": SPEC_SUITE, "start_soc": "C_server",
-              "arms": experiment.ARMS, "rounds": 1, "seeds": 1},
+    # The headline: SPEC and graph searches remembered, Google datacenter traces tested.
+    "dc": {"test": DATACENTER, "memory": MEMORY_WORKLOADS},
+    # The fallback and development cell: the same memory, graph set 2 tested.
+    "gap2": {"test": GAP_SET_2, "memory": MEMORY_WORKLOADS},
+    # The gate before any launch: every arm, one round, two workloads.
+    "smoke": {"test": [TRACE["mcf"], TRACE["lbm"]], "memory": [TRACE["omnetpp"], TRACE["bfs.urand"]]},
 }
+ARMS = ["bo", "llm_direct", "memory", "llm_bo", "llm_bo_memory", "replay"]
+# The LLM arms' two switches: (use_memory, use_gp).
+AGENT_SWITCHES = {"llm_direct": (False, False), "memory": (True, False), "llm_bo": (False, True), "llm_bo_memory": (True, True)}
+BUDGET = 8
 PER_ROUND = 2
-# The `rules` arm runs fewer seeds than the agents (it is a baseline, not a contender).
-RULES_SEEDS = 5
+PARALLEL_RUNS = int(os.environ.get("PARALLEL_RUNS", "6"))
 
 
-def start_design(cell):
-    """The best design measured on the cell's source chip over the SPEC suite
-    (geomean over the cached rows), if it fits the target chip's budget; else the
-    target's untouched chip, with a warning. start_soc None means the cell starts
-    from the untouched chip on purpose (w2: the tuned start left too little
-    headroom for any arm to separate)."""
-    from loop import champsim_problem, collect
-    from loop.configs import within_budget
-    if cell["start_soc"] is None:
-        return champsim_problem.profiled_baseline(cell["test_soc"], "C")
-    designs = collect.top_designs(cell["start_soc"], 1, SPEC_SUITE)
-    if len(designs) < 2:
-        print("no measured design on {} for the SPEC suite; starting from the untouched chip".format(cell["start_soc"]), flush=True)
-        return champsim_problem.profiled_baseline(cell["test_soc"], "C")
-    best = dict(designs[1])
-    # A row measured before a knob joined the space carries that knob at the untouched chip's value.
-    untouched = champsim_problem.profiled_baseline(cell["test_soc"], "C")
-    for knob in untouched:
-        if knob not in best:
-            best[knob] = untouched[knob]
-    if not within_budget(best, cell["test_soc"], champsim_problem.BASE_CONFIG):
-        print("{}'s best design does not fit {}; starting from the untouched chip".format(cell["start_soc"], cell["test_soc"]), flush=True)
-        return champsim_problem.profiled_baseline(cell["test_soc"], "C")
-    return best
+def memory_path(cell_name):
+    return os.environ.get("MEMORY_PATH", "results/memory_{}.json".format(cell_name))
 
 
-def learn_only(cell_name, tag):
-    """The cell's knowledge from its training tables: the playbook (rules, pooled
-    over the memory chips), the frozen pool for bo_pooled, and the memory (cases,
-    facts, strategies). No test arm runs."""
-    from loop import memory, playbook
-    import json
-    cell = CELLS[cell_name]
-    store = {"rules": [], "bets": []}
-    prior_history = experiment.learn(store, cell["memory_socs"], [cell["memory_traces"]], "C")
-    playbook_path = "results/experiment_{}_playbook.json".format(tag)
-    pool_path = "results/experiment_{}_pool.json".format(tag)
-    memory_path = "results/experiment_{}_memory.json".format(tag)
-    playbook.save(store, playbook_path)
-    with open(pool_path, "w") as pool_file:
-        json.dump(prior_history, pool_file)
-    print("playbook: {} rules, {} rejected -> {} | pool: {} rows -> {}".format(
-        len(store["rules"]), len(store.get("rejected_rules", [])), playbook_path, len(prior_history), pool_path), flush=True)
-    memory.build(cell["memory_socs"], cell["memory_traces"], memory_path)
-    return playbook_path
+def report_path(cell_name, tag):
+    return "results/run_{}_{}.json".format(cell_name, tag)
 
 
-def run_cell(cell_name, tag, playbook_path=None, arms=None):
+def build_memory(cell_name):
+    return memory.build(CELLS[cell_name]["memory"], memory_path(cell_name))
+
+
+# ---------------------------------------------------------------- one run ----
+
+def run_replay(problem, tag, memory_file):
+    """The one-shot baseline: stock, then the nearest case's best design."""
+    remembered = memory.load(memory_file)
+    retrieval = memory.retrieve(remembered, problem)
+    stock_metrics = problem["evaluate"](problem["stock"])
+    history = [{"index": 0, "round": 0, "name": problem["name_of"](problem["stock"]), "knobs": problem["stock"],
+                "metrics": stock_metrics, "source": "stock", "hypothesis": None}]
+    replay = memory.replay_design(remembered, problem, retrieval)
+    if replay is None:
+        return {"designs": history, "rounds": []}
+    metrics = problem["evaluate"](replay["knobs"])
+    history.append({"index": 1, "round": 1, "name": replay["name"], "knobs": replay["knobs"], "metrics": metrics,
+                    "source": "replay", "hypothesis": "best design of {} ({}, distance {:.2f})".format(
+                        replay["case_workload"], replay["case_id"], replay["distance"])})
+    print("[{}] round 1 | D1 | ipc={:.4f} | replay".format(tag, metrics["ipc"]), flush=True)
+    return {"designs": history, "rounds": []}
+
+
+def run_one(arm, cell_name, seed, rounds, tag_prefix):
+    """One (arm, seed) run; returns only what the report keeps."""
+    problem = make_suite_problem(CELLS[cell_name]["test"])
+    tag = "{}-{}-s{}".format(arm, tag_prefix, seed)
+    memory_file = memory_path(cell_name)
+    if arm == "bo":
+        result = bo.run_bo(problem, rounds, PER_ROUND, seed, tag)
+    elif arm in AGENT_SWITCHES:
+        use_memory, use_gp = AGENT_SWITCHES[arm]
+        result = agent.run_agent(problem, rounds, PER_ROUND, tag, memory_file, use_memory, use_gp, seed=seed)
+    elif arm == "replay":
+        result = run_replay(problem, tag, memory_file)
+    else:
+        raise ValueError("unknown arm " + arm)
+    result["designs"] = compact(result["designs"], problem)
+    return result
+
+
+def compact(history, problem):
+    rows = []
+    for entry in history:
+        per_workload = {}
+        for workload in problem["workloads"]:
+            per_workload[workload] = {"ipc": entry["metrics"][workload + ":ipc"],
+                                      "LLC_mpki": entry["metrics"][workload + ":LLC_mpki"]}
+        rows.append({"index": entry["index"], "round": entry["round"], "name": entry["name"], "knobs": entry["knobs"],
+                     "source": entry["source"], "hypothesis": entry.get("hypothesis"),
+                     "ipc": entry["metrics"]["ipc"], "per_workload": per_workload})
+    return rows
+
+
+# ---------------------------------------------------------------- the cell ----
+
+class ProcessJobs:
+    def __init__(self):
+        self.pool = ProcessPoolExecutor(max_workers=PARALLEL_RUNS)
+
+    def submit(self, function, *arguments):
+        return self.pool.submit(function, *arguments)
+
+    def result(self, handle):
+        return handle.result()
+
+
+class RayJobs:
+    """The same runs as Ray tasks under CHIA (LOOP_DISPATCH=chia): every
+    simulation they launch is a CHIA task too. A run itself needs no CPU: it waits."""
+
+    def __init__(self):
+        import ray
+        self.ray = ray
+
+    def submit(self, function, *arguments):
+        return self.ray.remote(num_cpus=0)(function).remote(*arguments)
+
+    def result(self, handle):
+        return self.ray.get(handle)
+
+
+def run_cell(cell_name, tag, arms=None):
     cell = CELLS[cell_name]
     if arms is None:
-        arms = cell["arms"]
-    # SEEDS=1 runs seed 0 only (a quick look before committing to the whole run);
-    # ROUNDS=4 shortens a pilot. FIRST_SEED=5 SEEDS=5 adds seeds 5-9 to a run that
-    # already has seeds 0-4 (same playbook and memory; summarize merges the reports).
-    seeds = int(os.environ.get("SEEDS", cell["seeds"]))
-    rounds = int(os.environ.get("ROUNDS", cell["rounds"]))
+        arms = ARMS
+    seeds = int(os.environ.get("SEEDS", "2"))
     first_seed = int(os.environ.get("FIRST_SEED", "0"))
-    output_path = "results/experiment_{}_{}.json".format(tag, cell_name)
-    start_knobs = start_design(cell)
-    # The memory a cell reads: the one built with its playbook, unless MEMORY_PATH
-    # names a consolidated one (cell w2 reads the memory that includes cell w1).
-    memory_path = "results/experiment_{}_memory.json".format(tag)
-    if playbook_path is not None:
-        memory_path = playbook_path.replace("_playbook.json", "_memory.json")
-    memory_path = os.environ.get("MEMORY_PATH", memory_path)
-    started = time.time()
-    print("cell {} ({}) -> {} | playbook: {} | memory: {} | arms: {} | start: {}".format(
-        cell_name, tag, output_path, playbook_path, memory_path, arms,
-        {key: start_knobs[key] for key in ["l2_sets", "l2_ways", "l2_prefetcher", "llc_sets", "llc_ways",
-                                            "llc_prefetcher", "llc_replacement"]}), flush=True)
-    seeds_per_arm = {}
+    budget = int(os.environ.get("BUDGET", BUDGET))
+    rounds = budget // PER_ROUND
+    if cell_name == "smoke":
+        rounds = 1
+    if not os.path.exists(memory_path(cell_name)):
+        build_memory(cell_name)
+    workloads = []
+    for trace_path in cell["test"]:
+        workloads.append(trace_short_name(trace_path))
+    output_path = report_path(cell_name, tag)
+    report = {"cell": cell_name, "tag": tag, "workloads": workloads, "arms": arms, "seeds": seeds, "first_seed": first_seed,
+              "budget": rounds * PER_ROUND, "per_round": PER_ROUND, "memory_path": memory_path(cell_name),
+              "model": os.environ.get("ANALYST_MODEL", "gemini-2.5-flash"), "runs": {}, "failed": []}
     for arm in arms:
-        seeds_per_arm[arm] = seeds
-        if arm == "rules" and cell_name != "smoke":
-            seeds_per_arm[arm] = min(seeds, RULES_SEEDS)
-    experiment.run_experiment(train_socs=cell["memory_socs"], test_soc=cell["test_soc"], traces=cell["test_traces"],
-                              rounds=rounds, per_round=PER_ROUND, seeds=seeds_per_arm,
-                              output_path=output_path, train_traces=cell["memory_traces"],
-                              space_name="C", arms=arms, playbook_path=playbook_path,
-                              suite=True, first_seed=first_seed, start_knobs=start_knobs, memory_path=memory_path)
-    print("done in {:.1f} h".format((time.time() - started) / 3600.0), flush=True)
+        report["runs"][arm] = {}
+    print("cell {} ({}) -> {} | workloads {} | arms {} | seeds {}..{} | {} designs per run".format(
+        cell_name, tag, output_path, workloads, arms, first_seed, first_seed + seeds - 1, rounds * PER_ROUND), flush=True)
+    started = time.time()
+    if os.environ.get("LOOP_DISPATCH", "local") == "chia":
+        jobs = RayJobs()
+    else:
+        jobs = ProcessJobs()
+    handles = []
+    # Seed-major: the first wave already covers every arm on seed 0.
+    for seed in range(first_seed, first_seed + seeds):
+        for arm in arms:
+            if arm == "replay" and seed != first_seed:
+                continue            # deterministic: one seed is every seed
+            handles.append((arm, seed, jobs.submit(run_one, arm, cell_name, seed, rounds, cell_name)))
+    for arm, seed, handle in handles:
+        try:
+            result = jobs.result(handle)
+        except Exception as error:
+            report["failed"].append({"arm": arm, "seed": seed, "error": repr(error)[-400:]})
+            print("!! FAILED {} seed {}: {}".format(arm, seed, repr(error)[-200:]), flush=True)
+            continue
+        report["runs"][arm][str(seed)] = result
+        best = max(row["ipc"] for row in result["designs"])
+        print("== {} seed {}: best {:.4f} over {} designs".format(arm, seed, best, len(result["designs"]) - 1), flush=True)
+        with open(output_path, "w") as report_file:
+            json.dump(report, report_file, indent=1)
+    report["wall_seconds"] = time.time() - started
+    with open(output_path, "w") as report_file:
+        json.dump(report, report_file, indent=1)
+    print("done in {:.1f} h, {} failed".format(report["wall_seconds"] / 3600.0, len(report["failed"])), flush=True)
     return output_path
 
 
+def start_chia():
+    """Ray in-process with one simulation slot per core and one build slot per
+    ChampSim tree copy (Ray also charges each task one CPU, so the pool is cores +
+    builds: a build never waits for a simulation), then CHIA's profiler."""
+    import ray
+    from chia.trace.profiler import start_collector
+    from loop.champsim_problem import CHAMPSIM_ROOT
+    from loop.simulate import tree_paths
+    if os.environ.get("CHIA_ADDRESS") is not None:
+        ray.init(address=os.environ["CHIA_ADDRESS"])
+    else:
+        cores = os.cpu_count()
+        builds = len(tree_paths(CHAMPSIM_ROOT))
+        ray.init(num_cpus=cores + builds, resources={"champsim": cores, "champsim_build": builds, "vertex_creds": 1},
+                 include_dashboard=False, logging_level="ERROR")
+    start_collector(log_dir="results/chia_profiles")
+
+
 if __name__ == "__main__":
-    if sys.argv[1] == "learn":
-        learn_only(sys.argv[2], sys.argv[3])
+    if os.environ.get("LOOP_DISPATCH", "local") == "chia":
+        start_chia()
+    if sys.argv[1] == "memory":
+        build_memory(sys.argv[2])
         raise SystemExit(0)
-    cell_name = sys.argv[1]
-    tag = sys.argv[2]
-    playbook_path = None
-    if len(sys.argv) > 3 and sys.argv[3] != "-":
-        playbook_path = sys.argv[3]
-    arms = None
-    if len(sys.argv) > 4:
-        arms = sys.argv[4].split(",")
-    run_cell(cell_name, tag, playbook_path, arms)
+    chosen_arms = None
+    if len(sys.argv) > 3:
+        chosen_arms = sys.argv[3].split(",")
+    run_cell(sys.argv[1], sys.argv[2], chosen_arms)

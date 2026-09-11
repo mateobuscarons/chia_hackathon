@@ -2,10 +2,9 @@
 
 A ChampSim trace is the recorded address stream of a program. Everything here
 is computed from that stream, never from a simulated chip, so the numbers
-describe the PROGRAM and are the same for every chip, present or future. Rule
-conditions are written on these (plus the target chip's public geometry, see
-champsim_problem.chip_descriptors), so a condition learned on one chip means
-the same thing on the next.
+describe the PROGRAM and are the same for every chip. The chip-relative half of
+every descriptor is derived from these plus the chip's cache geometry in
+champsim_problem.chip_descriptors.
 
 Capacity behaviour comes from footprint theory (Xiang, Bao, Ding, Gao, "HOTL:
 a higher order theory of locality", ASPLOS 2013): from the reuse-time
@@ -40,10 +39,19 @@ REUSE_LOCAL_ACCESSES = 1024          # "reused soon": within this many memory ac
 CAPACITY_GRID_KB = [16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768]
 
 
+def short_name(trace_path):
+    """The trace's name without directory or compression suffix: "605.mcf_s-665B",
+    "bfs.urand-36B", "merced_0000"."""
+    name = os.path.basename(trace_path)
+    for suffix in [".champsimtrace.xz", ".champsimtrace.gz", ".champsim.gz", ".champsim.xz", ".xz", ".gz"]:
+        if name.endswith(suffix):
+            name = name[:-len(suffix)]
+            break
+    return name
+
+
 def profile_path(trace_path):
-    # Traces arrive compressed as .xz or .gz; the profile is named for the trace.
-    trace_file = os.path.basename(trace_path).split(".champsimtrace")[0]
-    return "results/profile_{}.json".format(trace_file)
+    return "results/profile_{}.json".format(short_name(trace_path))
 
 
 def read_accesses(trace_path, skip_instructions, count_instructions):
