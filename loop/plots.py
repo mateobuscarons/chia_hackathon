@@ -13,7 +13,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as pyplot
 
-from loop.summarize import all_bets, best_found, best_so_far, designs_to_target, forecaster_class, median
+from loop.summarize import AGENT_ARMS, all_bets, best_found, best_so_far, designs_to_target, forecaster_class, median
 
 
 def plot_curves(report, out_prefix, reference=None):
@@ -69,7 +69,7 @@ def plot_sims_to_target(report, out_prefix, reference=None):
 def plot_brier(report, out_prefix):
     figure, axis = pyplot.subplots(figsize=(6, 4))
     bets = all_bets(report)
-    for klass in ["surrogate", "rules", "analyst", "llm_direct"]:
+    for klass in ["surrogate", "rules", "facts"] + AGENT_ARMS:
         running = []
         total = 0.0
         count = 0
@@ -94,7 +94,7 @@ def plot_reliability(report, out_prefix):
     bins = [0.0, 0.2, 0.4, 0.6, 0.8, 1.01]
     figure, axis = pyplot.subplots(figsize=(4.5, 4.5))
     bets = all_bets(report)
-    for klass in ["surrogate", "rules", "analyst", "llm_direct"]:
+    for klass in ["surrogate", "rules", "facts"] + AGENT_ARMS:
         xs = []
         ys = []
         for low, high in zip(bins[:-1], bins[1:]):

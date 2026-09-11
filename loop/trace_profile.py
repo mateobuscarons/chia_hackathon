@@ -13,7 +13,7 @@ histogram alone one gets the exact average footprint fp(w) of every window
 length w, and the LRU miss ratio at cache size c is the slope of fp at the
 window whose footprint is c. No cache simulation is needed.
 
-Usage: python -m loop.trace_profile <trace.xz> [warmup_instructions] [instructions]
+Usage: python -m loop.trace_profile <trace.xz|trace.gz> [warmup_instructions] [instructions]
 Writes results/profile_<trace>.json and prints it.
 """
 
@@ -41,14 +41,18 @@ CAPACITY_GRID_KB = [16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32
 
 
 def profile_path(trace_path):
-    trace_file = os.path.basename(trace_path).replace(".champsimtrace.xz", "")
+    # Traces arrive compressed as .xz or .gz; the profile is named for the trace.
+    trace_file = os.path.basename(trace_path).split(".champsimtrace")[0]
     return "results/profile_{}.json".format(trace_file)
 
 
 def read_accesses(trace_path, skip_instructions, count_instructions):
     """Decompress the trace and return the memory-access stream of the measured
     window: block address, PC and is-write per access, in program order."""
-    command = ["xz", "-dc", trace_path]
+    if trace_path.endswith(".gz"):
+        command = ["gzip", "-dc", trace_path]
+    else:
+        command = ["xz", "-dc", trace_path]
     process = subprocess.Popen(command, stdout=subprocess.PIPE, bufsize=16 * 1024 * 1024)
     stream = process.stdout
 

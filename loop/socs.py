@@ -57,6 +57,28 @@ def num_cores(soc_name):
     return SOC_PROFILES[soc_name].get("num_cores", 1)
 
 
+def describe(soc_name):
+    """The chip in one line for the agent's prompt: its overrides over the stock
+    ChampSim core and memory, its core count and its area budget."""
+    overrides = SOC_PROFILES[soc_name]
+    knob_fields = ["sets", "ways", "prefetcher", "replacement", "mshr_size"]   # these are search knobs, not chip parameters
+    parts = []
+    for section_name in sorted(overrides):
+        if section_name == "num_cores":
+            continue
+        fields = []
+        for field_name in sorted(overrides[section_name]):
+            if section_name in ["L1D", "L2C", "LLC"] and field_name in knob_fields:
+                continue
+            fields.append("{} {}".format(field_name, overrides[section_name][field_name]))
+        if len(fields) > 0:
+            parts.append("{}: {}".format(section_name, ", ".join(fields)))
+    if len(parts) == 0:
+        parts.append("stock ChampSim core and memory")
+    return "Chip {} ({} core(s); area budget {} KB for L2 + LLC): {}".format(
+        soc_name, num_cores(soc_name), AREA_BUDGET_KB[soc_name], "; ".join(parts))
+
+
 def apply_profile(config, soc_name):
     """Overwrite the base config's fields with one SoC's overrides."""
     overrides = SOC_PROFILES[soc_name]

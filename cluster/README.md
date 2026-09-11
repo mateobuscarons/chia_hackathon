@@ -31,9 +31,9 @@ gcloud compute scp --project $P --zone $Z --recurse \
 gcloud compute ssh $VM --project $P --zone $Z --command 'cd ~/hackathon && mkdir -p results && TREES=8 nohup bash cluster/vm_bootstrap.sh > bootstrap.log 2>&1 &'
 # 4. run (detached; the VM keeps running if the Mac sleeps)
 gcloud compute ssh $VM --project $P --zone $Z --command \
-  'cd ~/hackathon && PARALLEL_RUNS=4 SIM_THREADS=8 CHAMPSIM_BUILD_SHARE=4 nohup .venv/bin/python -m loop.run_chia local spec v1 > results/v1_spec.log 2>&1 &'
+  'cd ~/hackathon && SEEDS=1 setsid nohup bash cluster/launch_cell.sh w1 v1 bo,llm_direct,memory > /dev/null 2>&1 < /dev/null & disown'
 # 5. watch / fetch
-gcloud compute ssh $VM --project $P --zone $Z --command 'cd ~/hackathon && .venv/bin/python -m loop.summarize results/experiment_v1_spec.json'
+gcloud compute ssh $VM --project $P --zone $Z --command 'cd ~/hackathon && .venv/bin/python -m loop.summarize results/experiment_v1_w1.json --uniform 300'
 gcloud compute scp --project $P --zone $Z --recurse $VM:~/hackathon/results ./results_vm
 # 6. STOP or DELETE when done (a stopped VM only bills its disk)
 gcloud compute instances delete $VM --project $P --zone $Z --quiet
@@ -64,7 +64,7 @@ Bring-up (one-time user steps):
 4. `ssh-add ~/.ssh/id_ed25519`; `export GCP_PRIVATE_KEY_PATH=~/.ssh/id_ed25519`
 5. `export HEAD_IP=$(hostname) GCP_PROJECT=project-c23a6080-f5d0-4871-9cb`
 6. `.venv/bin/chia up cluster/gcp.yaml`, then
-   `python -m loop.run_chia auto spec v1` and `chia down cluster/gcp.yaml`.
+   `python -m loop.run_chia auto w1 v1 results/experiment_v1_playbook.json` and `chia down cluster/gcp.yaml`.
 
 Traces on the VMs: the image has none. Either mount a bucket or use `gs://`
 trace URIs once `upstream/0001-champsim-gs-trace-resolver.patch` is applied

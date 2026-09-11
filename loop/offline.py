@@ -132,7 +132,7 @@ def admit():
     """
     print("== workload admission gate: chip C can buy an LLC read at {:.0f}-{:.0f} KB"
           .format(BUYABLE_LLC_SMALLEST_KB, BUYABLE_LLC_LARGEST_KB))
-    print("  {:<12s} {:>9s} {:>8s} {:>8s} {:>9s} {:>7s} {:>7s} {:>7s}  {}".format(
+    print("  {:<44s} {:>9s} {:>8s} {:>8s} {:>9s} {:>7s} {:>7s} {:>7s}  {}".format(
         "trace", "footprint", "MPKI", "movable", "unfixable", "stride", "cap.var", "pf.var",
         "admit as"))
     for path in sorted(glob.glob("results/profile_*.json")):
@@ -169,11 +169,8 @@ def admit():
             prefetcher_text = "      -"
         else:
             prefetcher_text = "{:7.2f}".format(prefetcher_known)
-        short_name = name.split(".")[1].split("_")[0]
-        if name.startswith("bfs.") or name.startswith("pr."):
-            short_name = name.split("-")[0]
-        print("  {:<12s} {:7.0f}KB {:8.1f} {:8.2f} {:9.1f} {:7.3f} {} {}  {}".format(
-            short_name, profile["footprint_kb"], accesses * smallest, movable, unfixable_mpki,
+        print("  {:<44s} {:7.0f}KB {:8.1f} {:8.2f} {:9.1f} {:7.3f} {} {}  {}".format(
+            name, profile["footprint_kb"], accesses * smallest, movable, unfixable_mpki,
             profile["stride_regular_fraction"], capacity_text, prefetcher_text, admitted_as))
     print()
     print("  admit as capacity  -> the capacity knobs have leverage here (validated channel)")
@@ -215,14 +212,21 @@ def one_knob_difference(knobs, baseline_knobs):
     return None
 
 
-def headroom():
-    """Does the held-out suite have anything for a search to find, and does the
-    gate's prediction hold once the simulator has spoken?"""
+def headroom(traces=None, start_knobs=None):
+    """Does this suite have anything for a search to find, from the untouched chip
+    and from `start_knobs` (the design a cell starts from), and does the gate's
+    prediction hold once the simulator has spoken? Reads chip C's cached tables;
+    a trace with no rows yet needs a probe first (loop.collect top / uniform)."""
+    if traces is None:
+        traces = HELD_OUT_SUITE
     baseline_knobs = champsim_problem.profiled_baseline("C_server", "C")
     baseline_name = config_name(baseline_knobs, "C_server")
+    start_name = None
+    if start_knobs is not None:
+        start_name = config_name(start_knobs, "C_server")
 
     tables = {}
-    for trace in HELD_OUT_SUITE:
+    for trace in traces:
         path = "results/tierC_C_server_{}.json".format(trace)
         with open(path) as table_file:
             tables[trace] = json.load(table_file)
@@ -231,7 +235,7 @@ def headroom():
     print("   {:<16s} {:>9s} {:>9s} {:>9s} {:>9s}  {}".format(
         "workload", "baseline", "worst", "best", "spread", "designs"))
     baseline_ipc = {}
-    for trace in HELD_OUT_SUITE:
+    for trace in traces:
         table = tables[trace]
         values = []
         for name in table:
@@ -256,7 +260,7 @@ def headroom():
 
     # The suite score: geometric mean over the three workloads.
     names_in_all = None
-    for trace in HELD_OUT_SUITE:
+    for trace in traces:
         usable = set()
         for name in tables[trace]:
             if tables[trace][name]["metrics"] is not None:
@@ -268,9 +272,9 @@ def headroom():
     suite_scores = {}
     for name in names_in_all:
         total = 0.0
-        for trace in HELD_OUT_SUITE:
+        for trace in traces:
             total += math.log(tables[trace][name]["metrics"]["ipc"])
-        suite_scores[name] = math.exp(total / len(HELD_OUT_SUITE))
+        suite_scores[name] = math.exp(total / len(traces))
     if len(suite_scores) == 0:
         print("   no design measured on all three yet")
         return
@@ -279,19 +283,27 @@ def headroom():
     print("   suite geomean over {} designs measured on all three:".format(len(suite_scores)))
     if baseline_name in suite_scores:
         base = suite_scores[baseline_name]
-        print("     baseline {:.4f}, best {:.4f} -> headroom {:.1f}%".format(
+        print("     untouched {:.4f}, best {:.4f} -> headroom {:.1f}%".format(
             base, suite_scores[best_name], 100.0 * (suite_scores[best_name] / base - 1.0)))
     else:
-        print("     best {:.4f} (baseline not measured on all three)".format(
+        print("     best {:.4f} (untouched chip not measured on every workload)".format(
             suite_scores[best_name]))
+    if start_name is not None:
+        if start_name in suite_scores:
+            start_score = suite_scores[start_name]
+            print("     start     {:.4f}, best {:.4f} -> headroom {:.1f}%".format(
+                start_score, suite_scores[best_name], 100.0 * (suite_scores[best_name] / start_score - 1.0)))
+        else:
+            print("     start design not measured on every workload: probe it first")
+    print("     best design:", json.dumps(tables[traces[0]][best_name]["knobs"], sort_keys=True))
 
     # The pre-registered check: which knob family actually moves each workload?
     print()
     print("== does the gate's prediction hold? one-knob effects versus the baseline")
-    for trace in HELD_OUT_SUITE:
+    for trace in traces:
         if baseline_ipc[trace] is None:
             continue
-        print("   {} - gate said: {}".format(trace, GATE_PREDICTION[trace]))
+        print("   {} - gate said: {}".format(trace, GATE_PREDICTION.get(trace, "not pre-registered")))
         best_capacity = 0.0
         best_policy = 0.0
         for name in tables[trace]:
@@ -998,6 +1010,15 @@ if __name__ == "__main__":
     elif step == "coverage":
         coverage()
     elif step == "headroom":
-        headroom()
+        # python -m loop.offline headroom [--start spec] [trace short name ...]
+        arguments = sys.argv[2:]
+        start_knobs = None
+        if len(arguments) > 0 and arguments[0] == "--start":
+            from loop import run
+            start_knobs = run.start_design(run.CELLS["w1"])
+            arguments = arguments[2:]
+        if len(arguments) == 0:
+            arguments = None
+        headroom(arguments, start_knobs)
     else:
         raise SystemExit("unknown step: " + step)

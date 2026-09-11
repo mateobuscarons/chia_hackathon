@@ -18,6 +18,9 @@ result tables. Three uses:
   python -m loop.collect merge <other_results_dir>
       Union tables simulated elsewhere (the Mac and the VM both simulate) into
       results/, by design name. Identical designs give identical rows.
+  python -m loop.collect add_knob <results_dir> <knob> <default>
+      A knob added to the space at the value every earlier design implicitly had:
+      every cached row gets it and is renamed, so nothing measured is lost.
 
 Env: COLLECT_SOCS (comma-separated chips; default all three single-core chips),
 PARALLEL_PAIRS (chip x trace pairs at once, default 4), SIM_THREADS per pair,
@@ -33,7 +36,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 
 from loop import champsim_problem
-from loop.configs import SEARCH_SPACE, within_budget
+from loop.configs import SEARCH_SPACE, random_feasible_designs
 
 ALL_SOCS = ["A_mobile", "B_midrange", "C_server"]
 REFERENCE_TRACE = "605.mcf_s-665B"
@@ -136,13 +139,25 @@ def top_designs(soc_name, how_many, trace_paths):
 
 def uniform_designs(soc_name, how_many):
     """`how_many` feasible designs drawn uniformly at random (fixed seed) plus the chip's baseline."""
-    from loop.configs import all_configurations
-    feasible = []
-    for knobs in all_configurations(SEARCH_SPACE):
-        if within_budget(knobs, soc_name, champsim_problem.BASE_CONFIG):
-            feasible.append(knobs)
-    random.Random(0).shuffle(feasible)
-    return [champsim_problem.profiled_baseline(soc_name, SPACE)] + feasible[:how_many]
+    return [champsim_problem.profiled_baseline(soc_name, SPACE)] + random_feasible_designs(soc_name, how_many, seed=0)
+
+
+def add_knob(results_dir, knob, default_value):
+    """A new knob whose default equals what every earlier design had: every cached
+    row gets the knob at that value and is renamed, so the rows stay valid."""
+    for path in sorted(glob.glob(os.path.join(results_dir, "tierC_*.json")) + glob.glob(os.path.join(results_dir, "sweep_*.json"))):
+        table = champsim_problem.load_table(path)
+        renamed = {}
+        changed = 0
+        for name, row in table.items():
+            knobs = dict(row["knobs"])
+            soc_name = name.split("_l1d_")[0]
+            if knob not in knobs:
+                knobs[knob] = default_value
+                changed += 1
+            renamed[champsim_problem.config_name(knobs, soc_name)] = {"knobs": knobs, "metrics": row["metrics"]}
+        champsim_problem.save_table(renamed, path)
+        print("{}: {} rows, {} given {}={}".format(os.path.basename(path), len(renamed), changed, knob, default_value), flush=True)
 
 
 def collect_pair(soc_name, trace_path, designs):
@@ -272,6 +287,10 @@ def main():
         return
     if mode == "fetch_gap":
         fetch_gap(sys.argv[2], sys.argv[3], sys.argv[4])
+        return
+    if mode == "add_knob":
+        # python -m loop.collect add_knob <results dir> <knob> <default value>
+        add_knob(sys.argv[2], sys.argv[3], sys.argv[4])
         return
     how_many = int(sys.argv[2])
     trace_paths = sys.argv[3:]

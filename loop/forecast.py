@@ -166,10 +166,23 @@ def claim_target(claim, base_knobs, search_space):
     return target
 
 
-def claim_sibling(claim, knobs, baseline_knobs, search_space):
-    """The design one claim-step BEHIND `knobs`: knob back at baseline (value
-    claim) or one step against the direction (direction claim, any adjacent
-    step). None if `knobs` does not carry the claim at all."""
+def differs_only_in(knobs_a, knobs_b, knob):
+    """True when the two designs differ in `knob` and in nothing else."""
+    if str(knobs_a.get(knob)) == str(knobs_b.get(knob)):
+        return False
+    for other in knobs_a:
+        if other != knob and str(knobs_a[other]) != str(knobs_b.get(other)):
+            return False
+    return True
+
+
+def claim_sibling(claim, knobs, baseline_knobs, search_space, history=None):
+    """The design one claim-step BEHIND `knobs`. Value claim: the same design with
+    the knob at another value: a MEASURED one from `history` when there is one
+    (a controlled pair exists whatever the search started from), else the
+    untouched chip's value, else the first other allowed value. Direction claim:
+    one step against the direction (any adjacent step). None if `knobs` does not
+    carry the claim at all."""
     knob = claim["knob"]
     if is_direction(claim):
         direction = str(claim["value"])
@@ -193,11 +206,19 @@ def claim_sibling(claim, knobs, baseline_knobs, search_space):
         return sibling
     if str(knobs[knob]) != str(claim["value"]):
         return None
-    if str(baseline_knobs[knob]) == str(claim["value"]):
-        return None
+    if history is not None:
+        for entry in history:
+            if differs_only_in(entry["knobs"], knobs, knob):
+                return dict(entry["knobs"])
     sibling = dict(knobs)
-    sibling[knob] = baseline_knobs[knob]
-    return sibling
+    if str(baseline_knobs[knob]) != str(claim["value"]):
+        sibling[knob] = baseline_knobs[knob]
+        return sibling
+    for allowed in search_space[knob]:
+        if str(allowed) != str(claim["value"]):
+            sibling[knob] = allowed
+            return sibling
+    return None
 
 
 def paired_gains(history, claim, baseline_knobs, search_space, objective):
@@ -205,7 +226,7 @@ def paired_gains(history, claim, baseline_knobs, search_space, objective):
     that differ ONLY by one claim-step in `knob`. Gains in percent."""
     gains = []
     for entry in history:
-        sibling = claim_sibling(claim, entry["knobs"], baseline_knobs, search_space)
+        sibling = claim_sibling(claim, entry["knobs"], baseline_knobs, search_space, history)
         if sibling is None:
             continue
         sibling_metrics = find_measured(history, sibling)
@@ -343,7 +364,7 @@ def gather_forecasts(candidates, surrogate, model, rules, replies, baseline_knob
         knobs = candidates[name]
         for rule_index, rule in enumerate(rules):
             claim = rule["claim"]
-            sibling = claim_sibling(claim, knobs, baseline_knobs, search_space)
+            sibling = claim_sibling(claim, knobs, baseline_knobs, search_space, history)
             if sibling is None:
                 continue
             sibling_requests.append((candidate_index, rule_index, sibling))
@@ -491,7 +512,7 @@ def format_effects(effects, limit=25):
     return "\n".join(lines)
 
 
-def stall_scan_candidate(history, candidates, search_space, surrogate, model, objective):
+def stall_scan_candidate(history, is_candidate, name_of, search_space, surrogate, model, objective):
     """The architect's move when the search stalls: take the best design so far
     and change ONE knob: a categorical knob to a value nobody has tried yet on
     this problem (another prefetcher, another replacement policy), or an ordinal
@@ -534,13 +555,13 @@ def stall_scan_candidate(history, candidates, search_space, surrogate, model, ob
         for value in neighbour_values:
             design = dict(incumbent["knobs"])
             design[knob] = value
-            for name, knobs in candidates.items():
-                if name in measured_names or name in scan_names:
-                    continue
-                if same_knobs(knobs, design):
-                    scan_names.append(name)
-                    scan_knobs.append(knobs)
-                    break
+            if not is_candidate(design):
+                continue
+            name = name_of(design)
+            if name in measured_names or name in scan_names:
+                continue
+            scan_names.append(name)
+            scan_knobs.append(design)
     if len(scan_names) == 0:
         return None
     means, stds = surrogate.predict_many(model, scan_knobs)
@@ -548,13 +569,20 @@ def stall_scan_candidate(history, candidates, search_space, surrogate, model, ob
     for index in range(len(scan_names)):
         if stds[index] > stds[best_index]:
             best_index = index
-    return scan_names[best_index]
+    return scan_names[best_index], scan_knobs[best_index]
 
 
-def untested_claim_tests(rules, history, baseline_knobs, candidates, search_space, objective):
+def untested_claim_tests(rules, history, baseline_knobs, is_candidate, name_of, search_space, objective):
     """Claim tests still owed on this chip: for each speaking rule with no controlled
-    pair here, the baseline moved one claim-step (if that design is a candidate).
-    Returned best first: credibility x |transferred gain|."""
+    pair here, the INCUMBENT (best design so far) moved one claim-step, if that
+    design is a candidate: a pair next to the best design, not next to the untouched
+    chip. Returned best first: credibility x |transferred gain|."""
+    incumbent = history[0]["knobs"]
+    best_value = None
+    for entry in history:
+        if best_value is None or entry["metrics"][objective] > best_value:
+            best_value = entry["metrics"][objective]
+            incumbent = entry["knobs"]
     scored = []
     seen = set()
     for rule in rules:
@@ -566,18 +594,15 @@ def untested_claim_tests(rules, history, baseline_knobs, candidates, search_spac
         gains = paired_gains(history, claim, baseline_knobs, search_space, objective)
         if len(gains) > 0:
             continue
-        test_knobs = claim_target(claim, baseline_knobs, search_space)
-        if test_knobs is None:
+        test_knobs = claim_target(claim, incumbent, search_space)
+        if test_knobs is None or not is_candidate(test_knobs):
             continue
-        test_name = None
-        for name in candidates:
-            if same_knobs(candidates[name], test_knobs):
-                test_name = name
-        if test_name is None:
+        test_name = name_of(test_knobs)
+        if find_measured(history, test_knobs) is not None:
             continue
-        scored.append((rule_confidence(rule) * abs(claim["gain_pct"]), test_name, rule["id"]))
-    scored.sort(reverse=True)
+        scored.append((rule_confidence(rule) * abs(claim["gain_pct"]), test_name, rule["id"], test_knobs))
+    scored.sort(key=lambda item: -item[0])
     tests = []
-    for score, name, rule_id in scored:
-        tests.append((name, rule_id))
+    for score, name, rule_id, knobs in scored:
+        tests.append((name, rule_id, knobs))
     return tests

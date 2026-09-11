@@ -1,0 +1,2915 @@
+{
+ "cases": [
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "bfs.urand"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 316.3973,
+    "write_fraction": 0.14511596653953748,
+    "footprint_kb": 22418.9375,
+    "stride_regular_fraction": 0.2671457689430346,
+    "reuse_local_fraction": 0.7025603568677735,
+    "l2_footprint_ratio": 43.7869873046875,
+    "llc_footprint_ratio": 8.7573974609375,
+    "pred_l1d_miss_ratio": 0.29633031871139465,
+    "pred_l2_miss_ratio": 0.2792839177347246,
+    "pred_llc_miss_ratio": 0.2149083833744637,
+    "movable_l2_mpki": 15.202335126909182,
+    "movable_llc_mpki": 14.097507154922472
+   },
+   "baseline_design": {
+    "l1d_sets": 64,
+    "l1d_ways": 12,
+    "l1d_prefetcher": "next_line",
+    "l2_sets": 256,
+    "l2_ways": 16,
+    "l2_prefetcher": "spp_dev",
+    "llc_sets": 4096,
+    "llc_ways": 16,
+    "llc_prefetcher": "next_line",
+    "llc_replacement": "lru",
+    "l2_mshr": 64,
+    "llc_mshr": 64,
+    "l2_replacement": "lru"
+   },
+   "baseline_metric": 0.1833907150482527,
+   "best_design": {
+    "l1d_sets": 64,
+    "l1d_ways": 12,
+    "l1d_prefetcher": "va_ampm_lite",
+    "l2_sets": 1024,
+    "l2_ways": 8,
+    "l2_prefetcher": "next_line",
+    "l2_replacement": "ship",
+    "llc_sets": 4096,
+    "llc_ways": 16,
+    "llc_prefetcher": "ip_stride",
+    "llc_replacement": "ship",
+    "l2_mshr": 32,
+    "llc_mshr": 128
+   },
+   "best_metric": 0.2095823889815697,
+   "top_effects": [
+    {
+     "knob": "l2_prefetcher",
+     "from": "next_line",
+     "to": "spp_dev",
+     "effect": -12.3669969400994,
+     "pairs": 4
+    },
+    {
+     "knob": "l1d_sets",
+     "from": "128",
+     "to": "64",
+     "effect": 0.9691484625583247,
+     "pairs": 5
+    },
+    {
+     "knob": "llc_prefetcher",
+     "from": "ip_stride",
+     "to": "spp_dev",
+     "effect": -0.6498904612089441,
+     "pairs": 5
+    },
+    {
+     "knob": "l2_sets",
+     "from": "256",
+     "to": "512",
+     "effect": -0.22797017856052884,
+     "pairs": 9
+    },
+    {
+     "knob": "l2_mshr",
+     "from": "32",
+     "to": "64",
+     "effect": -0.02887900409488109,
+     "pairs": 4
+    }
+   ],
+   "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0",
+   "designs_measured": 49,
+   "id": "CASE-0001"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "pr.urand"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 363.6364,
+    "write_fraction": 0.25,
+    "footprint_kb": 14204.6875,
+    "stride_regular_fraction": 0.99999780000022,
+    "reuse_local_fraction": 0.9374993812500618,
+    "l2_footprint_ratio": 27.7435302734375,
+    "llc_footprint_ratio": 5.5487060546875,
+    "pred_l1d_miss_ratio": 0.06250000113167113,
+    "pred_l2_miss_ratio": 0.06250000035524939,
+    "pred_llc_miss_ratio": 0.06250000000298224,
+    "movable_l2_mpki": 1.3470317118935427e-07,
+    "movable_llc_mpki": -1.1101434014404443e-08
+   },
+   "baseline_design": {
+    "l1d_sets": 64,
+    "l1d_ways": 12,
+    "l1d_prefetcher": "next_line",
+    "l2_sets": 256,
+    "l2_ways": 16,
+    "l2_prefetcher": "spp_dev",
+    "llc_sets": 4096,
+    "llc_ways": 16,
+    "llc_prefetcher": "next_line",
+    "llc_replacement": "lru",
+    "l2_mshr": 64,
+    "llc_mshr": 64,
+    "l2_replacement": "lru"
+   },
+   "baseline_metric": 1.742843493905539,
+   "best_design": {
+    "l1d_sets": 64,
+    "l1d_ways": 12,
+    "l1d_prefetcher": "va_ampm_lite",
+    "l2_sets": 256,
+    "l2_ways": 16,
+    "l2_prefetcher": "spp_dev",
+    "l2_replacement": "ship",
+    "llc_sets": 4096,
+    "llc_ways": 16,
+    "llc_prefetcher": "ip_stride",
+    "llc_replacement": "ship",
+    "l2_mshr": 64,
+    "llc_mshr": 128
+   },
+   "best_metric": 1.9201022569453445,
+   "top_effects": [
+    {
+     "knob": "l2_prefetcher",
+     "from": "next_line",
+     "to": "spp_dev",
+     "effect": 11.741889590387068,
+     "pairs": 4
+    },
+    {
+     "knob": "llc_prefetcher",
+     "from": "ip_stride",
+     "to": "spp_dev",
+     "effect": -1.65422683132876,
+     "pairs": 5
+    },
+    {
+     "knob": "l2_sets",
+     "from": "256",
+     "to": "512",
+     "effect": -0.22320235154218684,
+     "pairs": 9
+    },
+    {
+     "knob": "l1d_sets",
+     "from": "128",
+     "to": "64",
+     "effect": 0.03747496660023497,
+     "pairs": 5
+    },
+    {
+     "knob": "l2_mshr",
+     "from": "32",
+     "to": "64",
+     "effect": 0.017469595530136828,
+     "pairs": 4
+    }
+   ],
+   "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0",
+   "designs_measured": 49,
+   "id": "CASE-0002"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "bfs.kron"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 227.011,
+    "write_fraction": 0.007904022272048492,
+    "footprint_kb": 10659.8125,
+    "stride_regular_fraction": 0.5192514900159023,
+    "reuse_local_fraction": 0.9218830805555678,
+    "l2_footprint_ratio": 20.8199462890625,
+    "llc_footprint_ratio": 4.1639892578125,
+    "pred_l1d_miss_ratio": 0.07515722937943124,
+    "pred_l2_miss_ratio": 0.07518624773130922,
+    "pred_llc_miss_ratio": 0.07517203477822954,
+    "movable_l2_mpki": 0.0020376444105666275,
+    "movable_llc_mpki": 0.0033273064528005353
+   },
+   "baseline_design": {
+    "l1d_sets": 64,
+    "l1d_ways": 12,
+    "l1d_prefetcher": "next_line",
+    "l2_sets": 256,
+    "l2_ways": 16,
+    "l2_prefetcher": "spp_dev",
+    "llc_sets": 4096,
+    "llc_ways": 16,
+    "llc_prefetcher": "next_line",
+    "llc_replacement": "lru",
+    "l2_mshr": 64,
+    "llc_mshr": 64,
+    "l2_replacement": "lru"
+   },
+   "baseline_metric": 0.6804839384015051,
+   "best_design": {
+    "l1d_sets": 64,
+    "l1d_ways": 12,
+    "l1d_prefetcher": "next_line",
+    "l2_sets": 256,
+    "l2_ways": 16,
+    "l2_prefetcher": "spp_dev",
+    "llc_sets": 4096,
+    "llc_ways": 16,
+    "llc_prefetcher": "next_line",
+    "llc_replacement": "lru",
+    "l2_mshr": 64,
+    "llc_mshr": 64,
+    "l2_replacement": "lru"
+   },
+   "best_metric": 0.6804839384015051,
+   "top_effects": [
+    {
+     "knob": "l2_prefetcher",
+     "from": "next_line",
+     "to": "spp_dev",
+     "effect": 0.3911940357801069,
+     "pairs": 4
+    },
+    {
+     "knob": "l2_sets",
+     "from": "256",
+     "to": "512",
+     "effect": -0.2805111572442824,
+     "pairs": 9
+    },
+    {
+     "knob": "l1d_sets",
+     "from": "128",
+     "to": "64",
+     "effect": 0.19335881423284018,
+     "pairs": 5
+    },
+    {
+     "knob": "llc_prefetcher",
+     "from": "ip_stride",
+     "to": "spp_dev",
+     "effect": -0.16247135658965295,
+     "pairs": 5
+    },
+    {
+     "knob": "l2_mshr",
+     "from": "32",
+     "to": "64",
+     "effect": 0.0,
+     "pairs": 4
+    }
+   ],
+   "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0",
+   "designs_measured": 49,
+   "id": "CASE-0003"
+  }
+ ],
+ "facts": [
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "bfs.urand",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 316.3973,
+    "write_fraction": 0.14511596653953748,
+    "footprint_kb": 22418.9375,
+    "stride_regular_fraction": 0.2671457689430346,
+    "reuse_local_fraction": 0.7025603568677735,
+    "l2_footprint_ratio": 43.7869873046875,
+    "llc_footprint_ratio": 8.7573974609375,
+    "pred_l1d_miss_ratio": 0.29633031871139465,
+    "pred_l2_miss_ratio": 0.2792839177347246,
+    "pred_llc_miss_ratio": 0.2149083833744637,
+    "movable_l2_mpki": 15.202335126909182,
+    "movable_llc_mpki": 14.097507154922472
+   },
+   "knob": "l2_prefetcher",
+   "from": "next_line",
+   "to": "va_ampm_lite",
+   "effect": -17.140092313963514,
+   "pairs": 2,
+   "bucket": "large",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0001"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "bfs.urand",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 316.3973,
+    "write_fraction": 0.14511596653953748,
+    "footprint_kb": 22418.9375,
+    "stride_regular_fraction": 0.2671457689430346,
+    "reuse_local_fraction": 0.7025603568677735,
+    "l2_footprint_ratio": 43.7869873046875,
+    "llc_footprint_ratio": 8.7573974609375,
+    "pred_l1d_miss_ratio": 0.29633031871139465,
+    "pred_l2_miss_ratio": 0.2792839177347246,
+    "pred_llc_miss_ratio": 0.2149083833744637,
+    "movable_l2_mpki": 15.202335126909182,
+    "movable_llc_mpki": 14.097507154922472
+   },
+   "knob": "l2_prefetcher",
+   "from": "ip_stride",
+   "to": "next_line",
+   "effect": 13.04933359557019,
+   "pairs": 2,
+   "bucket": "large",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0002"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "bfs.urand",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 316.3973,
+    "write_fraction": 0.14511596653953748,
+    "footprint_kb": 22418.9375,
+    "stride_regular_fraction": 0.2671457689430346,
+    "reuse_local_fraction": 0.7025603568677735,
+    "l2_footprint_ratio": 43.7869873046875,
+    "llc_footprint_ratio": 8.7573974609375,
+    "pred_l1d_miss_ratio": 0.29633031871139465,
+    "pred_l2_miss_ratio": 0.2792839177347246,
+    "pred_llc_miss_ratio": 0.2149083833744637,
+    "movable_l2_mpki": 15.202335126909182,
+    "movable_llc_mpki": 14.097507154922472
+   },
+   "knob": "l2_prefetcher",
+   "from": "next_line",
+   "to": "spp_dev",
+   "effect": -12.3669969400994,
+   "pairs": 4,
+   "bucket": "large",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0003"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "bfs.urand",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 316.3973,
+    "write_fraction": 0.14511596653953748,
+    "footprint_kb": 22418.9375,
+    "stride_regular_fraction": 0.2671457689430346,
+    "reuse_local_fraction": 0.7025603568677735,
+    "l2_footprint_ratio": 43.7869873046875,
+    "llc_footprint_ratio": 8.7573974609375,
+    "pred_l1d_miss_ratio": 0.29633031871139465,
+    "pred_l2_miss_ratio": 0.2792839177347246,
+    "pred_llc_miss_ratio": 0.2149083833744637,
+    "movable_l2_mpki": 15.202335126909182,
+    "movable_llc_mpki": 14.097507154922472
+   },
+   "knob": "l1d_prefetcher",
+   "from": "next_line",
+   "to": "va_ampm_lite",
+   "effect": -8.827062272117537,
+   "pairs": 2,
+   "bucket": "medium",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0004"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "bfs.urand",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 316.3973,
+    "write_fraction": 0.14511596653953748,
+    "footprint_kb": 22418.9375,
+    "stride_regular_fraction": 0.2671457689430346,
+    "reuse_local_fraction": 0.7025603568677735,
+    "l2_footprint_ratio": 43.7869873046875,
+    "llc_footprint_ratio": 8.7573974609375,
+    "pred_l1d_miss_ratio": 0.29633031871139465,
+    "pred_l2_miss_ratio": 0.2792839177347246,
+    "pred_llc_miss_ratio": 0.2149083833744637,
+    "movable_l2_mpki": 15.202335126909182,
+    "movable_llc_mpki": 14.097507154922472
+   },
+   "knob": "l1d_prefetcher",
+   "from": "ip_stride",
+   "to": "va_ampm_lite",
+   "effect": -6.456852350105491,
+   "pairs": 1,
+   "bucket": "medium",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0005"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "bfs.urand",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 316.3973,
+    "write_fraction": 0.14511596653953748,
+    "footprint_kb": 22418.9375,
+    "stride_regular_fraction": 0.2671457689430346,
+    "reuse_local_fraction": 0.7025603568677735,
+    "l2_footprint_ratio": 43.7869873046875,
+    "llc_footprint_ratio": 8.7573974609375,
+    "pred_l1d_miss_ratio": 0.29633031871139465,
+    "pred_l2_miss_ratio": 0.2792839177347246,
+    "pred_llc_miss_ratio": 0.2149083833744637,
+    "movable_l2_mpki": 15.202335126909182,
+    "movable_llc_mpki": 14.097507154922472
+   },
+   "knob": "l2_prefetcher",
+   "from": "ip_stride",
+   "to": "va_ampm_lite",
+   "effect": -6.332321033470212,
+   "pairs": 2,
+   "bucket": "medium",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0006"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "bfs.urand",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 316.3973,
+    "write_fraction": 0.14511596653953748,
+    "footprint_kb": 22418.9375,
+    "stride_regular_fraction": 0.2671457689430346,
+    "reuse_local_fraction": 0.7025603568677735,
+    "l2_footprint_ratio": 43.7869873046875,
+    "llc_footprint_ratio": 8.7573974609375,
+    "pred_l1d_miss_ratio": 0.29633031871139465,
+    "pred_l2_miss_ratio": 0.2792839177347246,
+    "pred_llc_miss_ratio": 0.2149083833744637,
+    "movable_l2_mpki": 15.202335126909182,
+    "movable_llc_mpki": 14.097507154922472
+   },
+   "knob": "l1d_prefetcher",
+   "from": "ip_stride",
+   "to": "next_line",
+   "effect": 3.4894414056064527,
+   "pairs": 1,
+   "bucket": "medium",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0007"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "bfs.urand",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 316.3973,
+    "write_fraction": 0.14511596653953748,
+    "footprint_kb": 22418.9375,
+    "stride_regular_fraction": 0.2671457689430346,
+    "reuse_local_fraction": 0.7025603568677735,
+    "l2_footprint_ratio": 43.7869873046875,
+    "llc_footprint_ratio": 8.7573974609375,
+    "pred_l1d_miss_ratio": 0.29633031871139465,
+    "pred_l2_miss_ratio": 0.2792839177347246,
+    "pred_llc_miss_ratio": 0.2149083833744637,
+    "movable_l2_mpki": 15.202335126909182,
+    "movable_llc_mpki": 14.097507154922472
+   },
+   "knob": "l2_prefetcher",
+   "from": "spp_dev",
+   "to": "va_ampm_lite",
+   "effect": -2.2428330820443936,
+   "pairs": 2,
+   "bucket": "small",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0008"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "bfs.urand",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 316.3973,
+    "write_fraction": 0.14511596653953748,
+    "footprint_kb": 22418.9375,
+    "stride_regular_fraction": 0.2671457689430346,
+    "reuse_local_fraction": 0.7025603568677735,
+    "l2_footprint_ratio": 43.7869873046875,
+    "llc_footprint_ratio": 8.7573974609375,
+    "pred_l1d_miss_ratio": 0.29633031871139465,
+    "pred_l2_miss_ratio": 0.2792839177347246,
+    "pred_llc_miss_ratio": 0.2149083833744637,
+    "movable_l2_mpki": 15.202335126909182,
+    "movable_llc_mpki": 14.097507154922472
+   },
+   "knob": "l2_prefetcher",
+   "from": "ip_stride",
+   "to": "spp_dev",
+   "effect": -1.8573553843204582,
+   "pairs": 1,
+   "bucket": "small",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0009"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "bfs.urand",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 316.3973,
+    "write_fraction": 0.14511596653953748,
+    "footprint_kb": 22418.9375,
+    "stride_regular_fraction": 0.2671457689430346,
+    "reuse_local_fraction": 0.7025603568677735,
+    "l2_footprint_ratio": 43.7869873046875,
+    "llc_footprint_ratio": 8.7573974609375,
+    "pred_l1d_miss_ratio": 0.29633031871139465,
+    "pred_l2_miss_ratio": 0.2792839177347246,
+    "pred_llc_miss_ratio": 0.2149083833744637,
+    "movable_l2_mpki": 15.202335126909182,
+    "movable_llc_mpki": 14.097507154922472
+   },
+   "knob": "l1d_sets",
+   "from": "32",
+   "to": "64",
+   "effect": 1.3818695833898387,
+   "pairs": 1,
+   "bucket": "small",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0010"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "bfs.urand",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 316.3973,
+    "write_fraction": 0.14511596653953748,
+    "footprint_kb": 22418.9375,
+    "stride_regular_fraction": 0.2671457689430346,
+    "reuse_local_fraction": 0.7025603568677735,
+    "l2_footprint_ratio": 43.7869873046875,
+    "llc_footprint_ratio": 8.7573974609375,
+    "pred_l1d_miss_ratio": 0.29633031871139465,
+    "pred_l2_miss_ratio": 0.2792839177347246,
+    "pred_llc_miss_ratio": 0.2149083833744637,
+    "movable_l2_mpki": 15.202335126909182,
+    "movable_llc_mpki": 14.097507154922472
+   },
+   "knob": "l1d_sets",
+   "from": "128",
+   "to": "64",
+   "effect": 0.9691484625583247,
+   "pairs": 5,
+   "bucket": "small",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0011"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "bfs.urand",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 316.3973,
+    "write_fraction": 0.14511596653953748,
+    "footprint_kb": 22418.9375,
+    "stride_regular_fraction": 0.2671457689430346,
+    "reuse_local_fraction": 0.7025603568677735,
+    "l2_footprint_ratio": 43.7869873046875,
+    "llc_footprint_ratio": 8.7573974609375,
+    "pred_l1d_miss_ratio": 0.29633031871139465,
+    "pred_l2_miss_ratio": 0.2792839177347246,
+    "pred_llc_miss_ratio": 0.2149083833744637,
+    "movable_l2_mpki": 15.202335126909182,
+    "movable_llc_mpki": 14.097507154922472
+   },
+   "knob": "l1d_sets",
+   "from": "128",
+   "to": "32",
+   "effect": -0.7943591990405952,
+   "pairs": 1,
+   "bucket": "small",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0012"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "bfs.urand",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 316.3973,
+    "write_fraction": 0.14511596653953748,
+    "footprint_kb": 22418.9375,
+    "stride_regular_fraction": 0.2671457689430346,
+    "reuse_local_fraction": 0.7025603568677735,
+    "l2_footprint_ratio": 43.7869873046875,
+    "llc_footprint_ratio": 8.7573974609375,
+    "pred_l1d_miss_ratio": 0.29633031871139465,
+    "pred_l2_miss_ratio": 0.2792839177347246,
+    "pred_llc_miss_ratio": 0.2149083833744637,
+    "movable_l2_mpki": 15.202335126909182,
+    "movable_llc_mpki": 14.097507154922472
+   },
+   "knob": "l2_sets",
+   "from": "1024",
+   "to": "512",
+   "effect": -0.6828631424480092,
+   "pairs": 2,
+   "bucket": "small",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0013"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "bfs.urand",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 316.3973,
+    "write_fraction": 0.14511596653953748,
+    "footprint_kb": 22418.9375,
+    "stride_regular_fraction": 0.2671457689430346,
+    "reuse_local_fraction": 0.7025603568677735,
+    "l2_footprint_ratio": 43.7869873046875,
+    "llc_footprint_ratio": 8.7573974609375,
+    "pred_l1d_miss_ratio": 0.29633031871139465,
+    "pred_l2_miss_ratio": 0.2792839177347246,
+    "pred_llc_miss_ratio": 0.2149083833744637,
+    "movable_l2_mpki": 15.202335126909182,
+    "movable_llc_mpki": 14.097507154922472
+   },
+   "knob": "llc_prefetcher",
+   "from": "ip_stride",
+   "to": "spp_dev",
+   "effect": -0.6498904612089441,
+   "pairs": 5,
+   "bucket": "small",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0014"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "bfs.urand",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 316.3973,
+    "write_fraction": 0.14511596653953748,
+    "footprint_kb": 22418.9375,
+    "stride_regular_fraction": 0.2671457689430346,
+    "reuse_local_fraction": 0.7025603568677735,
+    "l2_footprint_ratio": 43.7869873046875,
+    "llc_footprint_ratio": 8.7573974609375,
+    "pred_l1d_miss_ratio": 0.29633031871139465,
+    "pred_l2_miss_ratio": 0.2792839177347246,
+    "pred_llc_miss_ratio": 0.2149083833744637,
+    "movable_l2_mpki": 15.202335126909182,
+    "movable_llc_mpki": 14.097507154922472
+   },
+   "knob": "l2_ways",
+   "from": "16",
+   "to": "8",
+   "effect": -0.5085917246135274,
+   "pairs": 1,
+   "bucket": "small",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0015"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "bfs.urand",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 316.3973,
+    "write_fraction": 0.14511596653953748,
+    "footprint_kb": 22418.9375,
+    "stride_regular_fraction": 0.2671457689430346,
+    "reuse_local_fraction": 0.7025603568677735,
+    "l2_footprint_ratio": 43.7869873046875,
+    "llc_footprint_ratio": 8.7573974609375,
+    "pred_l1d_miss_ratio": 0.29633031871139465,
+    "pred_l2_miss_ratio": 0.2792839177347246,
+    "pred_llc_miss_ratio": 0.2149083833744637,
+    "movable_l2_mpki": 15.202335126909182,
+    "movable_llc_mpki": 14.097507154922472
+   },
+   "knob": "l2_sets",
+   "from": "256",
+   "to": "512",
+   "effect": -0.22797017856052884,
+   "pairs": 9,
+   "bucket": "small",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0016"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "bfs.urand",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 316.3973,
+    "write_fraction": 0.14511596653953748,
+    "footprint_kb": 22418.9375,
+    "stride_regular_fraction": 0.2671457689430346,
+    "reuse_local_fraction": 0.7025603568677735,
+    "l2_footprint_ratio": 43.7869873046875,
+    "llc_footprint_ratio": 8.7573974609375,
+    "pred_l1d_miss_ratio": 0.29633031871139465,
+    "pred_l2_miss_ratio": 0.2792839177347246,
+    "pred_llc_miss_ratio": 0.2149083833744637,
+    "movable_l2_mpki": 15.202335126909182,
+    "movable_llc_mpki": 14.097507154922472
+   },
+   "knob": "l1d_ways",
+   "from": "12",
+   "to": "8",
+   "effect": -0.21289104915150903,
+   "pairs": 1,
+   "bucket": "small",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0017"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "bfs.urand",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 316.3973,
+    "write_fraction": 0.14511596653953748,
+    "footprint_kb": 22418.9375,
+    "stride_regular_fraction": 0.2671457689430346,
+    "reuse_local_fraction": 0.7025603568677735,
+    "l2_footprint_ratio": 43.7869873046875,
+    "llc_footprint_ratio": 8.7573974609375,
+    "pred_l1d_miss_ratio": 0.29633031871139465,
+    "pred_l2_miss_ratio": 0.2792839177347246,
+    "pred_llc_miss_ratio": 0.2149083833744637,
+    "movable_l2_mpki": 15.202335126909182,
+    "movable_llc_mpki": 14.097507154922472
+   },
+   "knob": "l2_mshr",
+   "from": "16",
+   "to": "64",
+   "effect": -0.15367064656732765,
+   "pairs": 1,
+   "bucket": "small",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0018"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "bfs.urand",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 316.3973,
+    "write_fraction": 0.14511596653953748,
+    "footprint_kb": 22418.9375,
+    "stride_regular_fraction": 0.2671457689430346,
+    "reuse_local_fraction": 0.7025603568677735,
+    "l2_footprint_ratio": 43.7869873046875,
+    "llc_footprint_ratio": 8.7573974609375,
+    "pred_l1d_miss_ratio": 0.29633031871139465,
+    "pred_l2_miss_ratio": 0.2792839177347246,
+    "pred_llc_miss_ratio": 0.2149083833744637,
+    "movable_l2_mpki": 15.202335126909182,
+    "movable_llc_mpki": 14.097507154922472
+   },
+   "knob": "l2_mshr",
+   "from": "16",
+   "to": "32",
+   "effect": -0.05327443109968133,
+   "pairs": 1,
+   "bucket": "small",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0019"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "bfs.urand",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 316.3973,
+    "write_fraction": 0.14511596653953748,
+    "footprint_kb": 22418.9375,
+    "stride_regular_fraction": 0.2671457689430346,
+    "reuse_local_fraction": 0.7025603568677735,
+    "l2_footprint_ratio": 43.7869873046875,
+    "llc_footprint_ratio": 8.7573974609375,
+    "pred_l1d_miss_ratio": 0.29633031871139465,
+    "pred_l2_miss_ratio": 0.2792839177347246,
+    "pred_llc_miss_ratio": 0.2149083833744637,
+    "movable_l2_mpki": 15.202335126909182,
+    "movable_llc_mpki": 14.097507154922472
+   },
+   "knob": "l2_mshr",
+   "from": "32",
+   "to": "64",
+   "effect": -0.02887900409488109,
+   "pairs": 4,
+   "bucket": "small",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0020"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "bfs.urand",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 316.3973,
+    "write_fraction": 0.14511596653953748,
+    "footprint_kb": 22418.9375,
+    "stride_regular_fraction": 0.2671457689430346,
+    "reuse_local_fraction": 0.7025603568677735,
+    "l2_footprint_ratio": 43.7869873046875,
+    "llc_footprint_ratio": 8.7573974609375,
+    "pred_l1d_miss_ratio": 0.29633031871139465,
+    "pred_l2_miss_ratio": 0.2792839177347246,
+    "pred_llc_miss_ratio": 0.2149083833744637,
+    "movable_l2_mpki": 15.202335126909182,
+    "movable_llc_mpki": 14.097507154922472
+   },
+   "knob": "llc_mshr",
+   "from": "128",
+   "to": "64",
+   "effect": 0.0,
+   "pairs": 2,
+   "bucket": "small",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0021"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "pr.urand",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 363.6364,
+    "write_fraction": 0.25,
+    "footprint_kb": 14204.6875,
+    "stride_regular_fraction": 0.99999780000022,
+    "reuse_local_fraction": 0.9374993812500618,
+    "l2_footprint_ratio": 27.7435302734375,
+    "llc_footprint_ratio": 5.5487060546875,
+    "pred_l1d_miss_ratio": 0.06250000113167113,
+    "pred_l2_miss_ratio": 0.06250000035524939,
+    "pred_llc_miss_ratio": 0.06250000000298224,
+    "movable_l2_mpki": 1.3470317118935427e-07,
+    "movable_llc_mpki": -1.1101434014404443e-08
+   },
+   "knob": "l1d_sets",
+   "from": "32",
+   "to": "64",
+   "effect": 59.657261171915366,
+   "pairs": 1,
+   "bucket": "large",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0022"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "pr.urand",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 363.6364,
+    "write_fraction": 0.25,
+    "footprint_kb": 14204.6875,
+    "stride_regular_fraction": 0.99999780000022,
+    "reuse_local_fraction": 0.9374993812500618,
+    "l2_footprint_ratio": 27.7435302734375,
+    "llc_footprint_ratio": 5.5487060546875,
+    "pred_l1d_miss_ratio": 0.06250000113167113,
+    "pred_l2_miss_ratio": 0.06250000035524939,
+    "pred_llc_miss_ratio": 0.06250000000298224,
+    "movable_l2_mpki": 1.3470317118935427e-07,
+    "movable_llc_mpki": -1.1101434014404443e-08
+   },
+   "knob": "l1d_sets",
+   "from": "128",
+   "to": "32",
+   "effect": -37.41990508816148,
+   "pairs": 1,
+   "bucket": "large",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0023"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "pr.urand",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 363.6364,
+    "write_fraction": 0.25,
+    "footprint_kb": 14204.6875,
+    "stride_regular_fraction": 0.99999780000022,
+    "reuse_local_fraction": 0.9374993812500618,
+    "l2_footprint_ratio": 27.7435302734375,
+    "llc_footprint_ratio": 5.5487060546875,
+    "pred_l1d_miss_ratio": 0.06250000113167113,
+    "pred_l2_miss_ratio": 0.06250000035524939,
+    "pred_llc_miss_ratio": 0.06250000000298224,
+    "movable_l2_mpki": 1.3470317118935427e-07,
+    "movable_llc_mpki": -1.1101434014404443e-08
+   },
+   "knob": "l1d_prefetcher",
+   "from": "next_line",
+   "to": "va_ampm_lite",
+   "effect": 12.22669297518706,
+   "pairs": 2,
+   "bucket": "large",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0024"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "pr.urand",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 363.6364,
+    "write_fraction": 0.25,
+    "footprint_kb": 14204.6875,
+    "stride_regular_fraction": 0.99999780000022,
+    "reuse_local_fraction": 0.9374993812500618,
+    "l2_footprint_ratio": 27.7435302734375,
+    "llc_footprint_ratio": 5.5487060546875,
+    "pred_l1d_miss_ratio": 0.06250000113167113,
+    "pred_l2_miss_ratio": 0.06250000035524939,
+    "pred_llc_miss_ratio": 0.06250000000298224,
+    "movable_l2_mpki": 1.3470317118935427e-07,
+    "movable_llc_mpki": -1.1101434014404443e-08
+   },
+   "knob": "l2_prefetcher",
+   "from": "ip_stride",
+   "to": "spp_dev",
+   "effect": 12.216006553446746,
+   "pairs": 1,
+   "bucket": "large",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0025"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "pr.urand",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 363.6364,
+    "write_fraction": 0.25,
+    "footprint_kb": 14204.6875,
+    "stride_regular_fraction": 0.99999780000022,
+    "reuse_local_fraction": 0.9374993812500618,
+    "l2_footprint_ratio": 27.7435302734375,
+    "llc_footprint_ratio": 5.5487060546875,
+    "pred_l1d_miss_ratio": 0.06250000113167113,
+    "pred_l2_miss_ratio": 0.06250000035524939,
+    "pred_llc_miss_ratio": 0.06250000000298224,
+    "movable_l2_mpki": 1.3470317118935427e-07,
+    "movable_llc_mpki": -1.1101434014404443e-08
+   },
+   "knob": "l2_prefetcher",
+   "from": "next_line",
+   "to": "spp_dev",
+   "effect": 11.741889590387068,
+   "pairs": 4,
+   "bucket": "large",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0026"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "pr.urand",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 363.6364,
+    "write_fraction": 0.25,
+    "footprint_kb": 14204.6875,
+    "stride_regular_fraction": 0.99999780000022,
+    "reuse_local_fraction": 0.9374993812500618,
+    "l2_footprint_ratio": 27.7435302734375,
+    "llc_footprint_ratio": 5.5487060546875,
+    "pred_l1d_miss_ratio": 0.06250000113167113,
+    "pred_l2_miss_ratio": 0.06250000035524939,
+    "pred_llc_miss_ratio": 0.06250000000298224,
+    "movable_l2_mpki": 1.3470317118935427e-07,
+    "movable_llc_mpki": -1.1101434014404443e-08
+   },
+   "knob": "l1d_prefetcher",
+   "from": "ip_stride",
+   "to": "va_ampm_lite",
+   "effect": 11.399137149113713,
+   "pairs": 1,
+   "bucket": "large",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0027"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "pr.urand",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 363.6364,
+    "write_fraction": 0.25,
+    "footprint_kb": 14204.6875,
+    "stride_regular_fraction": 0.99999780000022,
+    "reuse_local_fraction": 0.9374993812500618,
+    "l2_footprint_ratio": 27.7435302734375,
+    "llc_footprint_ratio": 5.5487060546875,
+    "pred_l1d_miss_ratio": 0.06250000113167113,
+    "pred_l2_miss_ratio": 0.06250000035524939,
+    "pred_llc_miss_ratio": 0.06250000000298224,
+    "movable_l2_mpki": 1.3470317118935427e-07,
+    "movable_llc_mpki": -1.1101434014404443e-08
+   },
+   "knob": "l2_prefetcher",
+   "from": "spp_dev",
+   "to": "va_ampm_lite",
+   "effect": -9.035104229180497,
+   "pairs": 2,
+   "bucket": "medium",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0028"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "pr.urand",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 363.6364,
+    "write_fraction": 0.25,
+    "footprint_kb": 14204.6875,
+    "stride_regular_fraction": 0.99999780000022,
+    "reuse_local_fraction": 0.9374993812500618,
+    "l2_footprint_ratio": 27.7435302734375,
+    "llc_footprint_ratio": 5.5487060546875,
+    "pred_l1d_miss_ratio": 0.06250000113167113,
+    "pred_l2_miss_ratio": 0.06250000035524939,
+    "pred_llc_miss_ratio": 0.06250000000298224,
+    "movable_l2_mpki": 1.3470317118935427e-07,
+    "movable_llc_mpki": -1.1101434014404443e-08
+   },
+   "knob": "l2_mshr",
+   "from": "16",
+   "to": "32",
+   "effect": 4.329623180896469,
+   "pairs": 1,
+   "bucket": "medium",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0029"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "pr.urand",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 363.6364,
+    "write_fraction": 0.25,
+    "footprint_kb": 14204.6875,
+    "stride_regular_fraction": 0.99999780000022,
+    "reuse_local_fraction": 0.9374993812500618,
+    "l2_footprint_ratio": 27.7435302734375,
+    "llc_footprint_ratio": 5.5487060546875,
+    "pred_l1d_miss_ratio": 0.06250000113167113,
+    "pred_l2_miss_ratio": 0.06250000035524939,
+    "pred_llc_miss_ratio": 0.06250000000298224,
+    "movable_l2_mpki": 1.3470317118935427e-07,
+    "movable_llc_mpki": -1.1101434014404443e-08
+   },
+   "knob": "l2_mshr",
+   "from": "16",
+   "to": "64",
+   "effect": 4.3222374810596875,
+   "pairs": 1,
+   "bucket": "medium",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0030"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "pr.urand",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 363.6364,
+    "write_fraction": 0.25,
+    "footprint_kb": 14204.6875,
+    "stride_regular_fraction": 0.99999780000022,
+    "reuse_local_fraction": 0.9374993812500618,
+    "l2_footprint_ratio": 27.7435302734375,
+    "llc_footprint_ratio": 5.5487060546875,
+    "pred_l1d_miss_ratio": 0.06250000113167113,
+    "pred_l2_miss_ratio": 0.06250000035524939,
+    "pred_llc_miss_ratio": 0.06250000000298224,
+    "movable_l2_mpki": 1.3470317118935427e-07,
+    "movable_llc_mpki": -1.1101434014404443e-08
+   },
+   "knob": "llc_prefetcher",
+   "from": "ip_stride",
+   "to": "spp_dev",
+   "effect": -1.65422683132876,
+   "pairs": 5,
+   "bucket": "small",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0031"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "pr.urand",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 363.6364,
+    "write_fraction": 0.25,
+    "footprint_kb": 14204.6875,
+    "stride_regular_fraction": 0.99999780000022,
+    "reuse_local_fraction": 0.9374993812500618,
+    "l2_footprint_ratio": 27.7435302734375,
+    "llc_footprint_ratio": 5.5487060546875,
+    "pred_l1d_miss_ratio": 0.06250000113167113,
+    "pred_l2_miss_ratio": 0.06250000035524939,
+    "pred_llc_miss_ratio": 0.06250000000298224,
+    "movable_l2_mpki": 1.3470317118935427e-07,
+    "movable_llc_mpki": -1.1101434014404443e-08
+   },
+   "knob": "l2_prefetcher",
+   "from": "ip_stride",
+   "to": "va_ampm_lite",
+   "effect": 1.3026674453099352,
+   "pairs": 2,
+   "bucket": "small",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0032"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "pr.urand",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 363.6364,
+    "write_fraction": 0.25,
+    "footprint_kb": 14204.6875,
+    "stride_regular_fraction": 0.99999780000022,
+    "reuse_local_fraction": 0.9374993812500618,
+    "l2_footprint_ratio": 27.7435302734375,
+    "llc_footprint_ratio": 5.5487060546875,
+    "pred_l1d_miss_ratio": 0.06250000113167113,
+    "pred_l2_miss_ratio": 0.06250000035524939,
+    "pred_llc_miss_ratio": 0.06250000000298224,
+    "movable_l2_mpki": 1.3470317118935427e-07,
+    "movable_llc_mpki": -1.1101434014404443e-08
+   },
+   "knob": "l2_prefetcher",
+   "from": "ip_stride",
+   "to": "next_line",
+   "effect": 0.8311047357248635,
+   "pairs": 2,
+   "bucket": "small",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0033"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "pr.urand",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 363.6364,
+    "write_fraction": 0.25,
+    "footprint_kb": 14204.6875,
+    "stride_regular_fraction": 0.99999780000022,
+    "reuse_local_fraction": 0.9374993812500618,
+    "l2_footprint_ratio": 27.7435302734375,
+    "llc_footprint_ratio": 5.5487060546875,
+    "pred_l1d_miss_ratio": 0.06250000113167113,
+    "pred_l2_miss_ratio": 0.06250000035524939,
+    "pred_llc_miss_ratio": 0.06250000000298224,
+    "movable_l2_mpki": 1.3470317118935427e-07,
+    "movable_llc_mpki": -1.1101434014404443e-08
+   },
+   "knob": "l1d_prefetcher",
+   "from": "ip_stride",
+   "to": "next_line",
+   "effect": -0.7485333319293352,
+   "pairs": 1,
+   "bucket": "small",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0034"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "pr.urand",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 363.6364,
+    "write_fraction": 0.25,
+    "footprint_kb": 14204.6875,
+    "stride_regular_fraction": 0.99999780000022,
+    "reuse_local_fraction": 0.9374993812500618,
+    "l2_footprint_ratio": 27.7435302734375,
+    "llc_footprint_ratio": 5.5487060546875,
+    "pred_l1d_miss_ratio": 0.06250000113167113,
+    "pred_l2_miss_ratio": 0.06250000035524939,
+    "pred_llc_miss_ratio": 0.06250000000298224,
+    "movable_l2_mpki": 1.3470317118935427e-07,
+    "movable_llc_mpki": -1.1101434014404443e-08
+   },
+   "knob": "l2_prefetcher",
+   "from": "next_line",
+   "to": "va_ampm_lite",
+   "effect": 0.46752662013187507,
+   "pairs": 2,
+   "bucket": "small",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0035"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "pr.urand",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 363.6364,
+    "write_fraction": 0.25,
+    "footprint_kb": 14204.6875,
+    "stride_regular_fraction": 0.99999780000022,
+    "reuse_local_fraction": 0.9374993812500618,
+    "l2_footprint_ratio": 27.7435302734375,
+    "llc_footprint_ratio": 5.5487060546875,
+    "pred_l1d_miss_ratio": 0.06250000113167113,
+    "pred_l2_miss_ratio": 0.06250000035524939,
+    "pred_llc_miss_ratio": 0.06250000000298224,
+    "movable_l2_mpki": 1.3470317118935427e-07,
+    "movable_llc_mpki": -1.1101434014404443e-08
+   },
+   "knob": "l2_sets",
+   "from": "1024",
+   "to": "512",
+   "effect": 0.27435847703686234,
+   "pairs": 2,
+   "bucket": "small",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0036"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "pr.urand",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 363.6364,
+    "write_fraction": 0.25,
+    "footprint_kb": 14204.6875,
+    "stride_regular_fraction": 0.99999780000022,
+    "reuse_local_fraction": 0.9374993812500618,
+    "l2_footprint_ratio": 27.7435302734375,
+    "llc_footprint_ratio": 5.5487060546875,
+    "pred_l1d_miss_ratio": 0.06250000113167113,
+    "pred_l2_miss_ratio": 0.06250000035524939,
+    "pred_llc_miss_ratio": 0.06250000000298224,
+    "movable_l2_mpki": 1.3470317118935427e-07,
+    "movable_llc_mpki": -1.1101434014404443e-08
+   },
+   "knob": "l2_sets",
+   "from": "256",
+   "to": "512",
+   "effect": -0.22320235154218684,
+   "pairs": 9,
+   "bucket": "small",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0037"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "pr.urand",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 363.6364,
+    "write_fraction": 0.25,
+    "footprint_kb": 14204.6875,
+    "stride_regular_fraction": 0.99999780000022,
+    "reuse_local_fraction": 0.9374993812500618,
+    "l2_footprint_ratio": 27.7435302734375,
+    "llc_footprint_ratio": 5.5487060546875,
+    "pred_l1d_miss_ratio": 0.06250000113167113,
+    "pred_l2_miss_ratio": 0.06250000035524939,
+    "pred_llc_miss_ratio": 0.06250000000298224,
+    "movable_l2_mpki": 1.3470317118935427e-07,
+    "movable_llc_mpki": -1.1101434014404443e-08
+   },
+   "knob": "l1d_ways",
+   "from": "12",
+   "to": "8",
+   "effect": -0.1006952480343215,
+   "pairs": 1,
+   "bucket": "small",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0038"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "pr.urand",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 363.6364,
+    "write_fraction": 0.25,
+    "footprint_kb": 14204.6875,
+    "stride_regular_fraction": 0.99999780000022,
+    "reuse_local_fraction": 0.9374993812500618,
+    "l2_footprint_ratio": 27.7435302734375,
+    "llc_footprint_ratio": 5.5487060546875,
+    "pred_l1d_miss_ratio": 0.06250000113167113,
+    "pred_l2_miss_ratio": 0.06250000035524939,
+    "pred_llc_miss_ratio": 0.06250000000298224,
+    "movable_l2_mpki": 1.3470317118935427e-07,
+    "movable_llc_mpki": -1.1101434014404443e-08
+   },
+   "knob": "llc_mshr",
+   "from": "128",
+   "to": "64",
+   "effect": -0.0766773100611684,
+   "pairs": 2,
+   "bucket": "small",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0039"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "pr.urand",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 363.6364,
+    "write_fraction": 0.25,
+    "footprint_kb": 14204.6875,
+    "stride_regular_fraction": 0.99999780000022,
+    "reuse_local_fraction": 0.9374993812500618,
+    "l2_footprint_ratio": 27.7435302734375,
+    "llc_footprint_ratio": 5.5487060546875,
+    "pred_l1d_miss_ratio": 0.06250000113167113,
+    "pred_l2_miss_ratio": 0.06250000035524939,
+    "pred_llc_miss_ratio": 0.06250000000298224,
+    "movable_l2_mpki": 1.3470317118935427e-07,
+    "movable_llc_mpki": -1.1101434014404443e-08
+   },
+   "knob": "l1d_sets",
+   "from": "128",
+   "to": "64",
+   "effect": 0.03747496660023497,
+   "pairs": 5,
+   "bucket": "small",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0040"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "pr.urand",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 363.6364,
+    "write_fraction": 0.25,
+    "footprint_kb": 14204.6875,
+    "stride_regular_fraction": 0.99999780000022,
+    "reuse_local_fraction": 0.9374993812500618,
+    "l2_footprint_ratio": 27.7435302734375,
+    "llc_footprint_ratio": 5.5487060546875,
+    "pred_l1d_miss_ratio": 0.06250000113167113,
+    "pred_l2_miss_ratio": 0.06250000035524939,
+    "pred_llc_miss_ratio": 0.06250000000298224,
+    "movable_l2_mpki": 1.3470317118935427e-07,
+    "movable_llc_mpki": -1.1101434014404443e-08
+   },
+   "knob": "l2_ways",
+   "from": "16",
+   "to": "8",
+   "effect": 0.026054577943868118,
+   "pairs": 1,
+   "bucket": "small",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0041"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "pr.urand",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 363.6364,
+    "write_fraction": 0.25,
+    "footprint_kb": 14204.6875,
+    "stride_regular_fraction": 0.99999780000022,
+    "reuse_local_fraction": 0.9374993812500618,
+    "l2_footprint_ratio": 27.7435302734375,
+    "llc_footprint_ratio": 5.5487060546875,
+    "pred_l1d_miss_ratio": 0.06250000113167113,
+    "pred_l2_miss_ratio": 0.06250000035524939,
+    "pred_llc_miss_ratio": 0.06250000000298224,
+    "movable_l2_mpki": 1.3470317118935427e-07,
+    "movable_llc_mpki": -1.1101434014404443e-08
+   },
+   "knob": "l2_mshr",
+   "from": "32",
+   "to": "64",
+   "effect": 0.017469595530136828,
+   "pairs": 4,
+   "bucket": "small",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0042"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "bfs.kron",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 227.011,
+    "write_fraction": 0.007904022272048492,
+    "footprint_kb": 10659.8125,
+    "stride_regular_fraction": 0.5192514900159023,
+    "reuse_local_fraction": 0.9218830805555678,
+    "l2_footprint_ratio": 20.8199462890625,
+    "llc_footprint_ratio": 4.1639892578125,
+    "pred_l1d_miss_ratio": 0.07515722937943124,
+    "pred_l2_miss_ratio": 0.07518624773130922,
+    "pred_llc_miss_ratio": 0.07517203477822954,
+    "movable_l2_mpki": 0.0020376444105666275,
+    "movable_llc_mpki": 0.0033273064528005353
+   },
+   "knob": "l1d_prefetcher",
+   "from": "ip_stride",
+   "to": "va_ampm_lite",
+   "effect": 6.2874804971513765,
+   "pairs": 1,
+   "bucket": "medium",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0043"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "bfs.kron",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 227.011,
+    "write_fraction": 0.007904022272048492,
+    "footprint_kb": 10659.8125,
+    "stride_regular_fraction": 0.5192514900159023,
+    "reuse_local_fraction": 0.9218830805555678,
+    "l2_footprint_ratio": 20.8199462890625,
+    "llc_footprint_ratio": 4.1639892578125,
+    "pred_l1d_miss_ratio": 0.07515722937943124,
+    "pred_l2_miss_ratio": 0.07518624773130922,
+    "pred_llc_miss_ratio": 0.07517203477822954,
+    "movable_l2_mpki": 0.0020376444105666275,
+    "movable_llc_mpki": 0.0033273064528005353
+   },
+   "knob": "l1d_prefetcher",
+   "from": "ip_stride",
+   "to": "next_line",
+   "effect": 5.994610199892247,
+   "pairs": 1,
+   "bucket": "medium",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0044"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "bfs.kron",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 227.011,
+    "write_fraction": 0.007904022272048492,
+    "footprint_kb": 10659.8125,
+    "stride_regular_fraction": 0.5192514900159023,
+    "reuse_local_fraction": 0.9218830805555678,
+    "l2_footprint_ratio": 20.8199462890625,
+    "llc_footprint_ratio": 4.1639892578125,
+    "pred_l1d_miss_ratio": 0.07515722937943124,
+    "pred_l2_miss_ratio": 0.07518624773130922,
+    "pred_llc_miss_ratio": 0.07517203477822954,
+    "movable_l2_mpki": 0.0020376444105666275,
+    "movable_llc_mpki": 0.0033273064528005353
+   },
+   "knob": "l2_prefetcher",
+   "from": "next_line",
+   "to": "va_ampm_lite",
+   "effect": -5.860659474266894,
+   "pairs": 2,
+   "bucket": "medium",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0045"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "bfs.kron",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 227.011,
+    "write_fraction": 0.007904022272048492,
+    "footprint_kb": 10659.8125,
+    "stride_regular_fraction": 0.5192514900159023,
+    "reuse_local_fraction": 0.9218830805555678,
+    "l2_footprint_ratio": 20.8199462890625,
+    "llc_footprint_ratio": 4.1639892578125,
+    "pred_l1d_miss_ratio": 0.07515722937943124,
+    "pred_l2_miss_ratio": 0.07518624773130922,
+    "pred_llc_miss_ratio": 0.07517203477822954,
+    "movable_l2_mpki": 0.0020376444105666275,
+    "movable_llc_mpki": 0.0033273064528005353
+   },
+   "knob": "l2_prefetcher",
+   "from": "ip_stride",
+   "to": "spp_dev",
+   "effect": 5.767937850227445,
+   "pairs": 1,
+   "bucket": "medium",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0046"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "bfs.kron",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 227.011,
+    "write_fraction": 0.007904022272048492,
+    "footprint_kb": 10659.8125,
+    "stride_regular_fraction": 0.5192514900159023,
+    "reuse_local_fraction": 0.9218830805555678,
+    "l2_footprint_ratio": 20.8199462890625,
+    "llc_footprint_ratio": 4.1639892578125,
+    "pred_l1d_miss_ratio": 0.07515722937943124,
+    "pred_l2_miss_ratio": 0.07518624773130922,
+    "pred_llc_miss_ratio": 0.07517203477822954,
+    "movable_l2_mpki": 0.0020376444105666275,
+    "movable_llc_mpki": 0.0033273064528005353
+   },
+   "knob": "l2_prefetcher",
+   "from": "ip_stride",
+   "to": "next_line",
+   "effect": 5.072939960994017,
+   "pairs": 2,
+   "bucket": "medium",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0047"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "bfs.kron",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 227.011,
+    "write_fraction": 0.007904022272048492,
+    "footprint_kb": 10659.8125,
+    "stride_regular_fraction": 0.5192514900159023,
+    "reuse_local_fraction": 0.9218830805555678,
+    "l2_footprint_ratio": 20.8199462890625,
+    "llc_footprint_ratio": 4.1639892578125,
+    "pred_l1d_miss_ratio": 0.07515722937943124,
+    "pred_l2_miss_ratio": 0.07518624773130922,
+    "pred_llc_miss_ratio": 0.07517203477822954,
+    "movable_l2_mpki": 0.0020376444105666275,
+    "movable_llc_mpki": 0.0033273064528005353
+   },
+   "knob": "l1d_sets",
+   "from": "32",
+   "to": "64",
+   "effect": 4.887878736784423,
+   "pairs": 1,
+   "bucket": "medium",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0048"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "bfs.kron",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 227.011,
+    "write_fraction": 0.007904022272048492,
+    "footprint_kb": 10659.8125,
+    "stride_regular_fraction": 0.5192514900159023,
+    "reuse_local_fraction": 0.9218830805555678,
+    "l2_footprint_ratio": 20.8199462890625,
+    "llc_footprint_ratio": 4.1639892578125,
+    "pred_l1d_miss_ratio": 0.07515722937943124,
+    "pred_l2_miss_ratio": 0.07518624773130922,
+    "pred_llc_miss_ratio": 0.07517203477822954,
+    "movable_l2_mpki": 0.0020376444105666275,
+    "movable_llc_mpki": 0.0033273064528005353
+   },
+   "knob": "l2_prefetcher",
+   "from": "spp_dev",
+   "to": "va_ampm_lite",
+   "effect": -4.661826266730317,
+   "pairs": 2,
+   "bucket": "medium",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0049"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "bfs.kron",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 227.011,
+    "write_fraction": 0.007904022272048492,
+    "footprint_kb": 10659.8125,
+    "stride_regular_fraction": 0.5192514900159023,
+    "reuse_local_fraction": 0.9218830805555678,
+    "l2_footprint_ratio": 20.8199462890625,
+    "llc_footprint_ratio": 4.1639892578125,
+    "pred_l1d_miss_ratio": 0.07515722937943124,
+    "pred_l2_miss_ratio": 0.07518624773130922,
+    "pred_llc_miss_ratio": 0.07517203477822954,
+    "movable_l2_mpki": 0.0020376444105666275,
+    "movable_llc_mpki": 0.0033273064528005353
+   },
+   "knob": "l1d_sets",
+   "from": "128",
+   "to": "32",
+   "effect": -4.395715855070581,
+   "pairs": 1,
+   "bucket": "medium",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0050"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "bfs.kron",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 227.011,
+    "write_fraction": 0.007904022272048492,
+    "footprint_kb": 10659.8125,
+    "stride_regular_fraction": 0.5192514900159023,
+    "reuse_local_fraction": 0.9218830805555678,
+    "l2_footprint_ratio": 20.8199462890625,
+    "llc_footprint_ratio": 4.1639892578125,
+    "pred_l1d_miss_ratio": 0.07515722937943124,
+    "pred_l2_miss_ratio": 0.07518624773130922,
+    "pred_llc_miss_ratio": 0.07517203477822954,
+    "movable_l2_mpki": 0.0020376444105666275,
+    "movable_llc_mpki": 0.0033273064528005353
+   },
+   "knob": "l2_prefetcher",
+   "from": "ip_stride",
+   "to": "va_ampm_lite",
+   "effect": -1.085025520452193,
+   "pairs": 2,
+   "bucket": "small",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0051"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "bfs.kron",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 227.011,
+    "write_fraction": 0.007904022272048492,
+    "footprint_kb": 10659.8125,
+    "stride_regular_fraction": 0.5192514900159023,
+    "reuse_local_fraction": 0.9218830805555678,
+    "l2_footprint_ratio": 20.8199462890625,
+    "llc_footprint_ratio": 4.1639892578125,
+    "pred_l1d_miss_ratio": 0.07515722937943124,
+    "pred_l2_miss_ratio": 0.07518624773130922,
+    "pred_llc_miss_ratio": 0.07517203477822954,
+    "movable_l2_mpki": 0.0020376444105666275,
+    "movable_llc_mpki": 0.0033273064528005353
+   },
+   "knob": "l2_prefetcher",
+   "from": "next_line",
+   "to": "spp_dev",
+   "effect": 0.3911940357801069,
+   "pairs": 4,
+   "bucket": "small",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0052"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "bfs.kron",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 227.011,
+    "write_fraction": 0.007904022272048492,
+    "footprint_kb": 10659.8125,
+    "stride_regular_fraction": 0.5192514900159023,
+    "reuse_local_fraction": 0.9218830805555678,
+    "l2_footprint_ratio": 20.8199462890625,
+    "llc_footprint_ratio": 4.1639892578125,
+    "pred_l1d_miss_ratio": 0.07515722937943124,
+    "pred_l2_miss_ratio": 0.07518624773130922,
+    "pred_llc_miss_ratio": 0.07517203477822954,
+    "movable_l2_mpki": 0.0020376444105666275,
+    "movable_llc_mpki": 0.0033273064528005353
+   },
+   "knob": "l2_sets",
+   "from": "256",
+   "to": "512",
+   "effect": -0.2805111572442824,
+   "pairs": 9,
+   "bucket": "small",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0053"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "bfs.kron",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 227.011,
+    "write_fraction": 0.007904022272048492,
+    "footprint_kb": 10659.8125,
+    "stride_regular_fraction": 0.5192514900159023,
+    "reuse_local_fraction": 0.9218830805555678,
+    "l2_footprint_ratio": 20.8199462890625,
+    "llc_footprint_ratio": 4.1639892578125,
+    "pred_l1d_miss_ratio": 0.07515722937943124,
+    "pred_l2_miss_ratio": 0.07518624773130922,
+    "pred_llc_miss_ratio": 0.07517203477822954,
+    "movable_l2_mpki": 0.0020376444105666275,
+    "movable_llc_mpki": 0.0033273064528005353
+   },
+   "knob": "l2_sets",
+   "from": "1024",
+   "to": "512",
+   "effect": 0.2614176140127378,
+   "pairs": 2,
+   "bucket": "small",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0054"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "bfs.kron",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 227.011,
+    "write_fraction": 0.007904022272048492,
+    "footprint_kb": 10659.8125,
+    "stride_regular_fraction": 0.5192514900159023,
+    "reuse_local_fraction": 0.9218830805555678,
+    "l2_footprint_ratio": 20.8199462890625,
+    "llc_footprint_ratio": 4.1639892578125,
+    "pred_l1d_miss_ratio": 0.07515722937943124,
+    "pred_l2_miss_ratio": 0.07518624773130922,
+    "pred_llc_miss_ratio": 0.07517203477822954,
+    "movable_l2_mpki": 0.0020376444105666275,
+    "movable_llc_mpki": 0.0033273064528005353
+   },
+   "knob": "l2_ways",
+   "from": "16",
+   "to": "8",
+   "effect": 0.25361227105602513,
+   "pairs": 1,
+   "bucket": "small",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0055"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "bfs.kron",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 227.011,
+    "write_fraction": 0.007904022272048492,
+    "footprint_kb": 10659.8125,
+    "stride_regular_fraction": 0.5192514900159023,
+    "reuse_local_fraction": 0.9218830805555678,
+    "l2_footprint_ratio": 20.8199462890625,
+    "llc_footprint_ratio": 4.1639892578125,
+    "pred_l1d_miss_ratio": 0.07515722937943124,
+    "pred_l2_miss_ratio": 0.07518624773130922,
+    "pred_llc_miss_ratio": 0.07517203477822954,
+    "movable_l2_mpki": 0.0020376444105666275,
+    "movable_llc_mpki": 0.0033273064528005353
+   },
+   "knob": "l1d_prefetcher",
+   "from": "next_line",
+   "to": "va_ampm_lite",
+   "effect": 0.20804376197918195,
+   "pairs": 2,
+   "bucket": "small",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0056"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "bfs.kron",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 227.011,
+    "write_fraction": 0.007904022272048492,
+    "footprint_kb": 10659.8125,
+    "stride_regular_fraction": 0.5192514900159023,
+    "reuse_local_fraction": 0.9218830805555678,
+    "l2_footprint_ratio": 20.8199462890625,
+    "llc_footprint_ratio": 4.1639892578125,
+    "pred_l1d_miss_ratio": 0.07515722937943124,
+    "pred_l2_miss_ratio": 0.07518624773130922,
+    "pred_llc_miss_ratio": 0.07517203477822954,
+    "movable_l2_mpki": 0.0020376444105666275,
+    "movable_llc_mpki": 0.0033273064528005353
+   },
+   "knob": "l1d_sets",
+   "from": "128",
+   "to": "64",
+   "effect": 0.19335881423284018,
+   "pairs": 5,
+   "bucket": "small",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0057"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "bfs.kron",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 227.011,
+    "write_fraction": 0.007904022272048492,
+    "footprint_kb": 10659.8125,
+    "stride_regular_fraction": 0.5192514900159023,
+    "reuse_local_fraction": 0.9218830805555678,
+    "l2_footprint_ratio": 20.8199462890625,
+    "llc_footprint_ratio": 4.1639892578125,
+    "pred_l1d_miss_ratio": 0.07515722937943124,
+    "pred_l2_miss_ratio": 0.07518624773130922,
+    "pred_llc_miss_ratio": 0.07517203477822954,
+    "movable_l2_mpki": 0.0020376444105666275,
+    "movable_llc_mpki": 0.0033273064528005353
+   },
+   "knob": "llc_prefetcher",
+   "from": "ip_stride",
+   "to": "spp_dev",
+   "effect": -0.16247135658965295,
+   "pairs": 5,
+   "bucket": "small",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0058"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "bfs.kron",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 227.011,
+    "write_fraction": 0.007904022272048492,
+    "footprint_kb": 10659.8125,
+    "stride_regular_fraction": 0.5192514900159023,
+    "reuse_local_fraction": 0.9218830805555678,
+    "l2_footprint_ratio": 20.8199462890625,
+    "llc_footprint_ratio": 4.1639892578125,
+    "pred_l1d_miss_ratio": 0.07515722937943124,
+    "pred_l2_miss_ratio": 0.07518624773130922,
+    "pred_llc_miss_ratio": 0.07517203477822954,
+    "movable_l2_mpki": 0.0020376444105666275,
+    "movable_llc_mpki": 0.0033273064528005353
+   },
+   "knob": "l1d_ways",
+   "from": "12",
+   "to": "8",
+   "effect": -0.13402014117519512,
+   "pairs": 1,
+   "bucket": "small",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0059"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "bfs.kron",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 227.011,
+    "write_fraction": 0.007904022272048492,
+    "footprint_kb": 10659.8125,
+    "stride_regular_fraction": 0.5192514900159023,
+    "reuse_local_fraction": 0.9218830805555678,
+    "l2_footprint_ratio": 20.8199462890625,
+    "llc_footprint_ratio": 4.1639892578125,
+    "pred_l1d_miss_ratio": 0.07515722937943124,
+    "pred_l2_miss_ratio": 0.07518624773130922,
+    "pred_llc_miss_ratio": 0.07517203477822954,
+    "movable_l2_mpki": 0.0020376444105666275,
+    "movable_llc_mpki": 0.0033273064528005353
+   },
+   "knob": "llc_mshr",
+   "from": "128",
+   "to": "64",
+   "effect": 0.0,
+   "pairs": 2,
+   "bucket": "small",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0060"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "bfs.kron",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 227.011,
+    "write_fraction": 0.007904022272048492,
+    "footprint_kb": 10659.8125,
+    "stride_regular_fraction": 0.5192514900159023,
+    "reuse_local_fraction": 0.9218830805555678,
+    "l2_footprint_ratio": 20.8199462890625,
+    "llc_footprint_ratio": 4.1639892578125,
+    "pred_l1d_miss_ratio": 0.07515722937943124,
+    "pred_l2_miss_ratio": 0.07518624773130922,
+    "pred_llc_miss_ratio": 0.07517203477822954,
+    "movable_l2_mpki": 0.0020376444105666275,
+    "movable_llc_mpki": 0.0033273064528005353
+   },
+   "knob": "l2_mshr",
+   "from": "32",
+   "to": "64",
+   "effect": 0.0,
+   "pairs": 4,
+   "bucket": "small",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0061"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "bfs.kron",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 227.011,
+    "write_fraction": 0.007904022272048492,
+    "footprint_kb": 10659.8125,
+    "stride_regular_fraction": 0.5192514900159023,
+    "reuse_local_fraction": 0.9218830805555678,
+    "l2_footprint_ratio": 20.8199462890625,
+    "llc_footprint_ratio": 4.1639892578125,
+    "pred_l1d_miss_ratio": 0.07515722937943124,
+    "pred_l2_miss_ratio": 0.07518624773130922,
+    "pred_llc_miss_ratio": 0.07517203477822954,
+    "movable_l2_mpki": 0.0020376444105666275,
+    "movable_llc_mpki": 0.0033273064528005353
+   },
+   "knob": "l2_mshr",
+   "from": "16",
+   "to": "64",
+   "effect": 0.0,
+   "pairs": 1,
+   "bucket": "small",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0062"
+  },
+  {
+   "provenance": {
+    "chip": "C_server",
+    "workload": "bfs.kron",
+    "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+   },
+   "descriptors": {
+    "mem_accesses_per_kinstr": 227.011,
+    "write_fraction": 0.007904022272048492,
+    "footprint_kb": 10659.8125,
+    "stride_regular_fraction": 0.5192514900159023,
+    "reuse_local_fraction": 0.9218830805555678,
+    "l2_footprint_ratio": 20.8199462890625,
+    "llc_footprint_ratio": 4.1639892578125,
+    "pred_l1d_miss_ratio": 0.07515722937943124,
+    "pred_l2_miss_ratio": 0.07518624773130922,
+    "pred_llc_miss_ratio": 0.07517203477822954,
+    "movable_l2_mpki": 0.0020376444105666275,
+    "movable_llc_mpki": 0.0033273064528005353
+   },
+   "knob": "l2_mshr",
+   "from": "16",
+   "to": "32",
+   "effect": 0.0,
+   "pairs": 1,
+   "bucket": "small",
+   "gate_distance": null,
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "direction_wrong_at": []
+   },
+   "id": "FACT-0063"
+  }
+ ],
+ "strategies": [
+  {
+   "id": "STRAT-0001",
+   "text": "First, establish a robust cache replacement policy that is resistant to scanning access patterns, especially for workloads with a large memory footprint. Then, tune the prefetchers, as their effectiveness is governed by the replacement policy's ability to retain useful prefetched data.",
+   "kind": "procedure",
+   "evidence": [
+    {
+     "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0",
+     "designs": [
+      "C_server_l1d_prefetcher-next_line_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-spp_dev_l2_replacement-lru_l2_sets-256_l2_ways-16_llc_mshr-64_llc_prefetcher-next_line_llc_replacement-lru_llc_sets-4096_llc_ways-16",
+      "C_server_l1d_prefetcher-next_line_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-spp_dev_l2_replacement-ship_l2_sets-256_l2_ways-16_llc_mshr-64_llc_prefetcher-spp_dev_llc_replacement-ship_llc_sets-4096_llc_ways-16",
+      "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-64_l1d_ways-12_l2_mshr-32_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-512_l2_ways-16_llc_mshr-128_llc_prefetcher-ip_stride_llc_replacement-ship_llc_sets-4096_llc_ways-16"
+     ]
+    }
+   ],
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "runs_supporting": 1
+   }
+  },
+  {
+   "id": "STRAT-0002",
+   "text": "The optimal prefetching strategy may be heterogeneous across the cache hierarchy. A complex pattern prefetcher near the core, a simple filtering prefetcher at the mid-level, and a different type of prefetcher at the last-level can outperform a uniform scheme.",
+   "kind": "structure",
+   "evidence": [
+    {
+     "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0",
+     "designs": [
+      "C_server_l1d_prefetcher-ip_stride_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-ip_stride_l2_replacement-srrip_l2_sets-1024_l2_ways-16_llc_mshr-128_llc_prefetcher-ip_stride_llc_replacement-srrip_llc_sets-2048_llc_ways-16",
+      "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-512_l2_ways-16_llc_mshr-128_llc_prefetcher-ip_stride_llc_replacement-ship_llc_sets-4096_llc_ways-16"
+     ]
+    }
+   ],
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "runs_supporting": 1
+   }
+  },
+  {
+   "id": "STRAT-0003",
+   "text": "Avoid assuming larger caches are unilaterally better; reallocating area between cache levels can be more effective than maximizing one level's size. The balance of capacity between levels often matters more than the total capacity.",
+   "kind": "failure",
+   "evidence": [
+    {
+     "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0",
+     "designs": [
+      "C_server_l1d_prefetcher-next_line_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-spp_dev_l2_replacement-ship_l2_sets-2048_l2_ways-8_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-ship_llc_sets-4096_llc_ways-8",
+      "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-64_l1d_ways-12_l2_mshr-32_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-512_l2_ways-16_llc_mshr-128_llc_prefetcher-ip_stride_llc_replacement-ship_llc_sets-4096_llc_ways-16"
+     ]
+    }
+   ],
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "runs_supporting": 1
+   }
+  },
+  {
+   "id": "STRAT-0004",
+   "text": "Do not exclusively pursue incremental improvements from the best-known design, as this can trap the search in a local optimum. Periodically test radically different configurations, especially by combining mechanisms that previously performed poorly in other contexts.",
+   "kind": "failure",
+   "evidence": [
+    {
+     "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0",
+     "designs": [
+      "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-va_ampm_lite_l2_replacement-ship_l2_sets-256_l2_ways-16_llc_mshr-128_llc_prefetcher-ip_stride_llc_replacement-ship_llc_sets-4096_llc_ways-16",
+      "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-256_l2_ways-16_llc_mshr-128_llc_prefetcher-ip_stride_llc_replacement-ship_llc_sets-4096_llc_ways-16"
+     ]
+    }
+   ],
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "runs_supporting": 1
+   }
+  },
+  {
+   "id": "STRAT-0005",
+   "text": "For memory-intensive workloads, miss handler resources should be allocated according to where misses are most frequent. Increasing last-level cache miss handlers may be more critical than increasing them at mid-level caches, especially if the last-level cache is the primary backstop for main memory.",
+   "kind": "structure",
+   "evidence": [
+    {
+     "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0",
+     "designs": [
+      "C_server_l1d_prefetcher-next_line_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-spp_dev_l2_replacement-lru_l2_sets-256_l2_ways-16_llc_mshr-64_llc_prefetcher-next_line_llc_replacement-lru_llc_sets-4096_llc_ways-16",
+      "C_server_l1d_prefetcher-next_line_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-spp_dev_l2_replacement-ship_l2_sets-256_l2_ways-16_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-ship_llc_sets-4096_llc_ways-16",
+      "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-64_l1d_ways-12_l2_mshr-32_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-512_l2_ways-16_llc_mshr-128_llc_prefetcher-ip_stride_llc_replacement-ship_llc_sets-4096_llc_ways-16"
+     ]
+    }
+   ],
+   "record": {
+    "cited": 0,
+    "improved": 0,
+    "worsened": 0,
+    "runs_supporting": 1
+   }
+  }
+ ],
+ "forecast_log": [
+  {
+   "design": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-va_ampm_lite_l2_replacement-ship_l2_sets-256_l2_ways-16_llc_mshr-128_llc_prefetcher-ip_stride_llc_replacement-ship_llc_sets-4096_llc_ways-16",
+   "predicted": 0.71,
+   "confidence": 0.5,
+   "measured": 0.5746448397583143,
+   "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+  },
+  {
+   "design": "C_server_l1d_prefetcher-ip_stride_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-ip_stride_l2_replacement-srrip_l2_sets-1024_l2_ways-16_llc_mshr-128_llc_prefetcher-ip_stride_llc_replacement-srrip_llc_sets-2048_llc_ways-16",
+   "predicted": 0.77,
+   "confidence": 0.6,
+   "measured": 0.46846339623472494,
+   "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+  },
+  {
+   "design": "C_server_l1d_prefetcher-ip_stride_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-spp_dev_l2_replacement-srrip_l2_sets-1024_l2_ways-8_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-srrip_llc_sets-8192_llc_ways-8",
+   "predicted": 0.648,
+   "confidence": 0.5,
+   "measured": 0.5792431369594324,
+   "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+  },
+  {
+   "design": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-va_ampm_lite_l2_replacement-drrip_l2_sets-256_l2_ways-16_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-drrip_llc_sets-4096_llc_ways-16",
+   "predicted": 0.635,
+   "confidence": 0.5,
+   "measured": 0.5846180917964825,
+   "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+  },
+  {
+   "design": "C_server_l1d_prefetcher-next_line_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-spp_dev_l2_replacement-lru_l2_sets-512_l2_ways-16_llc_mshr-64_llc_prefetcher-next_line_llc_replacement-lru_llc_sets-4096_llc_ways-16",
+   "predicted": 0.621,
+   "confidence": 0.6,
+   "measured": 0.5980059823664718,
+   "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+  },
+  {
+   "design": "C_server_l1d_prefetcher-ip_stride_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-ip_stride_l2_replacement-srrip_l2_sets-1024_l2_ways-8_llc_mshr-128_llc_prefetcher-ip_stride_llc_replacement-srrip_llc_sets-8192_llc_ways-8",
+   "predicted": 0.593,
+   "confidence": 0.4,
+   "measured": 0.5026497383601963,
+   "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+  },
+  {
+   "design": "C_server_l1d_prefetcher-next_line_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-spp_dev_l2_replacement-ship_l2_sets-256_l2_ways-16_llc_mshr-64_llc_prefetcher-spp_dev_llc_replacement-ship_llc_sets-4096_llc_ways-16",
+   "predicted": 0.612,
+   "confidence": 0.5,
+   "measured": 0.608836325784352,
+   "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+  },
+  {
+   "design": "C_server_l1d_prefetcher-ip_stride_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-ip_stride_l2_replacement-drrip_l2_sets-256_l2_ways-16_llc_mshr-128_llc_prefetcher-ip_stride_llc_replacement-drrip_llc_sets-4096_llc_ways-16",
+   "predicted": 0.607,
+   "confidence": 0.5,
+   "measured": 0.5095153947549966,
+   "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+  },
+  {
+   "design": "C_server_l1d_prefetcher-next_line_l1d_sets-128_l1d_ways-12_l2_mshr-64_l2_prefetcher-spp_dev_l2_replacement-ship_l2_sets-256_l2_ways-16_llc_mshr-64_llc_prefetcher-spp_dev_llc_replacement-ship_llc_sets-4096_llc_ways-16",
+   "predicted": 0.619,
+   "confidence": 0.5,
+   "measured": 0.6031432060973605,
+   "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+  },
+  {
+   "design": "C_server_l1d_prefetcher-next_line_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-spp_dev_l2_replacement-drrip_l2_sets-256_l2_ways-16_llc_mshr-64_llc_prefetcher-spp_dev_llc_replacement-drrip_llc_sets-4096_llc_ways-16",
+   "predicted": 0.611,
+   "confidence": 0.4,
+   "measured": 0.6054908516210192,
+   "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+  },
+  {
+   "design": "C_server_l1d_prefetcher-next_line_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-spp_dev_l2_replacement-ship_l2_sets-256_l2_ways-16_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-ship_llc_sets-4096_llc_ways-16",
+   "predicted": 0.617,
+   "confidence": 0.6,
+   "measured": 0.608836325784352,
+   "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+  },
+  {
+   "design": "C_server_l1d_prefetcher-next_line_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-spp_dev_l2_replacement-ship_l2_sets-256_l2_ways-16_llc_mshr-64_llc_prefetcher-ip_stride_llc_replacement-ship_llc_sets-4096_llc_ways-16",
+   "predicted": 0.612,
+   "confidence": 0.5,
+   "measured": 0.6044521150194624,
+   "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+  },
+  {
+   "design": "C_server_l1d_prefetcher-next_line_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-spp_dev_l2_replacement-ship_l2_sets-512_l2_ways-16_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-ship_llc_sets-4096_llc_ways-16",
+   "predicted": 0.613,
+   "confidence": 0.6,
+   "measured": 0.602075481346658,
+   "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+  },
+  {
+   "design": "C_server_l1d_prefetcher-next_line_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-spp_dev_l2_replacement-ship_l2_sets-2048_l2_ways-8_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-ship_llc_sets-4096_llc_ways-8",
+   "predicted": 0.595,
+   "confidence": 0.4,
+   "measured": 0.5571686107835853,
+   "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+  },
+  {
+   "design": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-spp_dev_l2_replacement-ship_l2_sets-256_l2_ways-16_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-ship_llc_sets-4096_llc_ways-16",
+   "predicted": 0.611,
+   "confidence": 0.5,
+   "measured": 0.6123319822594682,
+   "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+  },
+  {
+   "design": "C_server_l1d_prefetcher-next_line_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-spp_dev_l2_replacement-ship_l2_sets-256_l2_ways-16_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-ship_llc_sets-8192_llc_ways-8",
+   "predicted": 0.61,
+   "confidence": 0.5,
+   "measured": 0.600661067500984,
+   "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+  },
+  {
+   "design": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-spp_dev_l2_replacement-ship_l2_sets-512_l2_ways-16_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-ship_llc_sets-4096_llc_ways-16",
+   "predicted": 0.623,
+   "confidence": 0.6,
+   "measured": 0.6086910508538526,
+   "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+  },
+  {
+   "design": "C_server_l1d_prefetcher-ip_stride_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-spp_dev_l2_replacement-ship_l2_sets-256_l2_ways-16_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-ship_llc_sets-4096_llc_ways-16",
+   "predicted": 0.61,
+   "confidence": 0.4,
+   "measured": 0.5918272670614381,
+   "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+  },
+  {
+   "design": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-spp_dev_l2_replacement-drrip_l2_sets-256_l2_ways-16_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-drrip_llc_sets-4096_llc_ways-16",
+   "predicted": 0.614,
+   "confidence": 0.6,
+   "measured": 0.6083651151122275,
+   "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+  },
+  {
+   "design": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-128_l1d_ways-12_l2_mshr-64_l2_prefetcher-spp_dev_l2_replacement-ship_l2_sets-256_l2_ways-16_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-ship_llc_sets-4096_llc_ways-16",
+   "predicted": 0.617,
+   "confidence": 0.5,
+   "measured": 0.6109251907819966,
+   "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+  },
+  {
+   "design": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-spp_dev_l2_replacement-ship_l2_sets-1024_l2_ways-8_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-ship_llc_sets-8192_llc_ways-8",
+   "predicted": 0.61,
+   "confidence": 0.5,
+   "measured": 0.6057328534171824,
+   "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+  },
+  {
+   "design": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-256_l2_ways-16_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-ship_llc_sets-4096_llc_ways-16",
+   "predicted": 0.615,
+   "confidence": 0.5,
+   "measured": 0.6128109241171832,
+   "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+  },
+  {
+   "design": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-512_l2_ways-16_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-ship_llc_sets-4096_llc_ways-16",
+   "predicted": 0.6135,
+   "confidence": 0.5,
+   "measured": 0.6107185000986444,
+   "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+  },
+  {
+   "design": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-256_l2_ways-16_llc_mshr-128_llc_prefetcher-ip_stride_llc_replacement-ship_llc_sets-4096_llc_ways-16",
+   "predicted": 0.615,
+   "confidence": 0.5,
+   "measured": 0.6212301499506078,
+   "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+  },
+  {
+   "design": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-spp_dev_l2_replacement-ship_l2_sets-256_l2_ways-16_llc_mshr-128_llc_prefetcher-ip_stride_llc_replacement-ship_llc_sets-4096_llc_ways-16",
+   "predicted": 0.626,
+   "confidence": 0.6,
+   "measured": 0.6166540470309836,
+   "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+  },
+  {
+   "design": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-1024_l2_ways-8_llc_mshr-128_llc_prefetcher-ip_stride_llc_replacement-ship_llc_sets-8192_llc_ways-8",
+   "predicted": 0.624,
+   "confidence": 0.5,
+   "measured": 0.6156629876836451,
+   "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+  },
+  {
+   "design": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-ip_stride_l2_replacement-ship_l2_sets-256_l2_ways-16_llc_mshr-128_llc_prefetcher-ip_stride_llc_replacement-ship_llc_sets-4096_llc_ways-16",
+   "predicted": 0.625,
+   "confidence": 0.6,
+   "measured": 0.5860743552050507,
+   "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+  },
+  {
+   "design": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-128_l1d_ways-12_l2_mshr-64_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-256_l2_ways-16_llc_mshr-128_llc_prefetcher-ip_stride_llc_replacement-ship_llc_sets-4096_llc_ways-16",
+   "predicted": 0.624,
+   "confidence": 0.5,
+   "measured": 0.6192542559454789,
+   "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+  },
+  {
+   "design": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-512_l2_ways-8_llc_mshr-128_llc_prefetcher-ip_stride_llc_replacement-ship_llc_sets-8192_llc_ways-8",
+   "predicted": 0.625,
+   "confidence": 0.4,
+   "measured": 0.6155644974032825,
+   "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+  },
+  {
+   "design": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-512_l2_ways-16_llc_mshr-128_llc_prefetcher-ip_stride_llc_replacement-ship_llc_sets-4096_llc_ways-16",
+   "predicted": 0.625,
+   "confidence": 0.6,
+   "measured": 0.6220509062618454,
+   "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+  },
+  {
+   "design": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-spp_dev_l2_replacement-ship_l2_sets-512_l2_ways-16_llc_mshr-128_llc_prefetcher-ip_stride_llc_replacement-ship_llc_sets-4096_llc_ways-16",
+   "predicted": 0.6245,
+   "confidence": 0.5,
+   "measured": 0.615014104529209,
+   "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+  },
+  {
+   "design": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-128_l1d_ways-12_l2_mshr-64_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-512_l2_ways-16_llc_mshr-128_llc_prefetcher-ip_stride_llc_replacement-ship_llc_sets-4096_llc_ways-16",
+   "predicted": 0.623,
+   "confidence": 0.5,
+   "measured": 0.6205517027287414,
+   "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+  },
+  {
+   "design": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-64_l1d_ways-12_l2_mshr-16_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-512_l2_ways-16_llc_mshr-128_llc_prefetcher-ip_stride_llc_replacement-ship_llc_sets-4096_llc_ways-16",
+   "predicted": 0.6225,
+   "confidence": 0.4,
+   "measured": 0.6136530939979103,
+   "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+  },
+  {
+   "design": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-64_l1d_ways-12_l2_mshr-32_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-1024_l2_ways-16_llc_mshr-128_llc_prefetcher-ip_stride_llc_replacement-ship_llc_sets-4096_llc_ways-8",
+   "predicted": 0.61,
+   "confidence": 0.5,
+   "measured": 0.5790695260013172,
+   "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+  },
+  {
+   "design": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-64_l1d_ways-12_l2_mshr-32_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-1024_l2_ways-8_llc_mshr-128_llc_prefetcher-ip_stride_llc_replacement-ship_llc_sets-4096_llc_ways-16",
+   "predicted": 0.619,
+   "confidence": 0.4,
+   "measured": 0.6223192639229438,
+   "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+  },
+  {
+   "design": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-64_l1d_ways-12_l2_mshr-32_l2_prefetcher-va_ampm_lite_l2_replacement-ship_l2_sets-512_l2_ways-16_llc_mshr-128_llc_prefetcher-ip_stride_llc_replacement-ship_llc_sets-4096_llc_ways-16",
+   "predicted": 0.6235,
+   "confidence": 0.4,
+   "measured": 0.5718110621258182,
+   "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+  },
+  {
+   "design": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-64_l1d_ways-12_l2_mshr-32_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-1024_l2_ways-8_llc_mshr-128_llc_prefetcher-ip_stride_llc_replacement-ship_llc_sets-8192_llc_ways-8",
+   "predicted": 0.616,
+   "confidence": 0.5,
+   "measured": 0.6156354482046638,
+   "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+  },
+  {
+   "design": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-64_l1d_ways-12_l2_mshr-32_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-512_l2_ways-16_llc_mshr-64_llc_prefetcher-ip_stride_llc_replacement-ship_llc_sets-4096_llc_ways-16",
+   "predicted": 0.619,
+   "confidence": 0.6,
+   "measured": 0.6219557549567435,
+   "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+  },
+  {
+   "design": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-64_l1d_ways-12_l2_mshr-32_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-256_l2_ways-16_llc_mshr-128_llc_prefetcher-ip_stride_llc_replacement-ship_llc_sets-8192_llc_ways-8",
+   "predicted": 0.6215,
+   "confidence": 0.5,
+   "measured": 0.6144261355994757,
+   "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+  },
+  {
+   "design": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-32_l1d_ways-12_l2_mshr-32_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-512_l2_ways-16_llc_mshr-128_llc_prefetcher-ip_stride_llc_replacement-ship_llc_sets-4096_llc_ways-16",
+   "predicted": 0.6228,
+   "confidence": 0.4,
+   "measured": 0.5216232095039545,
+   "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+  },
+  {
+   "design": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-64_l1d_ways-12_l2_mshr-32_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-2048_l2_ways-16_llc_mshr-128_llc_prefetcher-ip_stride_llc_replacement-ship_llc_sets-2048_llc_ways-16",
+   "predicted": 0.635,
+   "confidence": 0.5,
+   "measured": 0.5834208421809637,
+   "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+  },
+  {
+   "design": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-64_l1d_ways-12_l2_mshr-32_l2_prefetcher-ip_stride_l2_replacement-ship_l2_sets-512_l2_ways-16_llc_mshr-128_llc_prefetcher-ip_stride_llc_replacement-ship_llc_sets-4096_llc_ways-16",
+   "predicted": 0.625,
+   "confidence": 0.5,
+   "measured": 0.5848603654244865,
+   "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+  },
+  {
+   "design": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-64_l1d_ways-12_l2_mshr-32_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-256_l2_ways-16_llc_mshr-128_llc_prefetcher-ip_stride_llc_replacement-ship_llc_sets-4096_llc_ways-16",
+   "predicted": 0.6228,
+   "confidence": 0.6,
+   "measured": 0.6209932571184565,
+   "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+  },
+  {
+   "design": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-64_l1d_ways-12_l2_mshr-32_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-512_l2_ways-16_llc_mshr-128_llc_prefetcher-ip_stride_llc_replacement-ship_llc_sets-8192_llc_ways-8",
+   "predicted": 0.6235,
+   "confidence": 0.5,
+   "measured": 0.6151370974757976,
+   "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+  },
+  {
+   "design": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-128_l1d_ways-12_l2_mshr-32_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-512_l2_ways-16_llc_mshr-128_llc_prefetcher-ip_stride_llc_replacement-ship_llc_sets-4096_llc_ways-16",
+   "predicted": 0.6226,
+   "confidence": 0.5,
+   "measured": 0.620688350410034,
+   "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+  },
+  {
+   "design": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-64_l1d_ways-12_l2_mshr-32_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-512_l2_ways-8_llc_mshr-128_llc_prefetcher-ip_stride_llc_replacement-ship_llc_sets-4096_llc_ways-16",
+   "predicted": 0.6218,
+   "confidence": 0.5,
+   "measured": 0.6217959852552676,
+   "run_id": "llm_direct-C_server/suite-bfs.urand+pr.urand+bfs.kron-s0"
+  }
+ ]
+}

@@ -1,15 +1,18 @@
 """The search space and ChampSim config generation.
 
-Twelve knobs over the three cache levels: sizes, associativity, prefetchers,
-replacement and miss-handling depth (MSHRs gate memory-level parallelism and
-interact with prefetchers). Cache latency is DERIVED FROM SIZE by ChampSim's own
-formula, so a bigger cache is slower and capacity is never free. 207,360 designs
-before the area budget. PLACEHOLDER values, team to review.
+Thirteen knobs over the three cache levels: sizes, associativity, a prefetcher at
+every level, replacement at L2 and LLC, and miss-handling depth (MSHRs gate
+memory-level parallelism and interact with prefetchers). Cache latency is
+DERIVED FROM SIZE by ChampSim's own formula, so a bigger cache is slower and
+capacity is never free. 3.3 million designs before the area budget, too many to
+enumerate: designs are sampled (random_feasible_designs) or checked one at a
+time (in_space + within_budget). PLACEHOLDER values, team to review.
 """
 
 import itertools
 import json
 import os
+import random
 import threading
 
 from loop.socs import apply_profile, num_cores, AREA_BUDGET_KB
@@ -17,13 +20,14 @@ from loop.socs import apply_profile, num_cores, AREA_BUDGET_KB
 SEARCH_SPACE = {
     "l1d_sets": [32, 64, 128],
     "l1d_ways": [8, 12],
-    "l1d_prefetcher": ["no", "next_line"],
+    "l1d_prefetcher": ["no", "next_line", "ip_stride", "va_ampm_lite"],
     "l2_sets": [256, 512, 1024, 2048],
     "l2_ways": [4, 8, 16],
     "l2_prefetcher": ["no", "spp_dev", "ip_stride", "next_line", "va_ampm_lite"],
+    "l2_replacement": ["lru", "srrip", "drrip", "ship"],
     "llc_sets": [1024, 2048, 4096, 8192],
     "llc_ways": [8, 16],
-    "llc_prefetcher": ["no", "next_line"],
+    "llc_prefetcher": ["no", "next_line", "ip_stride", "spp_dev"],
     "llc_replacement": ["lru", "srrip", "drrip", "ship"],
     "l2_mshr": [16, 32, 64],
     "llc_mshr": [32, 64, 128],
@@ -39,6 +43,7 @@ LATENCY_CACHES = ["L1D", "L2C", "LLC"]
 KNOB_LOCATION = {
     "l1d_sets": ("L1D", "sets"), "l1d_ways": ("L1D", "ways"), "l1d_prefetcher": ("L1D", "prefetcher"),
     "l2_sets": ("L2C", "sets"), "l2_ways": ("L2C", "ways"), "l2_prefetcher": ("L2C", "prefetcher"),
+    "l2_replacement": ("L2C", "replacement"),
     "llc_sets": ("LLC", "sets"), "llc_ways": ("LLC", "ways"), "llc_prefetcher": ("LLC", "prefetcher"),
     "llc_replacement": ("LLC", "replacement"),
     "l2_mshr": ("L2C", "mshr_size"), "llc_mshr": ("LLC", "mshr_size"),
@@ -59,6 +64,50 @@ def all_configurations(space=SEARCH_SPACE):
             knobs[knob] = value
         combinations.append(knobs)
     return combinations
+
+
+def in_space(knobs, space=SEARCH_SPACE):
+    """Every knob present, every value allowed (the LLM may write 1024 as "1024")."""
+    if len(knobs) != len(space):
+        return False
+    for knob in space:
+        if knob not in knobs:
+            return False
+        allowed = [str(value) for value in space[knob]]
+        if str(knobs[knob]) not in allowed:
+            return False
+    return True
+
+
+def typed_knobs(knobs, space=SEARCH_SPACE):
+    """The same design with every value carrying the space's own type."""
+    typed = {}
+    for knob in space:
+        for value in space[knob]:
+            if str(value) == str(knobs[knob]):
+                typed[knob] = value
+    return typed
+
+
+def random_feasible_designs(soc_name, how_many, seed=0, space=SEARCH_SPACE):
+    """`how_many` distinct designs drawn uniformly from the chip's feasible set by
+    rejection sampling (a fixed seed gives the same list every time)."""
+    generator = random.Random(seed)
+    knob_names = list(space.keys())
+    designs = []
+    seen = set()
+    while len(designs) < how_many:
+        knobs = {}
+        for knob in knob_names:
+            knobs[knob] = generator.choice(space[knob])
+        if not within_budget(knobs, soc_name, None):
+            continue
+        key = config_name(knobs, soc_name)
+        if key in seen:
+            continue
+        seen.add(key)
+        designs.append(knobs)
+    return designs
 
 
 def config_name(knobs, soc_name):

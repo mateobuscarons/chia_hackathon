@@ -9,9 +9,9 @@ import os
 import time
 from concurrent.futures import ThreadPoolExecutor
 
-from loop.configs import (KNOB_LOCATION, SPACES, all_configurations, build_config, config_name,
-                          make_config, within_budget)
-from loop.socs import AREA_BUDGET_KB, num_cores
+from loop.configs import (KNOB_LOCATION, SPACES, build_config, config_name, in_space, make_config,
+                          random_feasible_designs, typed_knobs, within_budget)
+from loop.socs import AREA_BUDGET_KB, describe, num_cores
 from loop import trace_profile
 from loop.simulate import build_binary, run_simulation
 
@@ -26,9 +26,14 @@ DEFAULT_SIMULATION = 10_000_000
 WARMUP_INSTRUCTIONS = int(os.environ.get("LOOP_WARMUP", DEFAULT_WARMUP))
 SIMULATION_INSTRUCTIONS = int(os.environ.get("LOOP_SIM", DEFAULT_SIMULATION))
 
-# The untouched chip: every SoC/trace loop starts by measuring this.
+# The untouched chip: every SoC/trace loop starts by measuring this. (ChampSim's
+# stock config names no L2 replacement policy and uses LRU; the knob says so.)
 BASELINE_KNOBS = {"l2_sets": 1024, "llc_sets": 2048,
-                  "l2_prefetcher": "no", "llc_replacement": "lru"}
+                  "l2_prefetcher": "no", "llc_replacement": "lru", "l2_replacement": "lru"}
+
+# The GP and random arms score a fixed random sample of the feasible designs (the
+# space has millions); the agent arms may name ANY feasible design (is_candidate).
+CANDIDATE_POOL = 20000
 
 # "local" or "chia" (LOOP_DISPATCH=chia is set by run_chia): with "chia" every
 # build and simulation is a CHIA task, so experiment.py needs no changes.
@@ -181,18 +186,17 @@ def table_path(soc_name, trace_path):
 
 
 def trace_short_name(trace_path):
-    """"mcf" for 605.mcf_s-665B..., "bfs.urand" for bfs.urand-36B..., and the
-    names joined with "+" for a mix (a list of traces)."""
+    """The trace's whole name, without directory and without the compression
+    suffix: "605.mcf_s-665B", "bfs.urand-36B", "llama2.c-stories15M.2". The
+    names joined with "+" for a mix (a list of traces). No parsing: a shortened
+    name collides as soon as two traces share a prefix (the four llama2 model
+    sizes all begin "llama2.c"), and the agent reads this name in its prompt."""
     if isinstance(trace_path, list):
         parts = []
         for member in trace_path:
             parts.append(trace_short_name(member))
         return "+".join(parts)
-    name = os.path.basename(trace_path).split(".champsimtrace")[0]
-    pieces = name.split(".")
-    if pieces[0].isdigit():
-        return pieces[1].split("_")[0]
-    return name.split("-")[0]
+    return os.path.basename(trace_path).split(".champsimtrace")[0]
 
 
 def load_table(path):
@@ -346,7 +350,8 @@ def make_problem(soc_name, trace_path, allow_simulation=True, dispatch=None, spa
     trace_name = trace_short_name(trace_path)
     holder = ChampSimProblem(soc_name, trace_path, allow_simulation, dispatch, space_name)
     space = SPACES[space_name]
-    baseline = profiled_baseline(soc_name, space_name)
+    untouched = profiled_baseline(soc_name, space_name)
+    baseline = dict(untouched)
     if start_knobs is not None:
         baseline = dict(start_knobs)
         if not within_budget(baseline, soc_name, BASE_CONFIG):
@@ -354,29 +359,49 @@ def make_problem(soc_name, trace_path, allow_simulation=True, dispatch=None, spa
 
     # Conditions live on the workload descriptors: the trace profile (built once
     # per trace, cached in results/profile_*.json) read against this chip's geometry.
+    # Always the UNTOUCHED chip's geometry: a descriptor is a property of the
+    # workload on this chip, and must not change with the design a search starts from.
     if isinstance(trace_path, list):
         profiles = []
         for member in trace_path:
             profiles.append(trace_profile.load_or_build(member, WARMUP_INSTRUCTIONS, SIMULATION_INSTRUCTIONS))
-        descriptors = mix_descriptors(profiles, baseline, space, soc_name)
+        descriptors = mix_descriptors(profiles, untouched, space, soc_name)
     else:
         profile = trace_profile.load_or_build(trace_path, WARMUP_INSTRUCTIONS, SIMULATION_INSTRUCTIONS)
-        descriptors = chip_descriptors(profile, baseline, space, soc_name)
+        descriptors = chip_descriptors(profile, untouched, space, soc_name)
     condition_metrics = list(DESCRIPTOR_METRICS)
 
-    candidates = {}
-    for knobs in all_configurations(space):
-        name = config_name(knobs, soc_name)
+    def is_candidate(knobs):
+        """Any design the loop may run: in the space, inside the budget, not crashed here."""
+        if not in_space(knobs, space):
+            return False
+        typed = typed_knobs(knobs, space)
+        if not within_budget(typed, soc_name, BASE_CONFIG):
+            return False
+        name = config_name(typed, soc_name)
         crashed = name in holder.sweep_table and holder.sweep_table[name]["metrics"] is None
-        if within_budget(knobs, soc_name, BASE_CONFIG) and not crashed:
-            candidates[name] = knobs
+        return not crashed
+
+    def name_of(knobs):
+        return config_name(typed_knobs(knobs, space), soc_name)
+
+    candidates = {}
+    for knobs in [baseline] + random_feasible_designs(soc_name, CANDIDATE_POOL, space=space):
+        if is_candidate(knobs):
+            candidates[name_of(knobs)] = knobs
 
     return {
         "name": soc_name + "/" + trace_name,
         "soc_name": soc_name,
         "search_space": space,
         "candidates": candidates,
+        "is_candidate": is_candidate,
+        "name_of": name_of,
         "baseline": baseline,
+        # The chip as shipped: what "bigger than the chip's own cache" means for a
+        # rule, whatever design the search starts from.
+        "untouched": untouched,
+        "chip_text": describe(soc_name),
         "evaluate": holder.evaluate,
         "evaluate_many": holder.evaluate_many,
         "objective": "ipc",
@@ -432,16 +457,23 @@ def make_suite_problem(soc_name, trace_paths, allow_simulation=True, dispatch=No
 
     # Candidates: a design must fit the budget (same for every workload); crashed
     # designs on any workload are excluded.
-    candidates = dict(first["candidates"])
-    for problem in single_problems[1:]:
-        for name in list(candidates.keys()):
-            if name not in problem["candidates"]:
-                del candidates[name]
+    def is_candidate(knobs):
+        for problem in single_problems:
+            if not problem["is_candidate"](knobs):
+                return False
+        return True
 
+    candidates = {}
+    for name, knobs in first["candidates"].items():
+        if is_candidate(knobs):
+            candidates[name] = knobs
+
+    # The table shows the suite objective and, per workload, the objective and the
+    # cache diagnostics the agent reasons with (a suite-mean MPKI mixes workloads).
     table_metrics = ["ipc"]
     for short in short_names:
-        table_metrics.append(short + ":ipc")
-    table_metrics = table_metrics + ["L2C_mpki", "LLC_mpki", "LLC_hit_ratio"]
+        for metric in ["ipc", "L2C_mpki", "LLC_mpki", "LLC_hit_ratio"]:
+            table_metrics.append(short + ":" + metric)
     # Suite descriptors: mean and max of each workload's descriptor.
     base_metrics = list(first["condition_metrics"])
     condition_metrics = list(base_metrics)
@@ -463,7 +495,11 @@ def make_suite_problem(soc_name, trace_paths, allow_simulation=True, dispatch=No
         "soc_name": soc_name,
         "search_space": first["search_space"],
         "candidates": candidates,
+        "is_candidate": is_candidate,
+        "name_of": first["name_of"],
         "baseline": first["baseline"],
+        "untouched": first["untouched"],
+        "chip_text": first["chip_text"],
         "evaluate": evaluate,
         "evaluate_many": evaluate_many,
         "objective": "ipc",
@@ -475,6 +511,19 @@ def make_suite_problem(soc_name, trace_paths, allow_simulation=True, dispatch=No
         "holder": first["holder"],
         "holders": [problem["holder"] for problem in single_problems],
     }
+
+
+def candidate_pool(problem, seed):
+    """The sample of feasible designs the GP and random arms score, drawn with the
+    run's own seed: every seed scores a different sample, as the agents' seeds
+    give different searches. Always holds the start design."""
+    baseline = problem["baseline"]
+    pool = {problem["name_of"](baseline): baseline}
+    drawn = random_feasible_designs(problem["soc_name"], CANDIDATE_POOL, seed=seed, space=problem["search_space"])
+    for knobs in drawn:
+        if problem["is_candidate"](knobs):
+            pool[problem["name_of"](knobs)] = knobs
+    return pool
 
 
 def aggregate_suite(per_trace_metrics, short_names):

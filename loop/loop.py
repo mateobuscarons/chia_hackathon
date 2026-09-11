@@ -3,8 +3,11 @@
 Simulator-agnostic. Everything domain-specific arrives in the `problem` dict:
   name          - label, e.g. "B_midrange/mcf"
   search_space  - {knob: [allowed values]}
-  candidates    - {config name: knobs} for every config allowed to be run
-  baseline      - the knobs of the untouched design (must be in candidates)
+  candidates    - {config name: knobs}: a random sample of the feasible designs (the
+                  pool the GP and random arms score; the space has millions)
+  is_candidate  - function(knobs) -> bool: may this design be run at all
+  name_of       - function(knobs) -> the design's name (the result tables' key)
+  baseline      - the knobs of the design every arm starts from
   evaluate      - function(knobs) -> metrics dict (the ONLY call to a simulator)
   evaluate_many - function([knobs]) -> [metrics], may run them in parallel
   objective     - metric name to maximize, e.g. "ipc"
@@ -43,6 +46,56 @@ RESCOPE_AFTER_LOSSES = 3
 MIN_CLAIM_GAIN_PCT = 1.0
 
 
+def measured_names(history):
+    names = set()
+    for entry in history:
+        names.add(entry["name"])
+    return names
+
+
+def neighbourhood(incumbent, problem):
+    """Every runnable design one or two knob changes away from `incumbent`.
+    A pooled arm's knobs carry a "soc" tag that is not a knob; it is set aside
+    for the checks and put back on the neighbour."""
+    space = problem["search_space"]
+    knob_names = []
+    for knob in space:
+        if knob != "soc":
+            knob_names.append(knob)
+    designs = {}
+
+    def consider(knobs):
+        plain = dict(knobs)
+        tag = plain.pop("soc", None)
+        if not problem["is_candidate"](plain):
+            return
+        name = problem["name_of"](plain)
+        if tag is not None:
+            plain["soc"] = tag
+        designs[name] = plain
+
+    one_step = []
+    for knob in knob_names:
+        for value in space[knob]:
+            if str(value) == str(incumbent[knob]):
+                continue
+            design = dict(incumbent)
+            design[knob] = value
+            one_step.append(design)
+            consider(design)
+    for design in one_step:
+        for knob in knob_names:
+            if str(design[knob]) != str(incumbent[knob]):
+                continue
+            for value in space[knob]:
+                if str(value) == str(incumbent[knob]):
+                    continue
+                second = dict(design)
+                second[knob] = value
+                consider(second)
+    return designs
+
+
 def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analyst, tag,
              prior_history=None, seed=0, explore=0.0, resume_history=None):
     """Returns {"history": [...], "rounds": [...]}; bets land in `store`.
@@ -53,9 +106,9 @@ def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analys
     tag:         prefix for reply ids so arms can be told apart in the ledger
     prior_history: runs from OTHER chips the surrogate may learn from (pooled
                  transfer); they never count as simulations
-    explore:     std bonus added to EI (bo_pooled_x); 0 is textbook EI
-    resume_history: designs already measured on this problem by another selector
-                 (the handoff arm's agent rounds); the loop continues from them
+    explore:     std bonus added to EI; 0 is textbook EI
+    resume_history: designs already measured on this problem by another selector;
+                 the loop continues from them
 
     Selection: expected improvement over a GP whose mean the speaking rules shift
     (bounded, decaying as real observations arrive). When the last round brought
@@ -68,15 +121,19 @@ def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analys
         prior_history = []
     objective = problem["objective"]
     candidates = dict(problem["candidates"])
-    baseline_name = name_of(problem, problem["baseline"])
+    baseline_name = problem["name_of"](problem["baseline"])
     baseline_metrics = problem["evaluate"](problem["baseline"])
     reference = baseline_metrics[objective]
     # Conditions are checked on the workload descriptors (chip-independent); the
     # chip's own baseline run stays the reference for values and forecasts.
     descriptors = problem["descriptors"]
+    # Claims are anchored on the UNTOUCHED chip ("bigger than the chip's own LLC"),
+    # not on the design the search starts from, so a start design that already
+    # carries a claim's value does not silence the rule.
+    anchor = problem.get("untouched", problem["baseline"])
     history = [{"name": baseline_name, "knobs": problem["baseline"], "metrics": baseline_metrics,
                 "reference": reference}]
-    del candidates[baseline_name]
+    candidates.pop(baseline_name, None)
     if resume_history is not None:
         history = list(resume_history)
         for entry in history:
@@ -99,8 +156,17 @@ def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analys
                               honest_std=honest_std, reference=reference)
         shifts = None
         if use_rules:
-            shifts = forecast.rule_shifts(rules, history, problem["baseline"], problem["search_space"], objective)
+            shifts = forecast.rule_shifts(rules, history, anchor, problem["search_space"], objective)
         best_so_far = max(entry["metrics"][objective] for entry in history)
+        # The random sample never holds the designs next to the incumbent, where
+        # a search finishes; every round the incumbent's unmeasured neighbours join it.
+        incumbent = history[0]
+        for entry in history:
+            if entry["metrics"][objective] > incumbent["metrics"][objective]:
+                incumbent = entry
+        for name, knobs in neighbourhood(incumbent["knobs"], problem).items():
+            if name not in measured_names(history):
+                candidates[name] = knobs
 
         chosen = []
         slot_of = {}          # design name -> why it was picked outside EI
@@ -109,29 +175,33 @@ def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analys
         if stalled and our_mechanism:
             # One slot for the architect's move: settle an owed claim as a controlled
             # comparison, or, with nothing owed, try an untried neighbour of the incumbent.
-            owed = forecast.untested_claim_tests(rules, history, problem["baseline"], candidates,
+            owed = forecast.untested_claim_tests(rules, history, anchor, problem["is_candidate"], problem["name_of"],
                                                 problem["search_space"], objective)
             if len(owed) > 0:
-                test_name, rule_id = owed[0]
+                test_name, rule_id, test_knobs = owed[0]
+                candidates[test_name] = test_knobs          # may lie outside the sampled pool
                 chosen.append(test_name)
                 slot_of[test_name] = "claim test for " + rule_id
             else:
-                scan_name = forecast.stall_scan_candidate(history, candidates, problem["search_space"],
-                                                          surrogate, model, objective)
-                if scan_name is not None:
+                scan = forecast.stall_scan_candidate(history, problem["is_candidate"], problem["name_of"],
+                                                     problem["search_space"], surrogate, model, objective)
+                if scan is not None:
+                    scan_name, scan_knobs = scan
+                    candidates[scan_name] = scan_knobs
                     chosen.append(scan_name)
                     slot_of[scan_name] = "stall scan"
             # Right of reply: the analyst names one design and bets on it.
             if use_analyst and len(chosen) < per_round:
-                reply = ask_reply(problem, history, rules, candidates, "{}-REPLY-r{}".format(tag, round_number))
+                reply = ask_reply(problem, history, rules, "{}-REPLY-r{}".format(tag, round_number))
                 if reply is not None and reply["name"] not in chosen:
                     replies.append(reply)
+                    candidates[reply["name"]] = reply["knobs"]
                     chosen.append(reply["name"])
                     slot_of[reply["name"]] = "reply " + reply["id"]
         more = forecast.pick_expected_improvement(
             candidates, surrogate, model, prior_history + history, problem["search_space"],
             objective, per_round - len(chosen), best_so_far, seed=seed * 1000 + round_number,
-            shifts=shifts, baseline_knobs=problem["baseline"], already_chosen=chosen, honest_std=honest_std,
+            shifts=shifts, baseline_knobs=anchor, already_chosen=chosen, honest_std=honest_std,
             explore=explore)
         chosen = chosen + more
         forecasts = None
@@ -141,7 +211,7 @@ def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analys
             for name in chosen:
                 chosen_candidates[name] = candidates[name]
             forecasts = forecast.gather_forecasts(chosen_candidates, surrogate, model, rules, replies,
-                                                  problem["baseline"], baseline_metrics, objective, history,
+                                                  anchor, baseline_metrics, objective, history,
                                                   problem["search_space"])
         logged = None
         if forecasts is not None:
@@ -171,7 +241,7 @@ def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analys
                 if rule["id"] not in forecasts[name]["siblings"]:
                     continue
                 sibling = forecasts[name]["siblings"][rule["id"]]
-                gain = forecast.effective_gain(rule, history, problem["baseline"], problem["search_space"], objective)
+                gain = forecast.effective_gain(rule, history, anchor, problem["search_space"], objective)
                 rule_prediction = forecast.rule_forecast(sibling["value"], gain)
                 for kind, threshold in claim_events(sibling["value"], gain):
                     event = event_text(objective, gain, threshold)
@@ -226,7 +296,7 @@ def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analys
             if metrics[objective] > best_so_far:
                 last_round_improved = True
             history.append({"name": name, "knobs": knobs, "metrics": metrics, "reference": reference})
-            del candidates[name]
+            candidates.pop(name, None)
             for bet_id in bets_by_name[name]:
                 bet = find_bet(store, bet_id)
                 happened = check_event(bet["event"], metrics)
@@ -277,79 +347,6 @@ def run_loop(problem, rounds, per_round, store, surrogate, use_rules, use_analys
     return {"history": history, "rounds": round_logs}
 
 
-def run_llm_direct(problem, rounds, per_round, store, tag, seed=0):
-    """The plain agent (AgentDSE's setting): each round the LLM picks the designs
-    from the results table and the workload descriptors alone, and bets that each
-    lands within 5% of its own forecast. A proposal that is malformed, out of
-    budget or already measured is dropped and its slot filled with a random
-    untested design, which the round log records. Same history shape as run_loop."""
-    objective = problem["objective"]
-    candidates = dict(problem["candidates"])
-    baseline_name = name_of(problem, problem["baseline"])
-    baseline_metrics = problem["evaluate"](problem["baseline"])
-    history = [{"name": baseline_name, "knobs": problem["baseline"], "metrics": baseline_metrics,
-                "reference": baseline_metrics[objective]}]
-    del candidates[baseline_name]
-    descriptors_text = json.dumps(problem["descriptors"], indent=1)
-    filler = random.Random(seed)
-    round_logs = []
-    for round_number in range(1, rounds + 1):
-        proposals = analyst.pick_designs(problem["search_space"], objective,
-                                         format_table(history, problem["table_metrics"]),
-                                         descriptors_text, per_round, problem["area_budget_kb"])
-        chosen = []
-        forecasts_of = {}
-        for index, proposal in enumerate(proposals):
-            if len(chosen) == per_round:
-                break
-            if not valid_pick(proposal):
-                continue
-            for candidate_name in candidates:
-                if candidate_name in chosen:
-                    continue
-                if forecast.same_knobs(candidates[candidate_name], proposal["knobs"]):
-                    chosen.append(candidate_name)
-                    forecasts_of[candidate_name] = {"id": "{}-LLM-r{}-{}".format(tag, round_number, index + 1),
-                                                    "predicted": float(proposal["predicted"]),
-                                                    "confidence": float(proposal["confidence"])}
-                    break
-        filled = 0
-        names = list(candidates.keys())
-        while len(chosen) < per_round:
-            name = names[filler.randrange(len(names))]
-            if name not in chosen:
-                chosen.append(name)
-                filled += 1
-        round_logs.append({"round": round_number, "chosen": chosen, "proposals": proposals, "random_fill": filled})
-
-        # The bet: the measured objective lands at or above 95% of the forecast. With
-        # confidence c of landing within 5%, and the rest split evenly, P = (1 + c) / 2.
-        bets_by_name = {}
-        for name in chosen:
-            bets_by_name[name] = []
-            if name in forecasts_of:
-                pick = forecasts_of[name]
-                event = "{} >= {:.4f}".format(objective, 0.95 * pick["predicted"])
-                probability = (1.0 + pick["confidence"]) / 2.0
-                bets_by_name[name].append(playbook.place_bet(store, pick["id"], name, event, probability,
-                                                             kind="forecast"))
-        knobs_list = [candidates[name] for name in chosen]
-        metrics_list = problem["evaluate_many"](knobs_list)
-        for name, knobs, metrics in zip(chosen, knobs_list, metrics_list):
-            history.append({"name": name, "knobs": knobs, "metrics": metrics,
-                            "reference": baseline_metrics[objective]})
-            del candidates[name]
-            for bet_id in bets_by_name[name]:
-                bet = find_bet(store, bet_id)
-                playbook.settle_bet(store, bet_id, check_event(bet["event"], metrics))
-            label = "llm pick"
-            if name not in forecasts_of:
-                label = "random fill"
-            print("[{}] round {} | {} | {}={:.4f} | {}".format(
-                tag, round_number, name, objective, metrics[objective], label), flush=True)
-    return {"history": history, "rounds": round_logs}
-
-
 def valid_pick(proposal):
     """A pick must carry knobs, a numeric forecast and a confidence in [0, 1]."""
     try:
@@ -376,14 +373,7 @@ def rule_by_id(rules, rule_id):
     return None
 
 
-def name_of(problem, knobs):
-    for name in problem["candidates"]:
-        if problem["candidates"][name] == knobs:
-            return name
-    raise KeyError("knobs not in candidates: " + json.dumps(knobs))
-
-
-def ask_reply(problem, history, rules, candidates, reply_id):
+def ask_reply(problem, history, rules, reply_id):
     """The analyst's one design on a stall, or None when its answer is malformed,
     already measured or out of budget (LLM output is untrusted)."""
     incumbent = history[0]
@@ -396,11 +386,14 @@ def ask_reply(problem, history, rules, candidates, reply_id):
     for proposal in proposals:
         if not valid_hypothesis(proposal) or not isinstance(proposal.get("knobs"), dict):
             continue
-        for candidate_name in candidates:
-            if forecast.same_knobs(candidates[candidate_name], proposal["knobs"]):
-                return {"id": reply_id, "name": candidate_name, "text": proposal["hypothesis"],
-                        "predicted": float(proposal["predicted"]),
-                        "confidence": float(proposal["confidence"])}
+        if not problem["is_candidate"](proposal["knobs"]):
+            continue
+        if forecast.find_measured(history, proposal["knobs"]) is not None:
+            continue
+        from loop.configs import typed_knobs
+        knobs = typed_knobs(proposal["knobs"], problem["search_space"])
+        return {"id": reply_id, "name": problem["name_of"](knobs), "knobs": knobs, "text": proposal["hypothesis"],
+                "predicted": float(proposal["predicted"]), "confidence": float(proposal["confidence"])}
     return None
 
 
@@ -434,8 +427,9 @@ def valid_rule(rule, problem):
             allowed = [str(value) for value in values]
             if str(claim["value"]) not in allowed:
                 return False
-            # A claim about the baseline's own value says nothing and always "wins".
-            if str(claim["value"]) == str(problem["baseline"][claim["knob"]]):
+            # A claim about the untouched chip's own value says nothing and always "wins".
+            untouched = problem.get("untouched", problem["baseline"])
+            if str(claim["value"]) == str(untouched[claim["knob"]]):
                 return False
         float(claim["gain_pct"])
         if "direction" in claim and claim["direction"] not in ["helps", "hurts"]:
@@ -460,12 +454,18 @@ def same_knobs(knobs_a, knobs_b):
 
 
 def format_table(history, table_metrics):
+    """One row per design; a row says who chose it when the history records that
+    (start / opening pair / own pick / random fill), so an agent can tell its own
+    picks from the designs handed to it."""
     lines = []
     for entry in history:
         cells = []
         for metric in table_metrics:
             cells.append("{}={:.4f}".format(metric, entry["metrics"][metric]))
-        lines.append(entry["name"] + " | " + " | ".join(cells))
+        line = entry["name"] + " | " + " | ".join(cells)
+        if "source" in entry:
+            line = "[{}] ".format(entry["source"]) + line
+        lines.append(line)
     return "\n".join(lines)
 
 
@@ -888,7 +888,6 @@ def matching_value(allowed_values, value):
 
 
 def candidate_name(problem, knobs):
-    for name in problem["candidates"]:
-        if forecast.same_knobs(problem["candidates"][name], knobs):
-            return name
+    if problem["is_candidate"](knobs):
+        return problem["name_of"](knobs)
     return None

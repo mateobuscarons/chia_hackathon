@@ -220,30 +220,8 @@ A JSON list of objects, one per design, with EXACTLY these keys:
 - "predicted": your point forecast of the objective for that design (number).
 - "confidence": 0 to 1, how sure you are the measured value lands within 5% of "predicted".
 """
+RELIES_ON_LINE = '- "relies_on": the ids of the remembered facts or strategies this pick relies on ([] if none).\n'
 
-
-def pick_designs(search_space, objective, results_table, descriptors_text, how_many, area_budget_kb):
-    """The plain agent: from the results so far and the workload descriptors alone,
-    the LLM names the next designs to simulate and forecasts each. No surrogate,
-    no rules. Returns a list of {reasoning, knobs, predicted, confidence}."""
-    prompt = knobs_text(search_space) + """
-## Objective
-Maximize {objective}. A design must fit the area budget: L2 capacity + LLC capacity
-(sets x ways x 64 bytes each) <= {budget} KB.
-
-## Workload descriptors (profiled from the traces, no simulator)
-{descriptors}
-
-## Simulation results so far on THIS chip and workload (one row per design)
-{table}
-
-## Task
-You are tuning this cache hierarchy by yourself. Propose the {n} untested designs
-most likely to raise {objective}, and pre-register a point forecast for each.
-
-{schema}""".format(objective=objective, budget=area_budget_kb, descriptors=descriptors_text,
-                   table=results_table, n=how_many, schema=PICK_SCHEMA)
-    return as_list(ask_gemini(prompt, temperature=HYPOTHESIS_TEMPERATURE))
 
 
 def distill_rules(search_space, results_table, ledger_text, existing_rules_text, condition_metrics,
@@ -326,112 +304,50 @@ cannot separate the two cases. Answer with the single updated rule as a JSON obj
     return answer
 
 
-def textbook_rules(search_space, objective, how_many, condition_metrics):
-    """Baseline arm: rules from prior knowledge only, before seeing any result.
+# ---------------------------------------------------------------- the agent's prompt sections ----
+# The agent's prompt is assembled in loop.memory from data sections; the two
+# fixed pieces (the problem statement and the task) live here with the other
+# prompt text. The plain agent and the memory arms share them.
 
-    The delta between these and the loop's rules measures what the loop adds,
-    and defends against "the LLM already knew this".
-    """
+
+def section_problem(search_space, objective, area_budget_kb, chip_text):
+    return """## Problem
+{chip}
+Maximize {objective}. A design must fit the area budget: L2 capacity + LLC capacity
+(sets x ways x 64 bytes each) <= {budget} KB.
+{knobs}""".format(chip=chip_text, objective=objective, budget=area_budget_kb, knobs=knobs_text(search_space))
+
+
+def section_pick_task(objective, how_many, with_memory):
+    """The task; the memory arms' version asks for the ids relied on."""
+    memory_sentence = ""
+    schema = PICK_SCHEMA
+    if with_memory:
+        memory_sentence = ' Where a\nremembered fact or strategy shaped a pick, list its id in "relies_on".'
+        schema = PICK_SCHEMA + RELIES_ON_LINE
+    return """## Task
+You are tuning this cache hierarchy. Propose the {n} untested in-budget designs most
+likely to raise {objective}, and pre-register a point forecast for each.{memory}
+
+{schema}""".format(n=how_many, objective=objective, memory=memory_sentence, schema=schema)
+
+
+def pick_from_prompt(prompt):
+    """One agent pick: the assembled prompt in, a list of {reasoning, knobs, predicted, confidence, relies_on} out."""
+    return as_list(ask_gemini(prompt, temperature=HYPOTHESIS_TEMPERATURE))
+
+
+def fit_design(search_space, design, area_budget_kb):
+    """A remembered design that does not fit this chip's budget: the LLM shrinks it
+    with the fewest changes. Returns the knobs dict (the caller re-checks the budget)."""
     prompt = knobs_text(search_space) + """
 ## Task
-You have NOT run any experiment. From textbook knowledge alone, write the {n}
-rules you would carry into tuning these knobs to maximize {objective} on SPEC
-CPU2017-like workloads. Conditions may only use the listed workload descriptors.
-
-{schema}""".format(n=how_many, objective=objective, schema=rule_schema(condition_metrics))
-    return as_list(ask_gemini(prompt, temperature=DISTILL_TEMPERATURE))
-
-# ---------------------------------------------------------------- the memory ----
-
-CARD_SCHEMA = """## Output format
-A JSON list of mechanism cards. A card is a JSON object with EXACTLY these keys:
-- "when_text": the condition in words (which workload behaviour makes the effect appear).
-- "when": a list of 1 or 2 clauses, all of which must hold, each {"metric": one of {metrics},
-  "op": ">=" or "<", "value": number}, checked on the workload descriptors.
-- "do": {"knob": knob name, "value": allowed value OR "up" / "down" for a numeric knob}.
-- "because": the mechanism, one sentence: WHY this works, in terms an architect can check on a
-  workload nobody has profiled (misses that capacity can remove, prefetcher coverage, pollution,
-  memory-level parallelism, conflict misses ...).
-- "size": "small" (< 3%), "medium" (3-10%) or "large" (> 10%): the bucket of the effect, never an exact number.
-- "record": {"held_on": [], "failed_on": []} - leave empty for a new card; fill from evidence when merging.
-Interactions are cards too: "do" names the knob to move, "when_text" names the other knob's state.
-
-One card looks like this (fictional knob and metric, for the shape only):
-{"when_text": "the mid-level cache misses heavily and accesses are strided",
- "when": [{"metric": "metric_a", "op": ">=", "value": 12.0}],
- "do": {"knob": "widget_prefetcher", "value": "fancy"},
- "because": "a strided miss stream is exactly what a fancy prefetcher predicts, so it hides the miss latency",
- "size": "large", "record": {"held_on": [], "failed_on": []}}
-"""
-
-RECIPE_SCHEMA = """## Output format
-A JSON list of strings: the ordered steps of a recipe an architect follows on a NEW chip and a
-NEW workload, each step naming the knob, the decision and the descriptor that decides it, e.g.
-"1. L2 prefetcher: va_ampm_lite if stride regularity >= 0.2, else spp_dev". 4 to 8 steps.
-"""
-
-
-def write_cards(search_space, condition_metrics, cases_text):
-    """From the cases (what happened on each chip and workload), the mechanism
-    cards an architect would carry: what to do, when, why, how much (a bucket)."""
-    prompt = knobs_text(search_space) + """
-## What happened on the training chips and workloads (one case per chip and workload)
-{cases}
-
-## Task
-Write the mechanism cards an architect should carry to a chip and a workload class nobody has
-seen. Each card: one knob, the condition in descriptor words, the mechanism, the size bucket.
-Cover the large effects first, then the interactions between knobs the cases show. At most 12 cards.
-
-{schema}""".format(cases=cases_text, schema=CARD_SCHEMA.replace("{metrics}", " / ".join(condition_metrics)))
-    return as_list(ask_gemini(prompt, temperature=DISTILL_TEMPERATURE, thinking_budget=DISTILL_THINKING_BUDGET))
-
-
-def write_recipe(search_space, cases_text, cards_text, trajectories_text=""):
-    """The ordered decision list that turns a budget and a workload's descriptors into a starting design."""
-    prompt = knobs_text(search_space) + """
-## Cases
-{cases}
-
-## Mechanism cards (with their records)
-{cards}
-
-## Winning trajectories of earlier searches, if any
-{trajectories}
-
-## Task
-Write the recipe: the ordered decisions an architect takes FIRST on a new chip (its area budget:
-L2 capacity + LLC capacity, sets x ways x 64 bytes each) and a new workload (its descriptors),
-to produce a strong starting design before any simulation. Decide the largest effects first.
-
-{schema}""".format(cases=cases_text, cards=cards_text, trajectories=trajectories_text or "(none yet)", schema=RECIPE_SCHEMA)
-    answer = as_list(ask_gemini(prompt, temperature=DISTILL_TEMPERATURE, thinking_budget=DISTILL_THINKING_BUDGET))
-    steps = []
-    for item in answer:
-        if isinstance(item, str):
-            steps.append(item)
-        elif isinstance(item, dict):
-            steps.append(json.dumps(item))
-    return steps
-
-
-def apply_recipe(search_space, recipe, area_budget_kb, descriptors_text, start_knobs):
-    """Follow the recipe for this chip and workload; answer with one design."""
-    prompt = knobs_text(search_space) + """
-## The recipe
-{recipe}
-
-## This chip
-Area budget: L2 capacity + LLC capacity (sets x ways x 64 bytes each) <= {budget} KB.
-The design the search starts from (the previous chip's best): {start}
-
-## This workload's descriptors
-{descriptors}
-
-## Task
-Apply the recipe step by step to this chip and workload and answer with the resulting design as
-ONE JSON object with one allowed value per knob (every knob listed above). Nothing else.
-""".format(recipe="\n".join(recipe), budget=area_budget_kb, start=json.dumps(start_knobs), descriptors=descriptors_text)
+This design was the best on another chip but exceeds this chip's area budget:
+L2 capacity + LLC capacity (sets x ways x 64 bytes each) must be <= {budget} KB.
+{design}
+Change as few knobs as possible so it fits, keeping its prefetchers and policies.
+Answer with ONE JSON object: the design, one allowed value per knob. Nothing else.
+""".format(budget=area_budget_kb, design=json.dumps(design))
     answer = ask_gemini(prompt, temperature=DISTILL_TEMPERATURE)
     if isinstance(answer, list) and len(answer) > 0:
         answer = answer[0]
@@ -440,76 +356,75 @@ ONE JSON object with one allowed value per knob (every knob listed above). Nothi
     return answer
 
 
-def pick_with_memory(search_space, objective, results_table, descriptors_text, cases_text, cards_text,
-                     recipe_text, how_many, area_budget_kb):
-    """The agent with the memory: the same pick as the plain agent, plus the nearest
-    cases, the applicable cards (best record first) and the recipe."""
-    prompt = knobs_text(search_space) + """
-## Objective
-Maximize {objective}. A design must fit the area budget: L2 capacity + LLC capacity
-(sets x ways x 64 bytes each) <= {budget} KB.
+# ---------------------------------------------------------------- the memory's strategies ----
 
-## This workload's descriptors (profiled from the traces, no simulator)
-{descriptors}
+STRATEGY_SCHEMA = """## Output format
+A JSON list of at most {n} objects, each with EXACTLY these keys:
+- "text": the strategy in one or two sentences. Name knobs and descriptors only. NO workload,
+  chip, benchmark or family name, NO number: a strategy must hold for a workload nobody has
+  profiled and a chip nobody has built. Numbers belong to measured facts, not strategies.
+- "kind": "procedure" (what to probe first, what to test right after what), "failure" (a habit
+  that cost designs and how to avoid it) or "structure" (knobs that interact; knobs inert once
+  others are set).
+- "evidence": a list of design names from the evidence above that show it.
+"""
 
-## Memory: the three most similar past cases
+
+def write_strategies(cases_text, how_many=8):
+    """Strategies from cases alone (tables, no search trajectory): what an
+    architect would do FIRST on a chip and a workload class nobody has seen, written
+    from what won and what differed across the cases."""
+    prompt = """## What happened on earlier chips and workloads (one case each: descriptors, best design, largest measured single-knob effects)
 {cases}
 
-## Memory: mechanism cards whose conditions hold here, best record first
-{cards}
-
-## Memory: the recipe
-{recipe}
-
-## Simulation results so far on THIS chip and workload (one row per design)
-{table}
-
 ## Task
-Propose the {n} untested designs most likely to raise {objective}, using the memory where its
-mechanisms apply and ignoring cards whose record says they failed on cases like this one.
-Pre-register a point forecast for each.
+Write the STRATEGIES an architect should carry to a NEW chip and a NEW workload class:
+which knob to decide first and which second, which interaction to test right after
+which change, where the cases disagree with each other (a disagreement is itself a
+strategy: "the choice is workload-specific: test the candidates against each other
+in the first round"), which knobs were inert once others were set. Not the facts:
+a strategy must be true regardless of which prefetcher or size won above.
 
-{schema}""".format(objective=objective, budget=area_budget_kb, descriptors=descriptors_text, cases=cases_text or "(none)",
-                   cards=cards_text or "(none)", recipe=recipe_text or "(none)", table=results_table, n=how_many, schema=PICK_SCHEMA)
-    return as_list(ask_gemini(prompt, temperature=HYPOTHESIS_TEMPERATURE))
-
-
-def revise_cards(search_space, condition_metrics, results_table, descriptors_text, cards_text, ledger_text):
-    """After a run: the NEW cards this run teaches (interactions found, mechanisms
-    that held or failed here). Existing cards keep their records mechanically."""
-    prompt = knobs_text(search_space) + """
-## This chip and workload's descriptors
-{descriptors}
-
-## Every design simulated in this run
-{table}
-
-## The cards that spoke here and how their bets settled
-{cards}
-
-{ledger}
-
-## Task
-Write the NEW mechanism cards this run teaches: an interaction the results show, a mechanism
-that explains a card's failure here, a knob whose effect was measured for the first time.
-Do not repeat an existing card. At most 5 cards; none if the run taught nothing new.
-
-{schema}""".format(descriptors=descriptors_text, table=results_table, cards=cards_text, ledger=ledger_text,
-                   schema=CARD_SCHEMA.replace("{metrics}", " / ".join(condition_metrics)))
+{schema}""".format(cases=cases_text, schema=STRATEGY_SCHEMA.format(n=how_many))
     return as_list(ask_gemini(prompt, temperature=DISTILL_TEMPERATURE, thinking_budget=DISTILL_THINKING_BUDGET))
 
 
-def merge_cards(search_space, condition_metrics, cards_text):
-    """Fold duplicate cards from several runs into one set, keeping every record entry."""
-    prompt = knobs_text(search_space) + """
-## Cards collected from several runs (duplicates and near-duplicates included)
-{cards}
+def reflect_on_run(table_text, workloads_text, reasoning_json, how_many=5):
+    """After a search: which sequence of changes produced the gain, which picks cost
+    designs and why in hindsight, and the strategies that would have shortened it."""
+    prompt = """## The workloads of this search
+{workloads}
+
+## Every design simulated, in order (the first row is the start)
+{table}
+
+## The agent's reasoning per pick, with what was measured
+{reasoning}
 
 ## Task
-Merge them into one set: cards with the same knob, direction and mechanism become one card whose
-record is the union of their records (copy the held_on / failed_on entries verbatim). Keep every
-distinct mechanism. Sharpen a condition only when two cards contradict each other on the same
-knob and their records show where each held.
+In hindsight: which sequence of changes produced the gain, and which picks cost
+designs without teaching anything? Then write the strategies that would have
+shortened THIS search, for an architect on a chip and workload class nobody has
+seen. Failures are worth more than wins.
 
-{schema}""".format(cards=cards_text, schema=CARD_SCHEMA.replace("{metrics}", " / ".join(condition_metrics)))
+{schema}""".format(workloads=workloads_text, table=table_text, reasoning=reasoning_json,
+                   schema=STRATEGY_SCHEMA.format(n=how_many))
+    return as_list(ask_gemini(prompt, temperature=DISTILL_TEMPERATURE, thinking_budget=DISTILL_THINKING_BUDGET))
+
+
+def merge_strategies(strategies_json, how_many=20):
+    """Consolidation: the LLM says which strategies say the same thing and gives the
+    more general wording; the code sums their records and unions their evidence."""
+    prompt = """## Strategies collected from several searches (id, kind, text; duplicates and near-duplicates included)
+{strategies}
+
+## Task
+Group the strategies that say the same thing and write each group once, with the more
+general wording. Keep every distinct strategy (a group of one is fine). Do not add
+numbers or workload, chip or family names.
+
+## Output format
+A JSON list of at most {n} objects with EXACTLY these keys: "text", "kind" ("procedure" /
+"failure" / "structure"), "merged_ids" (the ids of the strategies this entry replaces).
+""".format(strategies=strategies_json, n=how_many)
     return as_list(ask_gemini(prompt, temperature=DISTILL_TEMPERATURE, thinking_budget=DISTILL_THINKING_BUDGET))

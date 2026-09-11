@@ -8,16 +8,17 @@ controlled pair and every claim can be measured before a rule is admitted.
 Arms on the target SoC (same simulation cap for all):
   random          - shuffle the candidates, run them in order
   bo              - textbook Bayesian optimisation: GP + expected improvement (cold start)
-  bo_pooled       - the same BO warm-started with every A/B run (statistical transfer)
-  bo_pooled_x     - the same pooled GP with a mild exploration bonus (it has an escape)
-  textbook        - GP + rules the LLM wrote BEFORE seeing any result
-  rules           - GP + rules distilled from A/B (rule transfer, no LLM in the loop):
-                    direction-only tilts until a pair measured here gives the size
-  llm_direct      - the plain agent: the LLM picks every design from the results table alone
-  handoff         - the plain agent for the first rounds, then a GP on its own history
-  memory          - the agent with the memory (cases, cards, recipe); no GP
-Every arm starts from the same design (the previous chip's best, fitted to this
-chip's budget) and counts every design it buys, the start included.
+  bo_pooled       - the same BO warm-started with every training-chip row (statistical transfer)
+  rules           - GP + rules distilled from the training tables (rule transfer, no LLM
+                    in the loop): direction-only tilts until a pair measured here gives the size
+  llm_direct      - the plain agent: the LLM picks every design from the results table and
+                    the workload descriptors alone; no GP, no rules, no memory
+  memory          - the same agent with both memory shelves open (cases and facts gated by
+                    descriptor similarity, strategies), opening with the mechanical move
+The two agent arms share one prompt builder (loop.memory); with an empty memory
+they are the same agent. (The single-shelf arms memory_facts / memory_strategies
+were run in cell w1 as an ablation and retired: too many arms for the budget.) Every arm starts from the same design (the cell's start,
+the same for every arm) and counts every design it buys, the start included.
 The pooled arm's warm start is frozen once per playbook (a `_pool.json` next to
 it) so every cell and seed sees the same prior data. Reports keep every run's history; `summarize` scores designs-to-target against
 each cell's fixed reference.
@@ -29,10 +30,10 @@ import random
 import time
 from concurrent.futures import ProcessPoolExecutor
 
-from loop import forecast, analyst, loop, playbook, surrogate_gp
+from loop import forecast, loop, memory, playbook, surrogate_gp
 import os
 
-from loop.champsim_problem import aggregate_suite, enrich_metrics, make_problem, make_suite_problem, trace_short_name
+from loop.champsim_problem import aggregate_suite, candidate_pool, enrich_metrics, make_problem, make_suite_problem, trace_short_name
 
 # Parallel arm runs (each simulates per_round designs x suite size at a time).
 PARALLEL_RUNS = int(os.environ.get("PARALLEL_RUNS", "5"))
@@ -222,7 +223,7 @@ def measured_designs(problem):
 
 
 def well_formed(rule, problem):
-    """Every rule the LLM writes (distill, textbook, re-scope) passes through here."""
+    """Every rule the LLM writes (distill, re-scope) passes through here."""
     return loop.valid_rule(rule, problem)
 
 
@@ -257,8 +258,9 @@ def run_arm_job(arm, store, soc_name, trace_path, rounds, per_round, prior_histo
             "bets": arm_store["bets"], "rules": arm_store["rules"], "rounds": round_logs}
 
 
-# The plain agent hands over to the GP after this many rounds in the handoff arm.
-HANDOFF_ROUNDS = 3
+# The agent arms: which memory shelves each may read (facts = the nearest cases and
+# similar measured facts; strategies = the notes and the mechanical opening pair).
+AGENT_SHELVES = {"llm_direct": (), "memory": ("facts", "strategies")}
 
 
 def run_arm(arm, store, soc_name, trace_path, rounds, per_round, prior_history, seed, space_name,
@@ -267,65 +269,34 @@ def run_arm(arm, store, soc_name, trace_path, rounds, per_round, prior_history, 
     arm_store = copy.deepcopy(store)          # every arm starts from the same playbook
     arm_store["bets"] = []                    # ...but with its own empty ledger (learn bets live in report["learn_bets"])
     if arm == "random":
+        problem["candidates"] = candidate_pool(problem, seed)
         return random_arm(problem, rounds * per_round, seed), arm_store, []
-    if arm == "llm_direct":
+    if arm in AGENT_SHELVES:
         arm_store = {"rules": [], "bets": []}
-        tag = "llm_direct-{}-s{}".format(problem["name"], seed)
-        result = loop.run_llm_direct(problem, rounds, per_round, arm_store, tag, seed=seed)
+        tag = "{}-{}-s{}".format(arm, problem["name"], seed)
+        result = memory.run_agent(problem, rounds, per_round, arm_store, tag, memory_path, seed=seed,
+                                  shelves=AGENT_SHELVES[arm])
         return result["history"], arm_store, result["rounds"]
-    if arm == "handoff":
-        arm_store = {"rules": [], "bets": []}
-        tag = "handoff-{}-s{}".format(problem["name"], seed)
-        agent_rounds = min(HANDOFF_ROUNDS, rounds)
-        agent = loop.run_llm_direct(problem, agent_rounds, per_round, arm_store, tag, seed=seed)
-        if rounds == agent_rounds:
-            return agent["history"], arm_store, agent["rounds"]
-        result = loop.run_loop(problem, rounds - agent_rounds, per_round, arm_store, surrogate_gp,
-                               use_rules=False, use_analyst=False, tag=tag, seed=seed,
-                               resume_history=agent["history"])
-        return result["history"], arm_store, agent["rounds"] + result["rounds"]
-    if arm == "memory":
-        from loop import memory
-        arm_store = {"rules": [], "bets": []}
-        tag = "memory-{}-s{}".format(problem["name"], seed)
-        result = memory.run_memory_agent(problem, rounds, per_round, arm_store, tag, memory_path, seed=seed)
-        return result["history"], arm_store, result["rounds"]
-    if arm == "textbook":
-        # Textbook rules are admitted UNVERIFIED on purpose: this arm measures what
-        # prior knowledge alone is worth; the loop's rules must beat it.
-        arm_store = {"rules": [], "bets": []}
-        for rule in analyst.textbook_rules(problem["search_space"], problem["objective"], 6,
-                                           problem["condition_metrics"]):
-            if well_formed(rule, problem):
-                clauses = loop.rule_clauses_of(rule)
-                playbook.add_rule(arm_store, clauses[0], rule["claim"], rule["example"], rule["text"],
-                                  conditions=clauses, verification={"pairs": 0, "llm_gain_pct": rule["claim"]["gain_pct"]})
+    # The GP arms score a sample drawn with this run's seed (make_problem's sample
+    # is seed 0 for every run and would give every seed the same search).
+    problem["candidates"] = candidate_pool(problem, seed)
     prior = []
-    explore = 0.0
-    if arm in ["bo_pooled", "bo_pooled_x"]:
+    if arm == "bo_pooled":
         prior = prior_history
         problem["search_space"] = dict(problem["search_space"], soc=["A_mobile", "B_midrange", "C_server", "D_quad"])
         for name in problem["candidates"]:
             problem["candidates"][name] = dict(problem["candidates"][name], soc=soc_name)
         problem["baseline"] = dict(problem["baseline"], soc=soc_name)
-    if arm == "bo_pooled_x":
-        explore = EXPLORE_BONUS
-    use_rules = arm in ["textbook", "rules"]
+    use_rules = arm == "rules"
     # Every model-driven arm selects by expected improvement; the difference
     # between arms is what warms the surrogate and who bets.
     tag = "{}-{}-s{}".format(arm, problem["name"], seed)
     result = loop.run_loop(problem, rounds, per_round, arm_store, surrogate_gp,
-                           use_rules, False, tag, prior_history=prior, seed=seed, explore=explore)
+                           use_rules, False, tag, prior_history=prior, seed=seed)
     return result["history"], arm_store, result["rounds"]
 
 
-# The exploration bonus of bo_pooled_x: this many predicted standard deviations
-# are added to expected improvement, so a confidently wrong prior cannot pin the
-# search to one corner for the whole budget.
-EXPLORE_BONUS = 0.5
-
-
-ARMS = ["random", "bo", "bo_pooled", "bo_pooled_x", "textbook", "rules", "llm_direct", "handoff", "memory"]
+ARMS = ["random", "bo", "bo_pooled", "rules", "llm_direct", "memory"]
 
 
 def compact(history, objective):
@@ -347,7 +318,7 @@ def run_experiment(train_socs, test_soc, traces, rounds, per_round, seeds, outpu
     playbook_path reuses an already-learned playbook (more seeds, same knowledge);
     the pooled arm then gets every measured training design as prior data.
     start_knobs: the design every arm starts from (default the untouched chip);
-    memory_path: the memory file the `memory` arm reads (and writes back to)."""
+    memory_path: the memory file the memory arms read (and write back next to)."""
     if train_traces is None:
         train_traces = traces
     if suite:
@@ -356,6 +327,14 @@ def run_experiment(train_socs, test_soc, traces, rounds, per_round, seeds, outpu
         train_traces = [list(train_traces)]
     if arms is None:
         arms = ARMS
+    # `seeds` is one count for every arm, or {arm: count} (a baseline may run fewer).
+    def seeds_of(arm):
+        if isinstance(seeds, dict):
+            return seeds[arm]
+        return seeds
+    most_seeds = 0
+    for arm in arms:
+        most_seeds = max(most_seeds, seeds_of(arm))
     started = time.time()
     if playbook_path is None:
         store = {"rules": [], "bets": []}
@@ -397,8 +376,10 @@ def run_experiment(train_socs, test_soc, traces, rounds, per_round, seeds, outpu
             report["test"][problem["name"]]["arms"][arm] = {}
         # Seed-major order: the first wave of parallel jobs already covers every arm
         # on seed 0, so a running experiment shows an early cross-arm comparison.
-        for seed in range(first_seed, first_seed + seeds):
+        for seed in range(first_seed, first_seed + most_seeds):
             for arm in arms:
+                if seed >= first_seed + seeds_of(arm):
+                    continue
                 handle = jobs.submit(run_arm_job, arm, store, test_soc, trace_path,
                                      rounds, per_round, prior_history, seed, space_name, start_knobs, memory_path)
                 handles.append((problem["name"], arm, seed, handle))

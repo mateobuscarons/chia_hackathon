@@ -1,6 +1,7 @@
 """Tables from an experiment report, finished or still running.
 
   python -m loop.summarize results/experiment_X.json [more reports] [--reference 0.7491 | --uniform 300]
+  python -m loop.summarize progress <run.log> [--start 0.1656]   # a cell still running, read from its log
 
 Per test problem: designs each arm needed to reach 90 / 95 / 99% of the
 reference (per seed, censored median), how many seeds got there, final best,
@@ -18,21 +19,20 @@ import sys
 TARGET_FRACTIONS = [0.9, 0.95, 0.99]
 
 
+AGENT_ARMS = ["llm_direct", "memory"]
+
+
 def forecaster_class(forecaster_id):
     if forecaster_id == "SURROGATE":
         return "surrogate"
     if forecaster_id.startswith("RULE"):
         return "rules"
-    if forecaster_id.startswith("CARD"):
-        return "cards"
+    if forecaster_id.startswith("FACT"):
+        return "facts"
     if "-REPLY-" in forecaster_id:
         return "analyst"
-    if "-LLM-" in forecaster_id:
-        return "llm_direct"
-    if "-MEM-" in forecaster_id:
-        return "memory"
-    if "-HANDOFF-" in forecaster_id:
-        return "handoff"
+    if "-PICK-" in forecaster_id:
+        return forecaster_id.split("-")[0]      # the agent arm's name opens its pick ids
     return "other"
 
 
@@ -62,6 +62,10 @@ def designs_to_target(history, reference, fraction):
     baseline (history[0]) and the reference; None if never. Index 0 is the
     free baseline run, so the count is the number of designs bought."""
     baseline = history[0]["ipc"]
+    if reference <= baseline:
+        # No headroom: the start already beats the reference, so "designs to
+        # target" means nothing for this cell.
+        return None
     target = baseline + fraction * (reference - baseline)
     curve = best_so_far(history)
     for index, value in enumerate(curve):
@@ -131,7 +135,7 @@ def summarize(report, reference=None):
             print("== {} | no finished run yet".format(problem_name))
             continue
         print("== {} | reference {:.4f} ({})".format(problem_name, cell_reference, reference_note))
-        print("   {:<11} {:>5} {:>22} {:>22} {:>22} {:>10} {:>7}".format(
+        print("   {:<17} {:>5} {:>22} {:>22} {:>22} {:>10} {:>7}".format(
             "arm", "seeds", "to 90% (median, hit)", "to 95% (median, hit)", "to 99% (median, hit)", "final best", "auc %"))
         for arm in trace_report["arms"]:
             runs = trace_report["arms"][arm]
@@ -160,7 +164,7 @@ def summarize(report, reference=None):
                 history = runs[seed]["history"]
                 bests.append(best_so_far(history)[-1])
                 aucs.append(area_under_curve(history))
-            print("   {:<11} {:>5} {} {} {} {:>10.4f} {:>7.2f}".format(
+            print("   {:<17} {:>5} {} {} {} {:>10.4f} {:>7.2f}".format(
                 arm, len(runs), columns[0], columns[1], columns[2], sum(bests) / len(bests), sum(aucs) / len(aucs)))
 
     print("== calibration: the same three questions per claim (sign / half / full), suite level, per forecaster")
@@ -173,16 +177,17 @@ def summarize(report, reference=None):
                     class_bets.append(bet)
             if len(class_bets) > 0:
                 print(brier_line("{} / {}".format(klass, kind), class_bets))
-    print("== calibration: rules per workload (same three questions)")
-    for kind in ["sign", "half", "full"]:
-        class_bets = []
-        for bet in bets:
-            if forecaster_class(bet["forecaster"]) == "rules" and bet["kind"] == kind and bet.get("level") == "workload":
-                class_bets.append(bet)
-        if len(class_bets) > 0:
-            print(brier_line("rules / {} / workload".format(kind), class_bets))
+    print("== calibration: rules and remembered facts per workload (sign of the measured pair)")
+    for klass in ["rules", "facts"]:
+        for kind in ["sign", "half", "full"]:
+            class_bets = []
+            for bet in bets:
+                if forecaster_class(bet["forecaster"]) == klass and bet["kind"] == kind and bet.get("level") == "workload":
+                    class_bets.append(bet)
+            if len(class_bets) > 0:
+                print(brier_line("{} / {} / workload".format(klass, kind), class_bets))
     print("== calibration: agents on their own forecasts (measured within 5% of the prediction or above)")
-    for klass in ["analyst", "llm_direct", "memory", "handoff"]:
+    for klass in ["analyst"] + AGENT_ARMS:
         class_bets = []
         for bet in bets:
             if forecaster_class(bet["forecaster"]) == klass and bet["kind"] == "forecast":
@@ -252,8 +257,76 @@ def load_merged(paths):
     return merged
 
 
+def progress(log_path, start=None):
+    """Best-so-far per arm and seed while a cell is still running. Every arm prints
+    one line per design ("[arm-problem-sN] round R | design | ipc=V | label"), so the
+    run log is a complete record long before the report is written."""
+    runs = {}
+    with open(log_path) as log_file:
+        for line in log_file:
+            # Ray prefixes each line with its worker ("(run_arm_job pid=123) [tag] round ..."),
+            # so the tag is the last bracket before "] round ", not the start of the line.
+            if "] round " not in line or "ipc=" not in line:
+                continue
+            head = line[:line.index("] round ")]
+            if "[" not in head:
+                continue
+            tag = head[head.rindex("[") + 1:]
+            try:
+                round_number = int(line.split("] round ")[1].split(" |")[0])
+                value = float(line.split("ipc=")[1].split(" |")[0].strip())
+            except (IndexError, ValueError):
+                continue
+            label = line.rstrip("\n").split("| ")[-1]
+            run = runs.setdefault(tag, {"designs": 0, "best": None, "round": 0, "opening": None})
+            run["designs"] += 1
+            run["round"] = max(run["round"], round_number)
+            if run["best"] is None or value > run["best"]:
+                run["best"] = value
+                run["best_at"] = run["designs"]
+            if run["opening"] is None:
+                run["opening"] = label
+    if len(runs) == 0:
+        print("no round lines in " + log_path)
+        return
+    # The start design is design 0 and never prints a round line, so without --start
+    # the "best" column is the best design an arm BOUGHT, which is what matters anyway.
+    if start is not None:
+        print("start design: %.4f\n" % start)
+    print("%-12s %-5s %7s %7s %9s %9s %9s  %s" % (
+        "arm", "seed", "round", "designs", "best", "vs start", "found at", "first pick"))
+    by_arm = {}
+    for tag in sorted(runs):
+        arm = tag.split("-")[0]
+        seed = tag.split("-s")[-1]
+        run = runs[tag]
+        by_arm.setdefault(arm, []).append(run["best"])
+        if start is None:
+            gain = "        -"
+        else:
+            gain = "%8.1f%%" % (100.0 * (run["best"] / start - 1.0))
+        print("%-12s %-5s %7d %7d %9.4f %9s %9d  %s" % (
+            arm, seed, run["round"], run["designs"], run["best"], gain,
+            run.get("best_at", 0), run["opening"][:40]))
+    print()
+    for arm in sorted(by_arm, key=lambda a: -sum(by_arm[a]) / len(by_arm[a])):
+        values = by_arm[arm]
+        mean = sum(values) / len(values)
+        if start is None:
+            print("  %-12s mean best %.4f over %d run(s)" % (arm, mean, len(values)))
+        else:
+            print("  %-12s mean best %.4f (%+.1f%% on the start) over %d run(s)" % (
+                arm, mean, 100.0 * (mean / start - 1.0), len(values)))
+
+
 if __name__ == "__main__":
     arguments = sys.argv[1:]
+    if len(arguments) > 0 and arguments[0] == "progress":
+        start_value = None
+        if "--start" in arguments:
+            start_value = float(arguments[arguments.index("--start") + 1])
+        progress(arguments[1], start_value)
+        raise SystemExit(0)
     reference = None
     uniform_count = None
     if "--reference" in arguments:
