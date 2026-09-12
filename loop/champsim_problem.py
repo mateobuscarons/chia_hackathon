@@ -148,14 +148,18 @@ def load_table(path):
     half-written file. Retry briefly instead of crashing the run."""
     if not os.path.exists(path):
         return {}
-    for attempt in range(10):
+    # Another process may be mid-write (or the file may be momentarily empty):
+    # back off and try again rather than crash a whole run on a transient read.
+    for attempt in range(20):
         try:
             with open(path) as table_file:
-                return json.load(table_file)
+                text = table_file.read()
+            if text.strip() == "":
+                raise json.JSONDecodeError("empty file", text, 0)
+            return json.loads(text)
         except json.JSONDecodeError:
-            time.sleep(0.2)
-    with open(path) as table_file:
-        return json.load(table_file)
+            time.sleep(0.2 * (attempt + 1))
+    raise RuntimeError("could not read the result table after 20 tries: " + path)
 
 
 def save_table(table, path):

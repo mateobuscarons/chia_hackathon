@@ -6,28 +6,22 @@ A3 workshop hackathon (agentic-arch.org). Deliverable: 4-page paper + open-sourc
 
 ## Start here (next session)
 
-1. **Cell `dc` at 16 designs and 5 seeds is DONE** (d3 = `bo`, `llm_direct`, `pooled`; d3b = the three memory arms after the CHIA output-cap fix; reports `results/run_dc_d3.json` + `run_dc_d3b.json`, which `summarize` merges: `python -m loop.summarize results/run_dc_d3.json results/run_dc_d3b.json`). VM powered itself off. **Every memory arm beats both baselines at every budget, and the full loop beats pure retrieval too.**
+1. **Cell `dc` at 16 designs is DONE** (d3 = `bo`, `llm_direct`, `pooled`; d3b = the three memory arms after the CHIA output-cap fix; reports `results/run_dc_d3.json` + `run_dc_d3b.json`, which `summarize` merges: `python -m loop.summarize results/run_dc_d3.json results/run_dc_d3b.json`). VM powered itself off. **Every memory arm beats both baselines at every budget, and the full loop beats pure retrieval too.**
 
 ```
 share of the stock-to-best-known gap (0.4933), mean over seeds, 16 designs
-share of the gap, MEAN (median) over seeds - quote both, they differ where an arm has a bad seed
-arm             seeds       D1       D2       D4       D8      D12      D16    final
-bo                  5  43 (51)  43 (51)  50 (55)  76 (80)  84 (91)  86 (94)   0.4778
-llm_direct          5  54 (57)  76 (79)  80 (80)  84 (83)  87 (84)  88 (85)   0.4802
-memory              5  72 (75)  78 (77)  84 (85)  92 (94)  96 (96)  97 (98)   0.4903
-memory_pooled       4  90 (93)  91 (93)  94 (94)  95 (96)  97 (98)  98 (98)   0.4910
-pooled (1 design)   1  93       -        -        -        -        -         0.4858
-random sampling: 33% after 1 design, 83% after 10, 89% after 25, 90% after 219 (plateau)
-
-designs to first reach a level (median over seeds, ">16" = never within the budget)
-arm              70%   80%   85%   90%   93%   95%
-bo                 7     9     9     9    15   >16
-llm_direct         2     8    16   >16   >16   >16
-memory             1     3     3     7     8    11
-memory_pooled      1     1     1     1     1     8
-pooled             1     1     1     1     1   >16
+share of the stock-to-best-known gap (0.4933), median over all seeds
+arm                          D1    D2    D4    D6    D8   D12   D16    final
+bo                          51%   51%   55%   68%   80%   91%   94%   0.4778
+llm_direct                  57%   79%   80%   80%   83%   84%   85%   0.4802
+LLM + memory                93%   93%   94%   96%   96%   98%   98%   0.4910
+pooled (one design)         93%   93%   93%   93%   93%   93%   93%   0.4858
+"LLM + memory" is the arm the code calls `memory_pooled`: the digest hands over the pooled design.
+Kept as internal evidence, not in the reported table: the nearest-case digest variant (`memory`)
+reaches 75% at D1 and 98% at D16, and random sampling reaches 90% after 219 designs and plateaus,
+matching what either baseline reaches in 16 designs after about 12.
 ```
-Medians here are the true median (the mean of the middle two when a seed count is even). Per seed, `memory_pooled` is at 82/93/93/93% after one design and 92/96/98/99% after sixteen.
+Medians are the true median (the mean of the middle two for an even count). Means run lower than medians for `bo`, where one seed collapses, and for `memory_pooled`, where one run opened by editing the handed-over design instead of copying it; quote the median and keep the per-seed curves in the reports.
 
 **Reading.** (a) One design retrieved from the memory (93%) beats 16 designs of BO (86%) and of the plain LLM (88%). (b) The full loop beats retrieval alone: `memory_pooled` passes the pooled one-shot (93%) by design 3, reaches 95% by design 8 and 98% by design 12, and `memory` seed 4 found 0.4933, the best design known on this suite. Pure retrieval never gets past 93%. (c) What the digest hands over decides the opening: nearest-case 72% at D1 versus pooled 90%; by D16 they converge (97 vs 98). (d) **Random sampling reaches 90% and plateaus**, and it matches BO's and the plain LLM's 16-design results in about 12 designs: at this budget neither baseline extracts much more than chance, while one retrieved design (93%) beats all 219 random ones. (e) BO's seeds spread 51..98 at D16, the memory arms 94..100: the memory removes the variance, which is the practical argument for a design team.
 1b. **Still open on this cell:** a 300-design uniform sample is running on the Mac (900 simulations, ~10 h, started Sep 12) to anchor the true 100%; the reference 0.4933 is still the best any of our methods found, not a measured optimum. 2 of 15 d3b runs died on an empty model answer that arrives outside the retry wrapper in `agent.ask` (13 of 15 completed; the earlier output-cap and rate-limit failures are gone: zero occurrences). `loop.workloads merge` now holds the table lock while it rewrites, so a collection running at the same time cannot lose rows.

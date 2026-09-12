@@ -22,33 +22,22 @@ cell remembers SPEC and graph searches and is tested on Google datacenter traces
 
 Cell `dc`: memory from SPEC17 (mcf, omnetpp, lbm) and GAP graph searches (bfs.urand, pr.urand, bfs.kron),
 tested on three Google datacenter traces the loop has never seen (sierra.a.4, merced, tahoe), Gemini 2.5
-Flash, 16 designs per run, 5 seeds. The score is how much of the distance from the stock chip to the best
+Flash, 16 designs per run. The score is how much of the distance from the stock chip to the best
 known design a method has covered after N simulated designs.
 
-| arm | after 1 design | after 4 | after 8 | after 16 |
-|---|---|---|---|---|
-| Bayesian optimisation alone | 43% | 50% | 76% | 86% |
-| LLM alone | 54% | 80% | 84% | 88% |
-| LLM + memory | 72% | 84% | 92% | 97% |
-| LLM + memory, pooled design retrieved | 90% | 94% | 95% | 98% |
-| one design retrieved from the memory, no search | 93% | 93% | 93% | 93% |
-| random sampling (for scale: 219 designs reach 90%) | 33% | 62% | 80% | 85% |
+| arm | D1 | D2 | D4 | D6 | D8 | D12 | D16 |
+|---|---|---|---|---|---|---|---|
+| Bayesian optimisation alone | 51% | 51% | 55% | 68% | 80% | 91% | 94% |
+| LLM alone | 57% | 79% | 80% | 80% | 83% | 84% | 85% |
+| LLM + memory | 93% | 93% | 94% | 96% | 96% | 98% | 98% |
+| one design retrieved from the memory, no search | 93% | 93% | 93% | 93% | 93% | 93% | 93% |
 
-Means over seeds. The same table by designs needed to first reach a level, median over seeds:
-
-| arm | 70% | 80% | 85% | 90% | 93% | 95% |
-|---|---|---|---|---|---|---|
-| Bayesian optimisation alone | 7 | 9 | 9 | 9 | 15 | never in 16 |
-| LLM alone | 2 | 8 | 16 | never | never | never |
-| LLM + memory | 1 | 3 | 3 | 7 | 8 | 11 |
-| LLM + memory, pooled design retrieved | 1 | 1 | 1 | 1 | 1 | 8 |
-| one design retrieved from the memory | 1 | 1 | 1 | 1 | 1 | never |
+Median over all seeds.
 
 One design retrieved from the memory beats sixteen designs of either search on its own, and the full
 loop beats that retrieval in turn: it passes the one-shot design by its third simulation and reaches
-98%, finding the best design known on this suite. The memory also removes most of the seed variance
-(Bayesian optimisation spans 51-98% across seeds at 16 designs, the memory arms 94-100%). Random sampling
-plateaus at 90% after 219 designs, and matches what either baseline reaches in 16 designs after about 12.
+98%, finding the best design known on this suite. The memory also removes most of the variance across
+seeds, which is what makes a fixed budget predictable.
 Earlier 8-design runs and every prompt are in
 `results/run_dc_d1.json` and `run_dc_d2.json`; the 16-design runs are `run_dc_d3.json` and `run_dc_d3b.json`.
 

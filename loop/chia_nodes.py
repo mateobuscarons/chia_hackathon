@@ -74,6 +74,8 @@ class AnalystNode:
         if not answer.success:
             raise RuntimeError("Gemini call failed: " + answer.stderr[-500:])
         text = answer.result.strip()
+        if text == "":
+            raise RuntimeError("Gemini returned an empty answer")
         if text.startswith("```"):
             text = text.split("\n", 1)[1].rsplit("```", 1)[0]
         return json.loads(text)
