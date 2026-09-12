@@ -66,7 +66,7 @@ One code path for the LLM arms: `agent.run_agent(memory_slot, use_gp)`; with no 
 | merced | 4.5 MB | 9.6 | 4.38 | 0.10 | +33.6% | 52% | omnetpp (2.00) |
 | tahoe | 12.9 MB | 26.3 | 2.66 | 0.10 | +17.3% | 65% | mcf (2.41) |
 
-**Caution on the record.** The best of the 11 probed designs is the same composite on all nine graph and datacenter workloads (L2 va_ampm_lite, 4 MB LLC, ship, 512x16 L2, L1D next_line): the design GAP set 1's searches found. Either transfer works or this is a strong default for the whole space; the 11 designs cannot tell. The `replay` arm and the plain agent's first four designs decide it.
+**Caution on the record.** The best of the 11 probed designs is the same composite on all nine graph and datacenter workloads (L2 va_ampm_lite, 4 MB LLC, ship, 512x16 L2, L1D next_line): the design GAP set 1's searches found. Either transfer works or this is a strong default for the whole space; the 11 designs cannot tell. What decides it is the held-out suite, where nothing about those traces influenced the memory or that design.
 
 ## Evidence kept from earlier cells (condensed; the artifacts were deleted, the numbers live here)
 
