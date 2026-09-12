@@ -44,6 +44,21 @@ Mean over seeds; the last column is the mean of each run's best design.
   sample cached so far, not a proven optimum; a longer reference search
   can only move it up, which would lower every share in the table.
 
+The same loop and the same memory on the three admitted datacenter traces the first suite did not
+take (whiskey, bravo, delta): nothing about them shaped the memory, the design it hands over, or the
+choice of the first suite, and that design had never been simulated on them. Stock 0.4389, best
+design known 0.5463 (+24.5%).
+
+| arm | D1 | D2 | D4 | D6 | D8 | D12 | D16 | best design |
+|---|---|---|---|---|---|---|---|---|
+| Bayesian optimisation alone | 43% | 43% | 50% | 57% | 58% | 69% | 83% | 0.5276 |
+| LLM alone | 26% | 54% | 72% | 74% | 76% | 79% | 85% | 0.5305 |
+| LLM + memory | 81% | 82% | 88% | 93% | 94% | 96% | 97% | 0.5428 |
+
+Mean over seeds. Across seeds the sixteenth design lands at 63-94% of the gap for Bayesian
+optimisation, 78-91% for the plain LLM, and 92-100% with the memory. Every design and prompt of this
+run is in `results/run_dc2_e1.json`.
+
 Every design, every prompt and every model answer of the 16-design runs are in
 `results/run_dc_d3.json` and `run_dc_d3b.json`; the earlier 8-design runs are in
 `run_dc_d1.json` and `run_dc_d2.json`.

@@ -19,6 +19,17 @@ spread at D16 (min..max over seeds): bo 51..98, llm_direct 84..95, memory 96..99
 
 **Reading.** (a) The memory arm's **first** design is at 90% of the gap, above where either baseline ends after sixteen: that is the few-shot claim, and neither baseline closes it inside the budget. (b) It is the only arm past 90%, and it passes 95% by design 6. (c) It removes the variance (the spreads above), which is the practical argument for a design team: a fixed budget becomes predictable. (d) Internal evidence, not in the reported table: simulating the handed-over design alone, with no search, reaches 93% and stops there, and the loop passes it by design 3 — the loop is worth more than retrieval alone. (e) Random sampling reaches 90% after 219 designs and plateaus, matching what either baseline reaches in 16 designs after about 12: at this budget neither baseline extracts much more than chance. (f) The memory arm has 4 seeds, not 5: its seed 0 died on CHIA's 16k Vertex output cap in both attempts (the upstream gap below). The other four seeds are shared with the baselines. (g) The best design known on this suite, 0.4933, was not found by any of the three arms; their best single runs are bo 0.4906, llm_direct 0.4879, memory 0.4926.
 
+Cell `dc2`, the same loop and the same memory on the three admitted datacenter traces the first suite did not take (whiskey, bravo, delta): nothing about them shaped the memory, the design it hands over, or the choice of the first suite, and that design had never been simulated on them. `python -m loop.summarize results/run_dc2_e1.json` reproduces it.
+
+```
+share of the stock-to-best-known gap, mean over seeds (stock 0.4389, best known 0.5463, +24.5%)
+arm            D1    D2    D4    D6    D8   D12   D16     final
+bo            43%   43%   50%   57%   58%   69%   83%    0.5276
+llm_direct    26%   54%   72%   74%   76%   79%   85%    0.5305
+memory        81%   82%   88%   93%   94%   96%   97%    0.5428
+spread at D16 (min..max over seeds): bo 63..94, llm_direct 78..91, memory 92..100
+```
+
 2. **In flight.**
    - **VM `champsim-1` is RUNNING** `python -m loop.run dc2 e1`: the held-out datacenter cell (whiskey, bravo, delta), 16 designs. It was launched from an **older checkout**, whose arm list still holds two retired arms; today's `memory` arm is stored there as `memory_pooled`. On landing, rename its report the way `run_dc_d3*.json` were renamed (`memory_pooled` -> `memory`, the retired runs into a `retired` block `summarize` ignores), or re-run it on the current code. **Stop the VM when it finishes.**
    - **Mac, under `caffeinate`:** the 300-design uniform sample on `dc` (sierra and merced done, tahoe running) and two `loop.workloads reference 100 10` searches, on `dc` and on `dc2`. The reference search — one long BO run — is the ceiling estimate now: 300 uniform designs reached only 90% of what a 16-design memory run found, so random draws are a weak ceiling. Every reference design lands in the shared tables, so `best known` (and every share above) moves when they finish.
