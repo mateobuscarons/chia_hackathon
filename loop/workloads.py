@@ -20,7 +20,10 @@
       the four L2 prefetchers, srrip and ship at the LLC, the LLC doubled, the L2
       doubled, and the two best composites the graph searches found.
   python -m loop.workloads uniform <how_many> <trace> [trace ...]
-      A uniform random sample of the feasible designs (seed 0): a cell's reference.
+      A uniform random sample of the feasible designs (seed 0): the random-search null.
+  python -m loop.workloads reference <how_many> <batch> <trace> [trace ...]
+      The suite's ceiling: one long Bayesian-optimisation search in large batches,
+      which finds far better designs than a uniform sample of the same size.
   python -m loop.workloads fetch <url> <out_path> [prefix_mb]
       Download a trace, or only its first prefix_mb megabytes (an HTTP range): a
       100 MB prefix holds ~88M instructions, enough to profile and to simulate.
@@ -98,6 +101,26 @@ def collect(trace_paths, designs):
         futures.append(pool.submit(collect_trace, trace_path, designs))
     for future in futures:
         future.result()
+
+
+def reference(traces, how_many, batch):
+    """The ceiling for a suite: one long Bayesian-optimisation search, `how_many`
+    designs in batches of `batch`, writing into the shared tables. A uniform sample
+    of the same size is a much weaker estimate of the best achievable design (on the
+    first datacenter suite 300 random designs reached only 90% of what a 16-design
+    memory run found), so the reference every cell is scored against comes from a
+    long search, not from random draws."""
+    from loop import bo
+    problem = champsim_problem.make_suite_problem(traces, allow_simulation=True)
+    stock = problem["evaluate"](problem["stock"])[problem["objective"]]
+    started = time.time()
+    print("reference search: {} designs in batches of {} on {} | stock {:.4f}".format(
+        how_many, batch, "+".join(problem["workloads"]), stock), flush=True)
+    result = bo.run_bo(problem, how_many // batch, batch, 0, "reference")
+    best = max(entry["metrics"][problem["objective"]] for entry in result["designs"])
+    print("reference search: best {:.4f} (+{:.1f}% on the stock chip) in {:.0f} min".format(
+        best, 100.0 * (best / stock - 1.0), (time.time() - started) / 60), flush=True)
+    return best
 
 
 def merge(other_results_dir):
@@ -325,6 +348,9 @@ def main():
         collect(sys.argv[2:], probe_designs())
     elif mode == "uniform":
         collect(sys.argv[3:], random_feasible_designs(int(sys.argv[2]), seed=0))
+    elif mode == "reference":
+        # python -m loop.workloads reference <how_many> <batch> <trace> ...
+        reference(sys.argv[4:], int(sys.argv[2]), int(sys.argv[3]))
     elif mode == "admit":
         admit()
     elif mode == "headroom":
