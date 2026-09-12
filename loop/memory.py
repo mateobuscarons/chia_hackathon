@@ -5,9 +5,9 @@ table, never by the LLM: the workload's descriptors, the stock and best designs
 with their IPC, and every measured single-knob effect (controlled pairs: two
 measured designs that differ in exactly one knob). Retrieval is by descriptor
 distance. The agent never reads the cases raw: `digest` turns the nearest ones
-into conclusions (moves that paid everywhere, traps, where the best designs
-disagree, the closest best design to copy). The replay baseline takes the nearest
-case's best design as is.
+into conclusions: the moves that paid everywhere, the traps, where the best
+designs disagree, and the pooled design to copy and adapt (the one that did best
+across every remembered workload).
 
   python -m loop.memory build <out.json> <trace> [trace ...]   # cases from the cached tables
   python -m loop.memory leave_one_out <memory traces...> -- <test traces...>   # free check: do effects and best designs transfer?
@@ -320,11 +320,10 @@ def short_workload(workload):
     return name
 
 
-def digest(memory, problem, retrieval, slot="pooled"):
+def digest(memory, problem, retrieval):
     """The memory as the agent reads it: conclusions first, computed from the
-    nearest cases, anchored on the stock chip the agent starts from. `slot` says
-    which remembered design fills the copyable slot at the end: "nearest" (the
-    closest workload's best design) or "pooled" (the best across the memory)."""
+    nearest cases, anchored on the stock chip the agent starts from, ending with
+    the pooled design to copy and adapt."""
     if retrieval is None:
         return ""
     stock = problem["stock"]
@@ -427,25 +426,16 @@ def digest(memory, problem, retrieval, slot="pooled"):
             parts.append("{:+.0f}% ({})".format(effect, short_workload(workload)))
         lines.append("- {} -> {} is workload-dependent: {}".format(knob, value, ", ".join(parts)))
     pooled = memory.get("pooled")
-    if slot == "pooled" and pooled is not None:
+    if pooled is not None:
         lines.append("")
         lines.append("The remembered design that did best across the remembered workloads (measured on {} of them, "
                      "reaching on average {:.0f}% of each one's stock-to-best gap), to copy and adapt:".format(
                          pooled["workloads_measured"], 100.0 * pooled["mean_share"]))
         lines.append(json.dumps(fit_to_budget(pooled["knobs"])))
-    else:
-        closest = cases[0]
-        gain_text = ""
-        if closest["stock_ipc"] is not None:
-            gain_text = ", {:+.0f}% over its own stock".format(100.0 * (closest["best_ipc"] / closest["stock_ipc"] - 1.0))
-        lines.append("")
-        lines.append("Best known design of the closest workload ({}{}; {} designs searched), to copy and adapt:".format(
-            short_workload(closest["workload"]), gain_text, closest["designs_measured"]))
-        lines.append(json.dumps(fit_to_budget(closest["best_design"])))
     return "\n".join(lines)
 
 
-# ---------------------------------------------------------------- replay ----
+# ---------------------------------------------------------------- the pooled design ----
 
 def fit_to_budget(knobs):
     """A remembered design over this chip's budget: shrink the LLC one step at a
@@ -462,26 +452,6 @@ def fit_to_budget(knobs):
                 break
             fitted[knob] = values[position - 1]
     return fitted
-
-
-def replay_design(memory, problem, retrieval):
-    """The nearest case's best design, fitted to the budget: the one-shot baseline."""
-    if retrieval is None:
-        return None
-    nearest_distance = None
-    nearest_case = None
-    for workload in problem["workloads"]:
-        case_distance, case = retrieval["by_workload"][workload][0]
-        if nearest_distance is None or case_distance < nearest_distance:
-            nearest_distance = case_distance
-            nearest_case = case
-    design = fit_to_budget(nearest_case["best_design"])
-    for knob in SEARCH_SPACE:
-        if knob not in design:
-            design[knob] = problem["stock"][knob]
-    design = typed_knobs(design)
-    return {"name": problem["name_of"](design), "knobs": design, "case_id": nearest_case["id"],
-            "case_workload": nearest_case["workload"], "distance": nearest_distance}
 
 
 # ---------------------------------------------------------------- offline check ----

@@ -1,17 +1,15 @@
 """The LLM agent, one code path for the four LLM arms, two switches:
 
-  memory_slot the prompt carries the memory's digest of the nearest remembered
-              cases (loop.memory.digest) with this design in its copyable slot:
-              "nearest" (the closest workload's best) or "pooled" (the best across
-              the memory); None, the agent sees only the problem, the workloads
-              and its own results.
+  use_memory  the prompt carries the memory's digest of the nearest remembered
+              cases (loop.memory.digest); off, the agent sees only the problem,
+              the workloads and its own results.
   use_gp      the LLM proposes CANDIDATES designs per round, most promising first;
               once three designs are measured, a Gaussian process fit on this run
               picks the ones to simulate by expected improvement (loop.bo); before
               that, the LLM's top picks run. Off, the LLM proposes exactly the
               designs that run.
 
-  llm_direct = none; memory = digest (nearest) + GP; memory_pooled = digest (pooled) + GP.
+  llm_direct = neither; memory = digest + GP.
 
 A proposal must be a real, in-budget, unmeasured design; otherwise the LLM gets
 one retry with the rejected designs listed, and an empty slot goes to a
@@ -231,11 +229,11 @@ hypothesis it tests.
 {schema}""".format(n=how_many, objective=objective, schema=PICK_SCHEMA)
 
 
-def assemble_prompt(problem, history, memory, retrieval, how_many, slot="pooled"):
+def assemble_prompt(problem, history, memory, retrieval, how_many):
     """The sections in order, each generated from data. An empty memory produces
     exactly the plain agent's prompt."""
     sections = [section_problem(problem), section_workloads(problem)]
-    memory_text = memory_module.digest(memory, problem, retrieval, slot)
+    memory_text = memory_module.digest(memory, problem, retrieval)
     if memory_text:
         sections.append(memory_text)
     sections.append("## Simulation results so far (one row per design; D0 is the stock chip)\n" + format_table(history, problem))
@@ -348,12 +346,12 @@ def select_by_gp(problem, history, accepted, per_round, seed, round_number):
     return chosen, predicted
 
 
-def run_agent(problem, rounds, per_round, tag, memory_path, memory_slot, use_gp, seed=0):
+def run_agent(problem, rounds, per_round, tag, memory_path, use_memory, use_gp, seed=0):
     """Returns {"designs": history, "rounds": round logs}."""
     objective = problem["objective"]
     memory = memory_module.empty()
     retrieval = None
-    if memory_slot is not None:
+    if use_memory:
         memory = memory_module.load(memory_path)
         retrieval = memory_module.retrieve(memory, problem)
     stock_metrics = problem["evaluate"](problem["stock"])
@@ -366,7 +364,7 @@ def run_agent(problem, rounds, per_round, tag, memory_path, memory_slot, use_gp,
         gp_selects = use_gp and len(history) >= GP_FROM_DESIGNS
         if use_gp:
             how_many = CANDIDATES
-        prompt = assemble_prompt(problem, history, memory, retrieval, how_many, memory_slot)
+        prompt = assemble_prompt(problem, history, memory, retrieval, how_many)
         accepted, proposals, rejected = propose(problem, prompt, how_many, taken)
         predicted = None
         if gp_selects and len(accepted) > per_round:

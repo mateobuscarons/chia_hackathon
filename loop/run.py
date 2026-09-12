@@ -8,12 +8,10 @@
 
 Every arm starts from the stock chip (design D0) and buys BUDGET designs in rounds
 of PER_ROUND, on the same seeds and at the same fidelity. Arms:
-  bo                    Gaussian process + expected improvement (loop.bo)
-  llm_direct            the plain LLM agent (loop.agent)
-  memory                the agent reading the memory's digest (closest workload's best design in the copyable
-                        slot), proposing 8 designs a round, a GP fit on the run picking 2
-  memory_pooled         the same with the pooled design (best across the memory) in the copyable slot
-  pooled                one design: the pooled design, the bar every search arm must clear
+  bo          Gaussian process + expected improvement (loop.bo)
+  llm_direct  the plain LLM agent (loop.agent)
+  memory      the agent reading the memory's digest, proposing 8 designs a round, a GP fit on the
+              run picking the 2 to simulate
 Env: SEEDS (default 2), FIRST_SEED, BUDGET (default 8), PARALLEL_RUNS, SIM_THREADS,
 ANALYST_MODEL (default gemini-2.5-flash), MEMORY_PATH (default the cell's).
 """
@@ -26,7 +24,7 @@ from concurrent.futures import ProcessPoolExecutor
 
 from loop import agent, bo, memory
 from loop.champsim_problem import make_suite_problem, trace_short_name
-from loop.configs import typed_knobs
+
 
 TRACE = {"mcf": "traces/605.mcf_s-665B.champsimtrace.xz",
          "lbm": "traces/619.lbm_s-2676B.champsimtrace.xz",
@@ -66,10 +64,9 @@ CELLS = {
     # The gate before any launch: every arm, one round, two workloads.
     "smoke": {"test": [TRACE["mcf"], TRACE["lbm"]], "memory": [TRACE["omnetpp"], TRACE["bfs.urand"]]},
 }
-ARMS = ["bo", "llm_direct", "memory", "memory_pooled", "pooled"]
-ONE_DESIGN_ARMS = ["pooled", "replay"]
-# The LLM arms' switches: (memory slot, use_gp).
-AGENT_SWITCHES = {"llm_direct": (None, False), "memory": ("nearest", True), "memory_pooled": ("pooled", True)}
+ARMS = ["bo", "llm_direct", "memory"]
+# The LLM arms' switches: (use_memory, use_gp).
+AGENT_SWITCHES = {"llm_direct": (False, False), "memory": (True, True)}
 BUDGET = 8
 PER_ROUND = 2
 PARALLEL_RUNS = int(os.environ.get("PARALLEL_RUNS", "6"))
@@ -89,35 +86,6 @@ def build_memory(cell_name):
 
 # ---------------------------------------------------------------- one run ----
 
-def run_one_design(problem, tag, memory_file, arm):
-    """The one-shot baselines: stock, then one remembered design. replay: the
-    nearest case's best design; pooled: the design with the best mean gap share
-    across the memory workloads (frozen in the memory file)."""
-    remembered = memory.load(memory_file)
-    stock_metrics = problem["evaluate"](problem["stock"])
-    history = [{"index": 0, "round": 0, "name": problem["name_of"](problem["stock"]), "knobs": problem["stock"],
-                "metrics": stock_metrics, "source": "stock", "hypothesis": None}]
-    if arm == "replay":
-        replay = memory.replay_design(remembered, problem, memory.retrieve(remembered, problem))
-        if replay is None:
-            return {"designs": history, "rounds": []}
-        knobs = replay["knobs"]
-        note = "best design of {} ({}, distance {:.2f})".format(replay["case_workload"], replay["case_id"], replay["distance"])
-    else:
-        knobs = pooled_knobs(remembered)
-        note = "best mean gap share across {} memory workloads: {:.0f}%".format(
-            remembered["pooled"]["workloads_measured"], 100.0 * remembered["pooled"]["mean_share"])
-    metrics = problem["evaluate"](knobs)
-    history.append({"index": 1, "round": 1, "name": problem["name_of"](knobs), "knobs": knobs, "metrics": metrics,
-                    "source": arm, "hypothesis": note})
-    print("[{}] round 1 | D1 | ipc={:.4f} | {}".format(tag, metrics["ipc"], arm), flush=True)
-    return {"designs": history, "rounds": []}
-
-
-def pooled_knobs(remembered):
-    return typed_knobs(memory.fit_to_budget(remembered["pooled"]["knobs"]))
-
-
 def run_one(arm, cell_name, seed, rounds, tag_prefix):
     """One (arm, seed) run; returns only what the report keeps."""
     problem = make_suite_problem(CELLS[cell_name]["test"])
@@ -126,10 +94,8 @@ def run_one(arm, cell_name, seed, rounds, tag_prefix):
     if arm == "bo":
         result = bo.run_bo(problem, rounds, PER_ROUND, seed, tag)
     elif arm in AGENT_SWITCHES:
-        memory_slot, use_gp = AGENT_SWITCHES[arm]
-        result = agent.run_agent(problem, rounds, PER_ROUND, tag, memory_file, memory_slot, use_gp, seed=seed)
-    elif arm in ONE_DESIGN_ARMS:
-        result = run_one_design(problem, tag, memory_file, arm)
+        use_memory, use_gp = AGENT_SWITCHES[arm]
+        result = agent.run_agent(problem, rounds, PER_ROUND, tag, memory_file, use_memory, use_gp, seed=seed)
     else:
         raise ValueError("unknown arm " + arm)
     result["designs"] = compact(result["designs"], problem)
@@ -209,8 +175,6 @@ def run_cell(cell_name, tag, arms=None):
     # Seed-major: the first wave already covers every arm on seed 0.
     for seed in range(first_seed, first_seed + seeds):
         for arm in arms:
-            if arm in ONE_DESIGN_ARMS and seed != first_seed:
-                continue            # deterministic: one seed is every seed
             handles.append((arm, seed, jobs.submit(run_one, arm, cell_name, seed, rounds, cell_name)))
     for arm, seed, handle in handles:
         try:

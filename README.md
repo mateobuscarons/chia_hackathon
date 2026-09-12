@@ -30,13 +30,12 @@ known design a method has covered after N simulated designs.
 | Bayesian optimisation alone | 51% | 51% | 55% | 68% | 80% | 91% | 94% |
 | LLM alone | 57% | 79% | 80% | 80% | 83% | 84% | 85% |
 | LLM + memory | 93% | 93% | 94% | 96% | 96% | 98% | 98% |
-| one design retrieved from the memory, no search | 93% | 93% | 93% | 93% | 93% | 93% | 93% |
 
 Median over all seeds.
 
-One design retrieved from the memory beats sixteen designs of either search on its own, and the full
-loop beats that retrieval in turn: it passes the one-shot design by its third simulation and reaches
-98%, finding the best design known on this suite. The memory also removes most of the variance across
+The memory arm is at 93% of the gap on its first simulation, a level Bayesian optimisation needs
+fifteen designs to reach and the plain LLM never reaches, and it is the only arm to pass 95% inside
+the budget. It also found the best design known on this suite. The memory also removes most of the variance across
 seeds, which is what makes a fixed budget predictable.
 Earlier 8-design runs and every prompt are in
 `results/run_dc_d1.json` and `run_dc_d2.json`; the 16-design runs are `run_dc_d3.json` and `run_dc_d3b.json`.
