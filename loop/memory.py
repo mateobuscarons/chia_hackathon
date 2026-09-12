@@ -148,36 +148,6 @@ def pooled_guard(cases):
     return max(2, len(cases) - 1)
 
 
-def prior_rows(memory):
-    """Training rows for the memory prior: every design any memory workload
-    measured. Target: the design's share of that workload's stock-to-best gap in
-    log-IPC units, averaged over the workloads that measured it, then scaled by
-    the median log gap of the memory workloads so it lives in the run GP's units
-    (log speed-up over stock). Shares transfer across workloads whose gains differ
-    tenfold; raw speed-ups let the largest gains dominate (checked on the
-    datacenter designs: rank correlation 0.73 against 0.29)."""
-    sums = {}
-    counts = {}
-    knobs_of = {}
-    log_gaps = []
-    for case in memory["cases"]:
-        if case["stock_ipc"] is None or case["best_ipc"] <= case["stock_ipc"]:
-            continue
-        log_gap = math.log(case["best_ipc"] / case["stock_ipc"])
-        log_gaps.append(log_gap)
-        for row in table_rows(case["workload"]):
-            share = math.log(max(row["ipc"], 1e-9) / case["stock_ipc"]) / log_gap
-            sums[row["name"]] = sums.get(row["name"], 0.0) + share
-            counts[row["name"]] = counts.get(row["name"], 0) + 1
-            knobs_of[row["name"]] = row["knobs"]
-    log_gaps.sort()
-    scale = log_gaps[len(log_gaps) // 2]
-    rows = []
-    for name in sums:
-        rows.append({"knobs": knobs_of[name], "log_speedup": scale * sums[name] / counts[name]})
-    return rows
-
-
 def format_ipc(value):
     if value is None:
         return "n/a"

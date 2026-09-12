@@ -29,10 +29,8 @@ from loop.configs import SEARCH_SPACE
 MIN_STD = 0.005
 
 # Noise (in normalised-target units, since normalize_y=True) attached to every
-# measurement: ChampSim is deterministic, so only a hair above zero. The prior's
-# rows are means over several workloads, so they carry real noise.
+# measurement: ChampSim is deterministic, so only a hair above zero.
 REAL_NOISE = 1e-6
-PRIOR_NOISE = 1e-2
 
 # With few points the kernel optimizer hits its bounds; harmless, and noisy.
 warnings.filterwarnings("ignore", category=ConvergenceWarning)
@@ -94,36 +92,11 @@ def to_log_speedup(value, reference):
     return math.log(max(value, 1e-9) / reference)
 
 
-def fit_prior(training_rows):
-    """The memory prior: one GP over every design the memory workloads measured,
-    target = mean log speed-up over each workload's stock design. Fitted once per
-    run (no restarts: a couple of thousand points)."""
-    columns = build_columns(SEARCH_SPACE)
-    rows = []
-    targets = []
-    noises = []
-    for training_row in training_rows:
-        rows.append(encode(training_row["knobs"], columns))
-        targets.append(training_row["log_speedup"])
-        noises.append(PRIOR_NOISE)
-    regressor = fit_regressor(rows, targets, noises, len(columns), restarts=0)
-    return {"regressor": regressor, "columns": columns}
-
-
-def prior_means(prior, knobs_list):
-    if prior is None or len(knobs_list) == 0:
-        return numpy.zeros(len(knobs_list))
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", RuntimeWarning)
-        return prior["regressor"].predict(encode_many(knobs_list, prior["columns"]))
-
-
-def fit(history, search_space, objective, honest_std=True, reference=None, prior=None):
+def fit(history, search_space, objective, honest_std=True, reference=None):
     """Fit the GP on every measured design in `history`. reference: the stock
     design's objective (defaults to the first history entry's value). honest_std
     adds the leave-one-out error to every predicted std; the textbook `bo` arm
-    passes False and uses the posterior as is. With a `prior` (fit_prior) the GP
-    learns only the correction to the prior's prediction."""
+    passes False and uses the posterior as is."""
     if reference is None:
         first = history[0]
         reference = first.get("reference", first["metrics"][objective])
@@ -132,14 +105,10 @@ def fit(history, search_space, objective, honest_std=True, reference=None, prior
     rows = []
     targets = []
     noises = []
-    knobs_list = []
     for entry in history:
-        knobs_list.append(entry["knobs"])
-    baseline = prior_means(prior, knobs_list)
-    for index, entry in enumerate(history):
         rows.append(encode(entry["knobs"], columns))
         own_reference = entry.get("reference", reference)
-        targets.append(to_log_speedup(entry["metrics"][objective], own_reference) - float(baseline[index]))
+        targets.append(to_log_speedup(entry["metrics"][objective], own_reference))
         noises.append(REAL_NOISE)
     real_count = len(rows)
 
@@ -159,7 +128,7 @@ def fit(history, search_space, objective, honest_std=True, reference=None, prior
                 prediction = partial.predict(numpy.array([rows[left_out]]))[0]
             squared_errors.append((prediction - targets[left_out]) ** 2)
         loo_std = math.sqrt(sum(squared_errors) / len(squared_errors))
-    return {"regressor": regressor, "columns": columns, "loo_std": loo_std, "reference": reference, "prior": prior}
+    return {"regressor": regressor, "columns": columns, "loo_std": loo_std, "reference": reference}
 
 
 def fit_regressor(rows, targets, noises, dimension, restarts=3, kernel_from=None):
@@ -216,7 +185,6 @@ def predict_many(model, knobs_list):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", RuntimeWarning)
         log_means, log_stds = model["regressor"].predict(rows, return_std=True)
-    log_means = log_means + prior_means(model.get("prior"), knobs_list)
     log_stds = numpy.sqrt(log_stds ** 2 + model["loo_std"] ** 2)
     # Back to objective units: value = reference * exp(log speedup); the std
     # follows by the delta method (std of value ~ value * std of log value).
@@ -297,7 +265,7 @@ def pick_by_expected_improvement(candidates, model, history, objective, how_many
     chosen = []
     for pick in range(how_many):
         if pick > 0:
-            model = fit(believed, SEARCH_SPACE, objective, honest_std=False, reference=model["reference"], prior=model.get("prior"))
+            model = fit(believed, SEARCH_SPACE, objective, honest_std=False, reference=model["reference"])
         means, stds = predict_many(model, knobs_list)
         best_name = None
         best_score = None

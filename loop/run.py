@@ -13,7 +13,6 @@ of PER_ROUND, on the same seeds and at the same fidelity. Arms:
   memory                the agent reading the memory's digest (closest workload's best design in the copyable
                         slot), proposing 8 designs a round, a GP fit on the run picking 2
   memory_pooled         the same with the pooled design (best across the memory) in the copyable slot
-  memory_pooled_prior   the same, and the selecting GP starts from the memory prior: the full stack
   pooled                one design: the pooled design, the bar every search arm must clear
 Env: SEEDS (default 2), FIRST_SEED, BUDGET (default 8), PARALLEL_RUNS, SIM_THREADS,
 ANALYST_MODEL (default gemini-2.5-flash), MEMORY_PATH (default the cell's).
@@ -49,6 +48,9 @@ SPEC = [TRACE["mcf"], TRACE["omnetpp"], TRACE["lbm"]]
 GAP_SET_1 = [TRACE["bfs.urand"], TRACE["pr.urand"], TRACE["bfs.kron"]]
 GAP_SET_2 = [TRACE["sssp.kron"], TRACE["cc.urand"], TRACE["cc.twitter"]]
 DATACENTER = [TRACE["sierra.a.4"], TRACE["merced"], TRACE["tahoe"]]
+# The three admitted datacenter traces the first suite did NOT take: nothing about
+# them influenced the memory, the pooled design or the choice of the first suite.
+DATACENTER_HELD_OUT = [TRACE["whiskey"], TRACE["bravo"], TRACE["delta"]]
 
 # The memory every cell reads: the workloads the chip has been searched on in
 # depth (hundreds of designs each). A test workload is never in its own memory.
@@ -57,16 +59,17 @@ MEMORY_WORKLOADS = SPEC + GAP_SET_1
 CELLS = {
     # The headline: SPEC and graph searches remembered, Google datacenter traces tested.
     "dc": {"test": DATACENTER, "memory": MEMORY_WORKLOADS},
+    # The confirmation: the same memory, the datacenter traces the first suite did not take.
+    "dc2": {"test": DATACENTER_HELD_OUT, "memory": MEMORY_WORKLOADS},
     # The fallback and development cell: the same memory, graph set 2 tested.
     "gap2": {"test": GAP_SET_2, "memory": MEMORY_WORKLOADS},
     # The gate before any launch: every arm, one round, two workloads.
     "smoke": {"test": [TRACE["mcf"], TRACE["lbm"]], "memory": [TRACE["omnetpp"], TRACE["bfs.urand"]]},
 }
-ARMS = ["bo", "llm_direct", "memory", "memory_pooled", "memory_pooled_prior", "pooled"]
+ARMS = ["bo", "llm_direct", "memory", "memory_pooled", "pooled"]
 ONE_DESIGN_ARMS = ["pooled", "replay"]
-# The LLM arms' switches: (memory slot, use_gp, use_prior).
-AGENT_SWITCHES = {"llm_direct": (None, False, False), "memory": ("nearest", True, False),
-                  "memory_pooled": ("pooled", True, False), "memory_pooled_prior": ("pooled", True, True)}
+# The LLM arms' switches: (memory slot, use_gp).
+AGENT_SWITCHES = {"llm_direct": (None, False), "memory": ("nearest", True), "memory_pooled": ("pooled", True)}
 BUDGET = 8
 PER_ROUND = 2
 PARALLEL_RUNS = int(os.environ.get("PARALLEL_RUNS", "6"))
@@ -123,8 +126,8 @@ def run_one(arm, cell_name, seed, rounds, tag_prefix):
     if arm == "bo":
         result = bo.run_bo(problem, rounds, PER_ROUND, seed, tag)
     elif arm in AGENT_SWITCHES:
-        memory_slot, use_gp, use_prior = AGENT_SWITCHES[arm]
-        result = agent.run_agent(problem, rounds, PER_ROUND, tag, memory_file, memory_slot, use_gp, use_prior, seed=seed)
+        memory_slot, use_gp = AGENT_SWITCHES[arm]
+        result = agent.run_agent(problem, rounds, PER_ROUND, tag, memory_file, memory_slot, use_gp, seed=seed)
     elif arm in ONE_DESIGN_ARMS:
         result = run_one_design(problem, tag, memory_file, arm)
     else:

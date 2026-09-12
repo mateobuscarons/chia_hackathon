@@ -11,11 +11,7 @@
               that, the LLM's top picks run. Off, the LLM proposes exactly the
               designs that run.
 
-  use_prior   the selecting GP starts from a prior fit once on every design the
-              memory workloads measured (bo.fit_prior), and selects from round 1.
-
-  llm_direct = none; memory = digest (nearest) + GP; memory_pooled = digest (pooled) + GP;
-  memory_pooled_prior = digest (pooled) + GP + prior.
+  llm_direct = none; memory = digest (nearest) + GP; memory_pooled = digest (pooled) + GP.
 
 A proposal must be a real, in-budget, unmeasured design; otherwise the LLM gets
 one retry with the rejected designs listed, and an empty slot goes to a
@@ -326,12 +322,12 @@ def propose(problem, prompt, how_many, taken):
     return accepted, proposals, rejected
 
 
-def select_by_gp(problem, history, accepted, per_round, seed, round_number, prior=None):
-    """The GP fit on this run's designs (on top of the memory prior, if any) picks
-    `per_round` of the LLM's proposals by expected improvement. Returns the chosen
-    proposals (source "pick+gp") and the GP's predicted mean per proposal."""
+def select_by_gp(problem, history, accepted, per_round, seed, round_number):
+    """The GP fit on this run's designs picks `per_round` of the LLM's proposals by
+    expected improvement. Returns the chosen proposals (source "pick+gp") and the
+    GP's predicted mean per proposal."""
     objective = problem["objective"]
-    model = bo.fit(history, SEARCH_SPACE, objective, honest_std=False, reference=history[0]["metrics"][objective], prior=prior)
+    model = bo.fit(history, SEARCH_SPACE, objective, honest_std=False, reference=history[0]["metrics"][objective])
     candidates = {}
     for proposal in accepted:
         candidates[proposal["name"]] = proposal["knobs"]
@@ -352,19 +348,14 @@ def select_by_gp(problem, history, accepted, per_round, seed, round_number, prio
     return chosen, predicted
 
 
-def run_agent(problem, rounds, per_round, tag, memory_path, memory_slot, use_gp, use_prior=False, seed=0):
-    """Returns {"designs": history, "rounds": round logs}. use_prior: the GP that
-    selects among the proposals starts from the memory prior (bo.fit_prior) and
-    selects from round 1; without it, from the third measured design."""
+def run_agent(problem, rounds, per_round, tag, memory_path, memory_slot, use_gp, seed=0):
+    """Returns {"designs": history, "rounds": round logs}."""
     objective = problem["objective"]
     memory = memory_module.empty()
     retrieval = None
     if memory_slot is not None:
         memory = memory_module.load(memory_path)
         retrieval = memory_module.retrieve(memory, problem)
-    prior = None
-    if use_prior:
-        prior = bo.fit_prior(memory_module.prior_rows(memory_module.load(memory_path)))
     stock_metrics = problem["evaluate"](problem["stock"])
     history = [{"index": 0, "round": 0, "name": problem["name_of"](problem["stock"]), "knobs": problem["stock"],
                 "metrics": stock_metrics, "source": "stock", "hypothesis": None}]
@@ -372,14 +363,14 @@ def run_agent(problem, rounds, per_round, tag, memory_path, memory_slot, use_gp,
     round_logs = []
     for round_number in range(1, rounds + 1):
         how_many = per_round
-        gp_selects = use_gp and (prior is not None or len(history) >= GP_FROM_DESIGNS)
+        gp_selects = use_gp and len(history) >= GP_FROM_DESIGNS
         if use_gp:
             how_many = CANDIDATES
         prompt = assemble_prompt(problem, history, memory, retrieval, how_many, memory_slot)
         accepted, proposals, rejected = propose(problem, prompt, how_many, taken)
         predicted = None
         if gp_selects and len(accepted) > per_round:
-            chosen, predicted = select_by_gp(problem, history, accepted, per_round, seed, round_number, prior)
+            chosen, predicted = select_by_gp(problem, history, accepted, per_round, seed, round_number)
         else:
             chosen = accepted[:per_round]
         while len(chosen) < per_round:

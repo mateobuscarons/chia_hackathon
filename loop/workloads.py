@@ -33,6 +33,7 @@ Env: PARALLEL_TRACES (traces at once, default 3), SIM_THREADS per trace,
 LOOP_WARMUP / LOOP_SIM (instructions; default 5M / 10M).
 """
 
+import fcntl
 import glob
 import itertools
 import json
@@ -100,17 +101,22 @@ def collect(trace_paths, designs):
 
 
 def merge(other_results_dir):
-    """Union every table found in `other_results_dir` into results/."""
+    """Union every table found in `other_results_dir` into results/. Holds the
+    table's lock while it reads and rewrites, so a collection running at the same
+    time cannot have its rows dropped."""
     for other_path in sorted(glob.glob(os.path.join(other_results_dir, "table_*.json"))):
         own_path = os.path.join("results", os.path.basename(other_path))
-        own = champsim_problem.load_table(own_path)
         other = champsim_problem.load_table(other_path)
-        added = 0
-        for name in other:
-            if name not in own and other[name]["metrics"] is not None:
-                own[name] = other[name]
-                added += 1
-        champsim_problem.save_table(own, own_path)
+        with open(own_path + ".lock", "w") as lock_file:
+            fcntl.flock(lock_file, fcntl.LOCK_EX)
+            own = champsim_problem.load_table(own_path)
+            added = 0
+            for name in other:
+                if name not in own and other[name]["metrics"] is not None:
+                    own[name] = other[name]
+                    added += 1
+            champsim_problem.save_table(own, own_path)
+            fcntl.flock(lock_file, fcntl.LOCK_UN)
         print("{}: +{} rows -> {}".format(os.path.basename(other_path), added, len(own)), flush=True)
 
 

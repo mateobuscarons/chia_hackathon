@@ -14,8 +14,8 @@ agent reads a **digest** of the nearest cases: the moves that paid everywhere, t
 traps, where the best designs disagree, and the closest best design to copy. Every
 arm is an ablation of the three parts under the identical budget: Bayesian optimisation
 alone; the LLM alone; the LLM with the memory digest and a GP choosing among its
-proposals; the same with the pooled best remembered design handed over; the same with
-the GP starting from a prior fit on the memory; and the pooled design alone, as the bar. The headline
+proposals; the same with the pooled best remembered design handed over; and the pooled
+design alone, as the bar. The headline
 cell remembers SPEC and graph searches and is tested on Google datacenter traces.
 
 ## Results so far
@@ -25,24 +25,40 @@ tested on three Google datacenter traces the loop has never seen (sierra.a.4, me
 Flash, 16 designs per run, 5 seeds. The score is how much of the distance from the stock chip to the best
 known design a method has covered after N simulated designs.
 
-| arm | after 1 | after 4 | after 8 | after 16 |
+| arm | after 1 design | after 4 | after 8 | after 16 |
 |---|---|---|---|---|
-| Bayesian optimisation alone | 43% | 51% | 76% | 86% |
-| LLM alone | 54% | 81% | 85% | 89% |
-| one design retrieved from the memory (`pooled`) | 94% | | | |
-| LLM + memory + GP (`memory_pooled`) | 94% | 95% | in progress | in progress |
+| Bayesian optimisation alone | 43% | 50% | 76% | 86% |
+| LLM alone | 54% | 80% | 84% | 88% |
+| LLM + memory | 72% | 84% | 92% | 97% |
+| LLM + memory, pooled design retrieved | 90% | 94% | 95% | 98% |
+| one design retrieved from the memory, no search | 93% | 93% | 93% | 93% |
+| random sampling (for scale: 219 designs reach 90%) | 33% | 62% | 80% | 85% |
 
-The memory's single retrieved design beats sixteen designs of either search on average. The combined arm
-starts from that design and improves on it; its longer runs are being redone after an infrastructure cap
-cut them short. Earlier 8-design runs and every prompt are in `results/run_dc_d1.json` and `run_dc_d2.json`.
+Means over seeds. The same table by designs needed to first reach a level, median over seeds:
+
+| arm | 70% | 80% | 85% | 90% | 93% | 95% |
+|---|---|---|---|---|---|---|
+| Bayesian optimisation alone | 7 | 9 | 9 | 9 | 15 | never in 16 |
+| LLM alone | 2 | 8 | 16 | never | never | never |
+| LLM + memory | 1 | 3 | 3 | 7 | 8 | 11 |
+| LLM + memory, pooled design retrieved | 1 | 1 | 1 | 1 | 1 | 8 |
+| one design retrieved from the memory | 1 | 1 | 1 | 1 | 1 | never |
+
+One design retrieved from the memory beats sixteen designs of either search on its own, and the full
+loop beats that retrieval in turn: it passes the one-shot design by its third simulation and reaches
+98%, finding the best design known on this suite. The memory also removes most of the seed variance
+(Bayesian optimisation spans 51-98% across seeds at 16 designs, the memory arms 94-100%). Random sampling
+plateaus at 90% after 219 designs, and matches what either baseline reaches in 16 designs after about 12.
+Earlier 8-design runs and every prompt are in
+`results/run_dc_d1.json` and `run_dc_d2.json`; the 16-design runs are `run_dc_d3.json` and `run_dc_d3b.json`.
 
 ## Layout
 
 | file | role |
 |---|---|
 | `loop/agent.py` | the LLM agent (four arms from two switches: memory digest on/off, GP selection on/off): the Gemini call (Vertex; under CHIA through `chia.models.vertex`) with its cost log, prompt from data sections, proposals, retry, deterministic fallback |
-| `loop/memory.py` | cases built from result tables, the pooled default design, the prior's training rows, descriptor-distance retrieval, the digest the agent reads, the offline leave-one-out check |
-| `loop/bo.py` | the GP surrogate, the memory prior (`fit_prior`), and the expected-improvement baseline over a seeded sample plus the incumbent's neighbourhood |
+| `loop/memory.py` | cases built from result tables, the pooled default design, descriptor-distance retrieval, the digest the agent reads, the offline leave-one-out check |
+| `loop/bo.py` | the GP surrogate and the expected-improvement baseline over a seeded sample plus the incumbent's neighbourhood |
 | `loop/champsim_problem.py` | ChampSim glue: traces -> the `problem` dict (suite objective = geomean IPC), descriptors, result-table cache |
 | `loop/configs.py` | the chip profile, the 13-knob space, area budget, latency-from-size, config generation |
 | `loop/simulate.py`, `loop/chia_nodes.py` | build and run ChampSim; the same as CHIA tasks (build from any config, simulate; the Vertex node) |
