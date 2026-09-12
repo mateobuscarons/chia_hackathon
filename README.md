@@ -11,12 +11,11 @@ ChampSim cache hierarchy, a workload suite the agent has never seen, and a budge
 The memory is written by the code from result tables: one **case** per workload,
 holding its descriptors, its best design and every measured single-knob effect. The
 agent reads a **digest** of the nearest cases: the moves that paid everywhere, the
-traps, where the best designs disagree, and the closest best design to copy. Every
-arm is an ablation of the three parts under the identical budget: Bayesian optimisation
-alone; the LLM alone; the LLM with the memory digest and a GP choosing among its
-proposals; the same with the pooled best remembered design handed over; and the pooled
-design alone, as the bar. The headline
-cell remembers SPEC and graph searches and is tested on Google datacenter traces.
+traps, where the best designs disagree, and one design to copy and adapt: the one that
+did best across every remembered workload. The arms are an ablation of the three parts
+under the identical budget: Bayesian optimisation alone, the LLM alone, and the LLM with
+the memory digest and a Gaussian process choosing among its proposals. The headline cell
+remembers SPEC and graph searches and is tested on Google datacenter traces.
 
 ## Results so far
 
@@ -45,7 +44,7 @@ Earlier 8-design runs and every prompt are in
 | file | role |
 |---|---|
 | `loop/agent.py` | the LLM agent (four arms from two switches: memory digest on/off, GP selection on/off): the Gemini call (Vertex; under CHIA through `chia.models.vertex`) with its cost log, prompt from data sections, proposals, retry, deterministic fallback |
-| `loop/memory.py` | cases built from result tables, the pooled default design, descriptor-distance retrieval, the digest the agent reads, the offline leave-one-out check |
+| `loop/memory.py` | cases built from result tables, descriptor-distance retrieval, the digest the agent reads, the design it hands over, the offline sign-survival check |
 | `loop/bo.py` | the GP surrogate and the expected-improvement baseline over a seeded sample plus the incumbent's neighbourhood |
 | `loop/champsim_problem.py` | ChampSim glue: traces -> the `problem` dict (suite objective = geomean IPC), descriptors, result-table cache |
 | `loop/configs.py` | the chip profile, the 13-knob space, area budget, latency-from-size, config generation |

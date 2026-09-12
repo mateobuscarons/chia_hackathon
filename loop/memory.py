@@ -10,7 +10,7 @@ designs disagree, and the pooled design to copy and adapt (the one that did best
 across every remembered workload).
 
   python -m loop.memory build <out.json> <trace> [trace ...]   # cases from the cached tables
-  python -m loop.memory leave_one_out <memory traces...> -- <test traces...>   # free check: do effects and best designs transfer?
+  python -m loop.memory leave_one_out <memory traces...> -- <test traces...>   # free check: do remembered effects keep their sign elsewhere?
 """
 
 import json
@@ -457,12 +457,11 @@ def fit_to_budget(knobs):
 # ---------------------------------------------------------------- offline check ----
 
 def leave_one_out(memory_traces, test_traces):
-    """Free check on the cached tables. For every workload of the memory, hold it
-    out, build the memory from the others, and ask: where does the nearest case's
-    best design rank in the held-out table, and do the nearest case's measured
-    effects keep their sign there? The same for each test workload against the
-    whole memory. Then the sign test over every ordered pair of MEMORY workloads
-    (deep tables only), by distance: the transfer-versus-distance curve."""
+    """Free check on the cached tables: do the single-knob effects a case records
+    keep their sign on a workload it was not measured on? Each memory workload is
+    held out against the rest, each test workload against the whole memory, and
+    then every ordered pair of memory workloads is scored by descriptor distance,
+    which is the transfer-versus-distance curve."""
     cases = []
     for trace_path in memory_traces:
         case = case_from_table(trace_path)
@@ -479,41 +478,23 @@ def leave_one_out(memory_traces, test_traces):
         print("need at least two memory workloads with tables")
         return
     stats = standardization(cases)
-    rows_by_workload = {}
-    for case in cases + tests:
-        rows_by_workload[case["workload"]] = table_rows(case["workload"])
-    print("== leave one out: nearest case, its best design replayed; the pooled design (best mean gap share over the")
-    print("   other memory workloads, measured on all but one of them) replayed; the nearest case's effects re-measured")
-    print("   {:<20s} {:<20s} {:>8s} {:>12s} {:>12s} {:>9s} {:>9s}".format("workload", "nearest", "distance", "replay", "pooled", "effects", "sign held"))
+    print("== do a remembered workload's measured effects keep their sign on another workload?")
+    print("   {:<20s} {:<20s} {:>8s} {:>9s} {:>9s}".format("workload", "closest remembered", "distance", "effects", "sign held"))
     for held in cases + tests:
         others = []
         for case in cases:
             if case["id"] != held.get("id"):
                 others.append(case)
-        nearest = None
-        nearest_distance = None
+        closest = None
+        closest_distance = None
         for case in others:
             case_distance = distance(held["descriptors"], case["descriptors"], stats)
-            if nearest_distance is None or case_distance < nearest_distance:
-                nearest_distance = case_distance
-                nearest = case
-        rows = rows_by_workload[held["workload"]]
-        checked, survived = sign_survival(nearest, held)
-        pooled = pooled_design(others, rows_by_workload, pooled_guard(others))
-        pooled_text = "none"
-        if pooled is not None:
-            pooled_text = replay_rank(pooled[1], rows, held)
-        print("   {:<20s} {:<20s} {:8.2f} {:>12s} {:>12s} {:9d} {:9d}".format(
-            held["workload"][:20], nearest["workload"][:20], nearest_distance, replay_rank(nearest["best_design"], rows, held),
-            pooled_text, checked, survived))
-    pooled_all = pooled_design(cases, rows_by_workload, pooled_guard(cases))
-    if pooled_all is not None:
-        changes = knobs_changed(pooled_all[1], champsim_problem.stock_design())
-        parts = []
-        for knob in changes:
-            parts.append("{}={}".format(knob, changes[knob][1]))
-        print("   pooled design over the whole memory (mean share {:.0f}% on {} workloads): {}".format(
-            100.0 * pooled_all[0], pooled_all[2], ", ".join(parts)))
+            if closest_distance is None or case_distance < closest_distance:
+                closest_distance = case_distance
+                closest = case
+        checked, survived = sign_survival(closest, held)
+        print("   {:<20s} {:<20s} {:8.2f} {:9d} {:9d}".format(
+            held["workload"][:20], closest["workload"][:20], closest_distance, checked, survived))
     print()
     print("== sign survival of remembered effects against distance, over every ordered pair of memory workloads")
     points = []
@@ -564,17 +545,6 @@ def pooled_design(cases, rows_by_workload, min_cases):
         if best is None or mean > best[0]:
             best = (mean, knobs_of[name], len(values))
     return best
-
-
-def replay_rank(design, rows, held):
-    """Where a design lands in the held-out table: its share of the stock-to-best gap, or 'unmeasured'."""
-    for row in rows:
-        if same_knobs(row["knobs"], design):
-            if held["stock_ipc"] is None or held["best_ipc"] <= held["stock_ipc"]:
-                return "{:.4f}".format(row["ipc"])
-            share = (row["ipc"] - held["stock_ipc"]) / (held["best_ipc"] - held["stock_ipc"])
-            return "{:.0f}% of gap".format(100.0 * share)
-    return "unmeasured"
 
 
 def sign_survival(source, target):
