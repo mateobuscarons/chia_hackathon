@@ -1,6 +1,8 @@
 # Upstream clones — not our code; see CLAUDE.md setup section
 champsim/
 chia/
+# Extra ChampSim trees for parallel builds (loop.simulate.tree_paths finds them)
+champsim_[0-9]*/
 
 # Environment and big/generated files
 .venv/
@@ -23,5 +25,5 @@ REVIEW.md
 results/archive/
 champsim_bin/
 
-# Fetched copies of the VM's results, merged into results/ with loop.collect merge
+# Fetched copies of the VM's results, merged into results/ with loop.workloads merge
 results_vm*/
