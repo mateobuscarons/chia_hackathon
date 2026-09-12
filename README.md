@@ -6,52 +6,64 @@ what the others cannot: an **LLM** that reads the workloads and proposes designs
 and where the open questions are, and **Bayesian optimisation** that picks among the
 LLM's proposals with a surrogate fit on the current run. The setting is few-shot: a
 ChampSim cache hierarchy, a workload suite the agent has never seen, and a budget of
-8 simulated designs.
+16 simulated designs, of which only the first few matter for the claim.
 
 The memory is written by the code from result tables: one **case** per workload,
 holding its descriptors, its best design and every measured single-knob effect. The
-agent reads a **digest** of the nearest cases: the moves that paid everywhere, the
-traps, where the best designs disagree, and one design to copy and adapt: the one that
-did best across every remembered workload. The arms are an ablation of the three parts
-under the identical budget: Bayesian optimisation alone, the LLM alone, and the LLM with
-the memory digest and a Gaussian process choosing among its proposals. The headline cell
-remembers SPEC and graph searches and is tested on Google datacenter traces.
+agent reads a **digest** of the closest remembered workloads: the moves that paid
+everywhere, the traps, where the best designs disagree, and one design to copy and
+adapt, the one that did best across every remembered workload. The arms are an
+ablation of the three parts under the identical budget: Bayesian optimisation alone,
+the LLM alone, and the LLM with the memory digest and a Gaussian process choosing
+among its proposals. The headline cell remembers SPEC and graph searches and is
+tested on Google datacenter traces.
 
 ## Results so far
 
 Cell `dc`: memory from SPEC17 (mcf, omnetpp, lbm) and GAP graph searches (bfs.urand, pr.urand, bfs.kron),
 tested on three Google datacenter traces the loop has never seen (sierra.a.4, merced, tahoe), Gemini 2.5
-Flash, 16 designs per run. The score is how much of the distance from the stock chip to the best
-known design a method has covered after N simulated designs.
+Flash, 16 designs per run. The score is how much of the distance from the stock chip (0.3837 suite IPC) to
+the best design known on this suite (0.4933, +28.6%) a method has covered after N simulated designs.
 
-| arm | D1 | D2 | D4 | D6 | D8 | D12 | D16 |
-|---|---|---|---|---|---|---|---|
-| Bayesian optimisation alone | 51% | 51% | 55% | 68% | 80% | 91% | 94% |
-| LLM alone | 57% | 79% | 80% | 80% | 83% | 84% | 85% |
-| LLM + memory | 93% | 93% | 94% | 96% | 96% | 98% | 98% |
+| arm | seeds | D1 | D2 | D4 | D6 | D8 | D12 | D16 | best design |
+|---|---|---|---|---|---|---|---|---|---|
+| Bayesian optimisation alone | 5 | 43% | 43% | 50% | 58% | 76% | 84% | 86% | 0.4778 |
+| LLM alone | 5 | 54% | 76% | 80% | 81% | 84% | 87% | 88% | 0.4802 |
+| LLM + memory | 4 | 90% | 91% | 94% | 95% | 95% | 97% | 98% | 0.4910 |
 
-Median over all seeds.
+Mean over seeds; the last column is the mean of each run's best design.
 
-The memory arm is at 93% of the gap on its first simulation, a level Bayesian optimisation needs
-fifteen designs to reach and the plain LLM never reaches, and it is the only arm to pass 95% inside
-the budget. It also found the best design known on this suite. The memory also removes most of the variance across
-seeds, which is what makes a fixed budget predictable.
-Earlier 8-design runs and every prompt are in
-`results/run_dc_d1.json` and `run_dc_d2.json`; the 16-design runs are `run_dc_d3.json` and `run_dc_d3b.json`.
+- The memory arm's **first** simulated design is already at 90% of the gap, above where
+  either baseline ends after sixteen. That is the few-shot claim: the value is in the
+  opening, and neither baseline closes it inside the budget.
+- It is the only arm to pass 90%, and it passes 95% by design 6.
+- It also removes the variance. Across seeds the sixteenth design lands at 51-98% of the
+  gap for Bayesian optimisation, 84-95% for the plain LLM, and 96-99% with the memory:
+  a fixed simulation budget becomes predictable, which is what a design team buys.
+- Four seeds, not five, for the memory arm: its seed 0 died on the 16k output cap in
+  CHIA's Vertex layer (the gap written up in `upstream/`), in both attempts. The other
+  four seeds are shared with the baselines.
+- The reference is the best design measured on all three traces across every run and
+  sample cached so far, not a proven optimum; a longer reference search
+  can only move it up, which would lower every share in the table.
+
+Every design, every prompt and every model answer of the 16-design runs are in
+`results/run_dc_d3.json` and `run_dc_d3b.json`; the earlier 8-design runs are in
+`run_dc_d1.json` and `run_dc_d2.json`.
 
 ## Layout
 
 | file | role |
 |---|---|
-| `loop/agent.py` | the LLM agent (four arms from two switches: memory digest on/off, GP selection on/off): the Gemini call (Vertex; under CHIA through `chia.models.vertex`) with its cost log, prompt from data sections, proposals, retry, deterministic fallback |
+| `loop/agent.py` | the LLM agent, one code path for both LLM arms (memory digest on/off, GP selection on/off): the Gemini call (Vertex; under CHIA through `chia.models.vertex`) with its cost log, prompt from data sections, proposals, retry, deterministic fallback |
 | `loop/memory.py` | cases built from result tables, descriptor-distance retrieval, the digest the agent reads, the design it hands over, the offline sign-survival check |
 | `loop/bo.py` | the GP surrogate and the expected-improvement baseline over a seeded sample plus the incumbent's neighbourhood |
 | `loop/champsim_problem.py` | ChampSim glue: traces -> the `problem` dict (suite objective = geomean IPC), descriptors, result-table cache |
 | `loop/configs.py` | the chip profile, the 13-knob space, area budget, latency-from-size, config generation |
 | `loop/simulate.py`, `loop/chia_nodes.py` | build and run ChampSim; the same as CHIA tasks (build from any config, simulate; the Vertex node) |
 | `loop/trace_profile.py` | workload profile from the trace alone (footprint theory miss-ratio curve) |
-| `loop/workloads.py` | the admission gate and the headroom screen (free); the 11-design probe and uniform samples (simulate); trace fetching (HTTP prefix, GAP zip member); table merge |
-| `loop/run.py`, `loop/summarize.py` | cells and arms, the report, the CHIA entry (`LOOP_DISPATCH=chia`); the few-shot score table and the verification list |
+| `loop/workloads.py` | the admission gate and the headroom screen (free); the 11-design probe and the reference search (simulate); trace fetching (HTTP prefix, GAP zip member); table merge |
+| `loop/run.py`, `loop/summarize.py` | cells and arms, the report, the CHIA entry (`LOOP_DISPATCH=chia`); the few-shot score table and the progress view of a running cell |
 | `results/table_<trace>.json` | the shared simulation cache, one per workload (the paper's dataset) |
 | `results/profile_<trace>.json` | the profile of every workload in use |
 | `results/memory_<cell>.json`, `results/run_<cell>_<tag>.json` | a cell's memory and report |
@@ -66,7 +78,7 @@ python -m loop.memory leave_one_out <memory traces> -- <test traces>   # free: d
 python -m loop.workloads admit                               # which workloads are worth a search
 python -m loop.workloads headroom <trace> <trace> <trace>    # headroom and the share no single knob reaches
 SEEDS=1 LOOP_DISPATCH=chia python -m loop.run smoke s1   # every arm, one round, through CHIA
-SEEDS=2 LOOP_DISPATCH=chia python -m loop.run dc d1               # the headline cell
-python -m loop.summarize results/run_dc_d1.json
+SEEDS=5 BUDGET=16 LOOP_DISPATCH=chia python -m loop.run dc d3     # the headline cell
+python -m loop.summarize results/run_dc_d3.json results/run_dc_d3b.json
 ```
 Setup, cells, evidence and rules are in `CLAUDE.md`; the VM recipe in `cluster/README.md`.
