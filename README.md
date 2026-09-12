@@ -56,8 +56,8 @@ design known 0.5463 (+24.5%).
 | LLM + memory | 81% | 82% | 88% | 93% | 94% | 96% | 97% | 0.5428 |
 
 Mean over seeds. Across seeds the sixteenth design lands at 63-94% of the gap for Bayesian
-optimisation, 78-91% for the plain LLM, and 92-100% with the memory. Every design and prompt of this
-run is in `results/run_dc2_e1.json`.
+optimisation, 78-91% for the plain LLM, and 92-100% with the memory — one memory run found the best
+design known on this suite. Every design and prompt of this run is in `results/run_dc2_e1.json`.
 
 Every design, every prompt and every model answer of the 16-design runs are in
 `results/run_dc_d3.json` and `run_dc_d3b.json`; the earlier 8-design runs are in
