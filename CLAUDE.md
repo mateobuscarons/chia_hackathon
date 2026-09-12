@@ -30,9 +30,10 @@ memory        81%   82%   88%   93%   94%   96%   97%    0.5428
 spread at D16 (min..max over seeds): bo 63..94, llm_direct 78..91, memory 92..100
 ```
 
-2. **In flight.**
-   - **VM `champsim-1` is RUNNING** `python -m loop.run dc2 e1`: the held-out datacenter cell (whiskey, bravo, delta), 16 designs. It was launched from an **older checkout**, whose arm list still holds two retired arms; today's `memory` arm is stored there as `memory_pooled`. On landing, rename its report the way `run_dc_d3*.json` were renamed (`memory_pooled` -> `memory`, the retired runs into a `retired` block `summarize` ignores), or re-run it on the current code. **Stop the VM when it finishes.**
-   - **Mac, under `caffeinate`:** the 300-design uniform sample on `dc` (sierra and merced done, tahoe running) and two `loop.workloads reference 100 10` searches, on `dc` and on `dc2`. The reference search — one long BO run — is the ceiling estimate now: 300 uniform designs reached only 90% of what a 16-design memory run found, so random draws are a weak ceiling. Every reference design lands in the shared tables, so `best known` (and every share above) moves when they finish.
+**Reading `dc2`.** All five seeds of all three arms completed, no failed runs. The memory arm opens at 81%, again above where either baseline ends after sixteen, and its seed 3 found 0.5463 — **the best design known on this suite**, which no arm managed on `dc`. The plain LLM's first design is worse than BO's here (26% against 43%): with no memory, reading the descriptors alone is not reliably better than a GP's first guess. Caveat: this suite's ceiling rests on 300 designs against `dc`'s 713, and a reference search is still running on it, so 0.5463 can move up and every share with it.
+
+2. **In flight.** The VM powered itself off when `dc2 e1` finished (five seeds, zero failed runs, about 3.7 h of VM time for a 16-design cell); the report was fetched and its arm names normalised the way `run_dc_d3*.json` were (`memory_pooled` -> `memory`, the retired runs into a `retired` block `summarize` ignores).
+   - **Mac, under `caffeinate`:** the 300-design uniform sample on `dc` (tahoe left) and two `loop.workloads reference 100 10` searches, on `dc` and on `dc2`. The reference search — one long BO run — is the ceiling estimate now: 300 uniform designs reached only 90% of what a 16-design memory run found, so random draws are a weak ceiling. Every reference design lands in the shared tables, so `best known` (and every share above) moves when they finish.
 
 3. **Next, in this order.**
 
@@ -78,7 +79,7 @@ One code path for the LLM arms: `agent.run_agent(..., use_memory, use_gp)`; with
 | cell | memory (deep tables, 450-1500 designs each) | test | role |
 |---|---|---|---|
 | `dc` | mcf, omnetpp, lbm, bfs.urand, pr.urand, bfs.kron | sierra.a.4, merced, tahoe (Google datacenter, DPC4 `gtrace_v2`) | the headline, done |
-| `dc2` | the same | whiskey, bravo, delta | the confirmation on traces that shaped nothing; running |
+| `dc2` | the same | whiskey, bravo, delta | the confirmation on traces that shaped nothing; done |
 | `gap2` | the same | sssp.kron, cc.urand, cc.twitter | fallback and development |
 | `smoke` | omnetpp, bfs.urand | mcf, lbm, one round | the gate before any launch |
 
