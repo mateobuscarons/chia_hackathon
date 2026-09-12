@@ -32,9 +32,20 @@ spread at D16 (min..max over seeds): bo 63..94, llm_direct 78..91, memory 92..10
 
 **Reading `dc2`.** All five seeds of all three arms completed, no failed runs. The memory arm opens at 81%, again above where either baseline ends after sixteen, and its seed 3 found 0.5463 — **the best design known on this suite**, which no arm managed on `dc`. The plain LLM's first design is worse than BO's here (26% against 43%): with no memory, reading the descriptors alone is not reliably better than a GP's first guess. Caveat: this suite's ceiling rests on 300 designs against `dc`'s 713, and a reference search is still running on it, so 0.5463 can move up and every share with it.
 
-2. **In flight (Mac only; the VM is stopped).** Two tuned Bayesian-optimisation searches, 50 designs each, one per suite, under `caffeinate`, logs `results/bo_tuned_dc.log` and `bo_tuned_dc2.log`, roughly 12-15 h. They are scratch scripts, not repo code: `bo_tuned_run.py` in the session scratchpad. Tuned in hyperparameters only, no memory and no warm start from cached tables: **batch 1** (every pick made against measured outcomes), **EI** (logEI is a monotone transform of it and picks identically; kept only against underflow), and a **5-design random warm-up** so the GP has data before it chooses. Every design lands in the shared tables as it completes, so stopping them early loses nothing measured.
+2. **A tuned BO baseline, measured (scratch code, not in the repo: `bo_tune.py` and `bo_tuned_run.py` in the session scratchpad).** Our `bo` arm was textbook, not tuned. An offline replay against the uniform sample (8 seeds, candidate pool = the 300 random designs, so a fair proxy) says its settings are poor: batch 2 with no warm-up reaches 55% of that pool's gap at D16, where plain random search reaches 87%. The whole effect is the warm-up: with one measured design the GP has nothing to fit and its first picks are near-arbitrary.
 
-   **Why this matters to the published tables.** An offline replay against the uniform sample (8 seeds, 24 designs, `bo_tune.py` in the scratchpad) says the configuration the `bo` rows were produced with - batch 2, no warm-up - reaches 55% of that pool's gap at D16, where plain random search reaches 87% and the tuned settings reach 91-96%. So **the BO baseline in both tables is weakly configured**, and the honest next step is to re-run the `bo` arm at 16 designs with batch 1, EI and a warm-up (the sweep's best at that budget is 8), 5 seeds, about an hour on the VM. The memory arm's lead over `llm_direct` is unaffected; its lead over `bo` is the part that needs re-measuring. Replay numbers are a proxy only: the pool's best design is 90% of the real gap, so a replayed search cannot exceed 90% however well it is tuned.
+   **Tuned configuration** (hyperparameters only; no memory, no warm start from cached tables): **batch 1** so every pick is made against measured outcomes, **expected improvement** (logEI is a monotone transform and picks identically, keep it only against underflow; UCB and greedy are worse; `honest_std=True` is worse), and a **random warm-up** before the GP chooses. Offline, warm-up 8 is best at a 16-design budget (96%); the two 50-design runs below used 5.
+
+   **Result, one seed, 50 designs each, about 3-4 h per suite on the Mac:**
+
+```
+share of the stock-to-best-known gap, tuned BO, one seed
+suite                D1    D4    D8   D12   D16   D20   D24   D32   D40    designs to 90/95/100%
+dc  sierra/merced    43%   76%   76%   76%   77%   77%   83%   93%  100%    28 / 37 / 47
+dc2 whiskey/bravo    65%   69%   69%   84%   84%   96%  100%  100%  100%    18 / 20 / 24
+```
+
+   **Reading.** (a) At the 16-design budget the tuning changes nothing decisive: 77% and 84% against the untuned arm's 86% and 81%, one seed against five, inside the noise. (b) Past the budget it clearly works: a tuned BO does reach the ceiling on both suites, needing about 40 designs on `dc` and 24 on `dc2` against the memory arm's 16. That ratio, roughly 1.5-2.5x the simulations, is the honest form of the claim. (c) The tuned run on `dc2` found 0.5485, above the memory arm's 0.5463, so **the `dc2` reference moved and its table above is scored against 0.5485**. (d) **Owed before quoting any margin over BO: re-run the `bo` arm at 16 designs, 5 seeds, tuned (batch 1, EI, warm-up 8), about an hour on the VM.** The margin over `llm_direct` is unaffected by all of this.
 
 3. **Next, in this order.**
 
