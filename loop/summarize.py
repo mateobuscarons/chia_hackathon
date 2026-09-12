@@ -26,6 +26,9 @@ def load_reports(paths):
         if merged is None:
             merged = report
             continue
+        for arm in report["arms"]:
+            if arm not in merged["arms"]:
+                merged["arms"].append(arm)
         for arm in report["runs"]:
             merged["runs"].setdefault(arm, {})
             for seed in report["runs"][arm]:
