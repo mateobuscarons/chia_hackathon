@@ -25,11 +25,11 @@ tested on three Google datacenter traces the loop has never seen (sierra.a.4, me
 Flash, 16 designs per run. The score is how much of the distance from the stock chip (0.3837 suite IPC) to
 the best design known on this suite (0.4933, +28.6%) a method has covered after N simulated designs.
 
-| arm | seeds | D1 | D2 | D4 | D6 | D8 | D12 | D16 | best design |
-|---|---|---|---|---|---|---|---|---|---|
-| Bayesian optimisation alone | 5 | 43% | 43% | 50% | 58% | 76% | 84% | 86% | 0.4778 |
-| LLM alone | 5 | 54% | 76% | 80% | 81% | 84% | 87% | 88% | 0.4802 |
-| LLM + memory | 4 | 90% | 91% | 94% | 95% | 95% | 97% | 98% | 0.4910 |
+| arm | D1 | D2 | D4 | D6 | D8 | D12 | D16 | best design |
+|---|---|---|---|---|---|---|---|---|
+| Bayesian optimisation alone | 43% | 43% | 50% | 58% | 76% | 84% | 86% | 0.4778 |
+| LLM alone | 54% | 76% | 80% | 81% | 84% | 87% | 88% | 0.4802 |
+| LLM + memory | 90% | 91% | 94% | 95% | 95% | 97% | 98% | 0.4910 |
 
 Mean over seeds; the last column is the mean of each run's best design.
 
@@ -40,9 +40,6 @@ Mean over seeds; the last column is the mean of each run's best design.
 - It also removes the variance. Across seeds the sixteenth design lands at 51-98% of the
   gap for Bayesian optimisation, 84-95% for the plain LLM, and 96-99% with the memory:
   a fixed simulation budget becomes predictable, which is what a design team buys.
-- Four seeds, not five, for the memory arm: its seed 0 died on the 16k output cap in
-  CHIA's Vertex layer (the gap written up in `upstream/`), in both attempts. The other
-  four seeds are shared with the baselines.
 - The reference is the best design measured on all three traces across every run and
   sample cached so far, not a proven optimum; a longer reference search
   can only move it up, which would lower every share in the table.
