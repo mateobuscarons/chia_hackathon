@@ -1,6 +1,6 @@
 """The experiment, one command per cell.
 
-  python -m loop.run memory <cell>                 # the cell's memory from the cached tables of its memory workloads
+  python -m loop.run memory <cell>                 # build the cell's memory (loop.memory_build, agent-searched)
   python -m loop.run <cell> <tag> [arm,arm,...]    # run the cell's arms; report -> results/run_<cell>_<tag>.json
   LOOP_DISPATCH=chia python -m loop.run <cell> <tag> [arms]   # the same as a CHIA loop: builds and simulations are CHIA
       tasks, runs are Ray tasks, the LLM goes through chia.models.vertex, and the profiler records the task graph
@@ -13,7 +13,7 @@ of PER_ROUND, on the same seeds and at the same fidelity. Arms:
   memory      the agent reading the memory's digest, proposing 8 designs a round, a GP fit on the
               run picking the 2 to simulate
 Env: SEEDS (default 2), FIRST_SEED, BUDGET (default 8), PARALLEL_RUNS, SIM_THREADS,
-ANALYST_MODEL (default gemini-2.5-flash), MEMORY_PATH (default the cell's).
+ANALYST_MODEL (default gemini-2.5-flash), MEMORY_PATH (default results/memory_llm.json).
 """
 
 import json
@@ -22,7 +22,7 @@ import sys
 import time
 from concurrent.futures import ProcessPoolExecutor
 
-from loop import agent, bo, memory
+from loop import agent, bo, memory_build
 from loop.champsim_problem import make_suite_problem, trace_short_name
 
 
@@ -50,19 +50,19 @@ DATACENTER = [TRACE["sierra.a.4"], TRACE["merced"], TRACE["tahoe"]]
 # them influenced the memory, the pooled design or the choice of the first suite.
 DATACENTER_HELD_OUT = [TRACE["whiskey"], TRACE["bravo"], TRACE["delta"]]
 
-# The memory every cell reads: the workloads the chip has been searched on in
-# depth (hundreds of designs each). A test workload is never in its own memory.
-MEMORY_WORKLOADS = SPEC + GAP_SET_1
+# The memory every cell reads, as the groups loop.memory_build searches: one
+# group per suite. A test workload is never in its own memory.
+MEMORY_GROUPS = [SPEC, GAP_SET_1]
 
 CELLS = {
     # The headline: SPEC and graph searches remembered, Google datacenter traces tested.
-    "dc": {"test": DATACENTER, "memory": MEMORY_WORKLOADS},
+    "dc": {"test": DATACENTER, "memory": MEMORY_GROUPS},
     # The confirmation: the same memory, the datacenter traces the first suite did not take.
-    "dc2": {"test": DATACENTER_HELD_OUT, "memory": MEMORY_WORKLOADS},
+    "dc2": {"test": DATACENTER_HELD_OUT, "memory": MEMORY_GROUPS},
     # The fallback and development cell: the same memory, graph set 2 tested.
-    "gap2": {"test": GAP_SET_2, "memory": MEMORY_WORKLOADS},
+    "gap2": {"test": GAP_SET_2, "memory": MEMORY_GROUPS},
     # The gate before any launch: every arm, one round, two workloads.
-    "smoke": {"test": [TRACE["mcf"], TRACE["lbm"]], "memory": [TRACE["omnetpp"], TRACE["bfs.urand"]]},
+    "smoke": {"test": [TRACE["mcf"], TRACE["lbm"]], "memory": [[TRACE["omnetpp"]], [TRACE["bfs.urand"]]]},
 }
 ARMS = ["bo", "llm_direct", "memory"]
 # The LLM arms' switches: (use_memory, use_gp).
@@ -72,8 +72,11 @@ PER_ROUND = 2
 PARALLEL_RUNS = int(os.environ.get("PARALLEL_RUNS", "6"))
 
 
-def memory_path(cell_name):
-    return os.environ.get("MEMORY_PATH", "results/memory_{}.json".format(cell_name))
+def memory_path():
+    """One shelf: every cell remembers the same workloads. The default is the
+    agent-built memory (loop.memory_build with the llm searcher), which hands over
+    a better design than an optimiser-built one on both held-out suites."""
+    return os.environ.get("MEMORY_PATH", "results/memory_llm.json")
 
 
 def report_path(cell_name, tag):
@@ -81,7 +84,7 @@ def report_path(cell_name, tag):
 
 
 def build_memory(cell_name):
-    return memory.build(CELLS[cell_name]["memory"], memory_path(cell_name))
+    return memory_build.build("llm", CELLS[cell_name]["memory"], memory_path())
 
 
 # ---------------------------------------------------------------- one run ----
@@ -90,7 +93,7 @@ def run_one(arm, cell_name, seed, rounds, tag_prefix):
     """One (arm, seed) run; returns only what the report keeps."""
     problem = make_suite_problem(CELLS[cell_name]["test"])
     tag = "{}-{}-s{}".format(arm, tag_prefix, seed)
-    memory_file = memory_path(cell_name)
+    memory_file = memory_path()
     if arm == "bo":
         result = bo.run_bo(problem, rounds, PER_ROUND, seed, tag)
     elif arm in AGENT_SWITCHES:
@@ -153,14 +156,14 @@ def run_cell(cell_name, tag, arms=None):
     rounds = budget // PER_ROUND
     if cell_name == "smoke":
         rounds = 1
-    if not os.path.exists(memory_path(cell_name)):
+    if not os.path.exists(memory_path()):
         build_memory(cell_name)
     workloads = []
     for trace_path in cell["test"]:
         workloads.append(trace_short_name(trace_path))
     output_path = report_path(cell_name, tag)
     report = {"cell": cell_name, "tag": tag, "workloads": workloads, "arms": arms, "seeds": seeds, "first_seed": first_seed,
-              "budget": rounds * PER_ROUND, "per_round": PER_ROUND, "memory_path": memory_path(cell_name),
+              "budget": rounds * PER_ROUND, "per_round": PER_ROUND, "memory_path": memory_path(),
               "model": os.environ.get("ANALYST_MODEL", "gemini-2.5-flash"), "runs": {}, "failed": []}
     for arm in arms:
         report["runs"][arm] = {}

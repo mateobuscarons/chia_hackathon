@@ -91,11 +91,16 @@ def row_value(row, objective):
 
 # ---------------------------------------------------------------- build ----
 
-def case_from_table(trace_path):
-    """One workload's case from its cached result table (None if the table is empty)."""
+def case_from_table(trace_path, only_names=None):
+    """One workload's case from its cached result table (None if the table is empty).
+
+    `only_names` keeps a case to the designs one build asked for, so two memories
+    built by different procedures can share the simulation cache without mixing."""
     name = champsim_problem.trace_short_name(trace_path)
     table = champsim_problem.load_table(champsim_problem.table_path(name))
     rows = champsim_problem.measured_rows(table)
+    if only_names is not None:
+        rows = keep_named(rows, only_names)
     if len(rows) == 0:
         return None
     stock = champsim_problem.stock_design()
@@ -114,19 +119,19 @@ def case_from_table(trace_path):
             "effects": one_knob_effects(rows)}
 
 
-def build(trace_paths, output_path):
+def build(trace_paths, output_path, only_names=None):
     """Cases from the tables, plus the pooled default design, frozen here so every
     run of the cell reads the same one."""
     memory = empty()
     rows_by_workload = {}
     for trace_path in trace_paths:
-        case = case_from_table(trace_path)
+        case = case_from_table(trace_path, only_names)
         if case is None:
             print("[memory] no table for {}, skipped".format(trace_path), flush=True)
             continue
         case["id"] = "CASE-{:02d}".format(len(memory["cases"]) + 1)
         memory["cases"].append(case)
-        rows_by_workload[case["workload"]] = table_rows(case["workload"])
+        rows_by_workload[case["workload"]] = table_rows(case["workload"], only_names)
         print("[memory] {} {}: {} designs, stock {} -> best {:.4f}, {} effects ({} with >= {} pairs)".format(
             case["id"], case["workload"], case["designs_measured"], format_ipc(case["stock_ipc"]), case["best_ipc"],
             len(case["effects"]), count_solid(case["effects"]), MIN_PAIRS), flush=True)
@@ -139,8 +144,19 @@ def build(trace_paths, output_path):
     return memory
 
 
-def table_rows(workload):
-    return champsim_problem.measured_rows(champsim_problem.load_table(champsim_problem.table_path(workload)))
+def table_rows(workload, only_names=None):
+    rows = champsim_problem.measured_rows(champsim_problem.load_table(champsim_problem.table_path(workload)))
+    if only_names is None:
+        return rows
+    return keep_named(rows, only_names)
+
+
+def keep_named(rows, only_names):
+    kept = []
+    for row in rows:
+        if row["name"] in only_names:
+            kept.append(row)
+    return kept
 
 
 def pooled_guard(cases):
