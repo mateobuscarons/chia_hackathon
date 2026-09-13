@@ -1,9 +1,20 @@
-"""The statistical baseline: textbook Bayesian optimisation. A Gaussian process
-fit on every design measured so far; each round picks `per_round` designs by
-expected improvement (batch via the kriging believer) over a seeded random
-sample of the feasible space plus every unmeasured design one or two knobs away
-from the incumbent (the random sample never holds the incumbent's neighbours,
-where a search finishes).
+"""The statistical baseline: tuned Bayesian optimisation. The search opens with a
+small random initial design, then a Gaussian process fit on every design measured
+so far picks `per_round` designs a round by expected improvement (batch via the
+kriging believer) over a seeded random sample of the feasible space plus every
+unmeasured design one or two knobs away from the incumbent (the random sample
+never holds the incumbent's neighbours, where a search finishes).
+
+The initial design, the batch size, the acquisition function and the kernel were
+swept offline against the cached tables (replaying each configuration over the
+measured designs at no simulation cost, scored by the mean gap share over the
+whole budget). Only the initial design mattered: WARM_UP_DESIGNS random designs
+lift the mean and, more importantly, cut the spread over seeds, because a cold
+Gaussian process fit on the stock design alone ranks its first candidates almost
+arbitrarily and a bad first pick misleads the rest of the budget. Batch size,
+expected improvement against log-EI, UCB and greedy, and Matern 5/2 against
+Matern 3/2 and an ARD RBF all landed within noise of each other, so they stand
+as they were.
 
 The surrogate: a Gaussian process in log-speedup units. An ORDINAL knob (sets, ways,
 MSHRs) becomes one column, log2(value) rescaled to [0, 1]; a CATEGORICAL knob
@@ -282,14 +293,46 @@ def pick_by_expected_improvement(candidates, model, history, objective, how_many
     return chosen
 
 
+WARM_UP_DESIGNS = 3       # the initial design, bought before the GP chooses anything
+
+
+def warm_up(problem, candidates, history, budget, tag):
+    """Buy the first designs at random, out of the same seeded sample the GP will
+    later score, so the GP has something to fit before it starts choosing. They
+    come out of the budget like any other design."""
+    how_many = min(WARM_UP_DESIGNS, budget - 1)
+    names = []
+    for name in candidates:
+        if len(names) == how_many:
+            break
+        names.append(name)
+    knobs_list = []
+    for name in names:
+        knobs_list.append(candidates[name])
+    if len(knobs_list) == 0:
+        return
+    metrics_list = problem["evaluate_many"](knobs_list)
+    for name, knobs, metrics in zip(names, knobs_list, metrics_list):
+        entry = {"index": len(history), "round": 0, "name": name, "knobs": knobs, "metrics": metrics,
+                 "source": "warm-up", "hypothesis": None}
+        history.append(entry)
+        candidates.pop(name, None)
+        print("[{}] round 0 | D{} | {}={:.4f} | warm-up".format(tag, entry["index"], problem["objective"],
+                                                                metrics[problem["objective"]]), flush=True)
+
+
 def run_bo(problem, rounds, per_round, seed, tag):
     objective = problem["objective"]
+    budget = rounds * per_round
     candidates = candidate_pool(problem, seed)
     stock_metrics = problem["evaluate"](problem["stock"])
     history = [{"index": 0, "round": 0, "name": problem["name_of"](problem["stock"]), "knobs": problem["stock"],
                 "metrics": stock_metrics, "source": "stock", "hypothesis": None}]
     candidates.pop(history[0]["name"], None)
-    for round_number in range(1, rounds + 1):
+    warm_up(problem, candidates, history, budget, tag)
+    round_number = 0
+    while len(history) - 1 < budget:
+        round_number += 1
         incumbent = history[0]
         for entry in history:
             if entry["metrics"][objective] > incumbent["metrics"][objective]:
@@ -301,7 +344,9 @@ def run_bo(problem, rounds, per_round, seed, tag):
             if name not in measured:
                 candidates[name] = knobs
         model = fit(history, SEARCH_SPACE, objective, honest_std=False, reference=stock_metrics[objective])
-        chosen = pick_by_expected_improvement(candidates, model, history, objective, per_round, seed * 1000 + round_number)
+        # The warm-up spends part of the budget, so the last round may be a short one.
+        how_many = min(per_round, budget - (len(history) - 1))
+        chosen = pick_by_expected_improvement(candidates, model, history, objective, how_many, seed * 1000 + round_number)
         knobs_list = []
         for name in chosen:
             knobs_list.append(candidates[name])
