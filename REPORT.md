@@ -111,29 +111,50 @@ single most useful check we have that a rebuild is faithful.
 
 ---
 
-## 4. The memory reaches in one design what an independent search needs forty-two to reach.
+## 4. One design from memory beats sixteen designs of a tuned optimizer.
 
-**confirmed**
+**confirmed, matched budget and matched configuration**
 
-The ceiling here is independent of every arm: a 100-design random-forest search
-(`loop/forest.py`), no memory and no LLM, which found 0.4994 — a design no arm reached.
-That matters, because scoring against a design one of the arms found would bound the metric
-at the best arm. Scored on that one scale, on the suite the memory has never seen:
+The comparison is like for like: the same cell, the same independent ceiling (0.4994, found
+by a 100-design random-forest search carrying no memory and no LLM — scoring against a design
+one of the arms found would bound the metric at the best arm), and the same surrogate and
+settings on both sides. Mean over seeds, shares of the stock-to-ceiling gap:
 
-| level | reached by | the independent search needs |
-|---|---|---|
-| 0.4883 (90 % of the gap) | the memory arm's **first** design | **D42** |
-| 0.4915 (93 %) | the memory arm at D16 | **D77** |
-| 0.4861 (89 %) | a tuned optimizer at D16 | D35 |
-| 0.4810 (84 %) | a memoryless LLM agent at D16 | D22 |
+| design | 1 | 2 | 4 | 8 | 12 | 16 |
+|---|---|---|---|---|---|---|
+| optimizer from the stock chip (`bo`, 4 seeds) | 21 % | 21 % | 61 % | 72 % | 75 % | **88 %** |
+| optimizer from the memory's design (`pooled_bo`, 5 seeds) | **90 %** | 90 % | 90 % | 91 % | 91 % | 92 % |
+| the memory agent (`memory`, 5 seeds) | **90 %** | 91 % | 91 % | 92 % | 93 % | 93 % |
 
-The independent search's own curve: 75 % at D8, **79 % at D16**, 86 % at D24, 92 % at D50,
-100 % at D100. At the arm's budget it sits below where the memory arm *starts*.
+**The memory's first design is at 90 %. The identical optimizer started from the stock chip
+reaches 88 % after sixteen designs and never reaches 90 % inside the budget.** One simulation
+against more than sixteen, with nothing differing but where the search begins.
 
-So the claim that survives every change of ceiling is not "98 % versus 93 %" but
-**4.8× fewer simulations for the same design quality**, and a first design worth 42.
-Quality-at-N moves whenever the reference moves — it has moved twice — while
-designs-to-quality does not.
+Two things fall out of the same table:
+
+- **`pooled_bo` matches `memory`** (92 % against 93 %, inside the seed spread, and with a
+  tighter spread). An optimizer handed the memory's design gets where the agent gets, with no
+  digest, no prompt and no model call. **At test time the LLM is worth about a point.** What it
+  is demonstrably worth is at *build* time (§1), which is where the contribution sits.
+- **The surrogate barely matters once the search is real.** This forest baseline lands at 88 %
+  where a tuned Gaussian process landed at 89 % on the same cell — ArchGym's "all optimizers
+  tie under tuned hyperparameters", reproduced in our own searches. An offline replay had
+  predicted the forest four points ahead; it is not. Replay orders surrogates, it does not
+  predict an arm.
+
+**Open, and owed before any "N times fewer simulations" claim is published.** The natural next
+statement is a ratio — how many designs a memoryless search needs to reach what the memory arm
+reaches at D16. We cannot state it yet. Measuring it against the 100-design reference gives D42
+and D77 (a 4.8x ratio), but that reference is configured for a 100-design budget: a 10 %
+initial design and batch 6, so by D16 it has made only about six model-guided picks and its
+curve is flat at 79 % from D10 to D16. The arm's configuration — warm-up 3, batch 1 — climbs
+roughly twice as fast early, so the true ratio is likely nearer 2.5-3x.
+
+The measurement that would settle it: **run the `bo` arm's exact configuration long (about 100
+designs) on both cells, and read off where it crosses the memory arm's D16.** Same warm-up,
+same acquisition, same per-seed candidate pool; only the budget changes. Batch 1 would keep a
+machine mostly idle, so batch 3 is the practical compromise and should be reported as such.
+Until that exists, the matched-budget sentence above is the claim, and the ratio is not.
 
 ---
 
