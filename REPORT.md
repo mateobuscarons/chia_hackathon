@@ -108,3 +108,73 @@ and the agreements are the ones that carry the performance:
 The LLC disagreement is geometry at identical capacity. This is evidence that the memory captures
 structure in the problem rather than an artefact of how its table happened to be filled — the
 single most useful check we have that a rebuild is faithful.
+
+---
+
+## 4. Contributions back to the frameworks
+
+Five gaps hit while building the loop that belong in CHIA or ChampSim rather than in
+this repo. Both are shallow clones here, so each goes through a fork. Patches for the
+two that are already written live in `upstream/`.
+
+### CHIA
+
+**(a) `gs://` traces cannot be resolved.** `chia.simulators.champsim._resolve_trace`
+raises `NotImplementedError` for `gs://` URIs while handling `s3://`, so a loop running
+on a GCP cluster cannot read its traces from a bucket.
+`upstream/0001-champsim-gs-trace-resolver.patch` mirrors the existing `s3://` branch
+with `google-cloud-storage`.
+
+**(b) The ChampSim build node accepts only a prefetcher.**
+`ChampSimNode.build_champsim` takes a prefetcher module and nothing else, so a
+design-space loop cannot build the configurations it wants to search.
+`loop/chia_nodes.py::build_from_config` is the general version — any config JSON: cache
+sizes, associativity, replacement policies, prefetchers at every level, MSHR depths,
+core parameters — with `simulate` as the matching multi-trace run node. Candidate for
+`chia.simulators.champsim`.
+
+**(c) No generation config reaches Vertex Gemini, and this one cost us runs.**
+`chia.models.vertex.VertexGeminiLLM` forwards only the maximum output tokens, the
+system message and tools. A loop therefore cannot set temperature, JSON response mode,
+or a thinking budget: every call runs at the model's defaults, and the caller cannot
+see how many thinking tokens were spent.
+
+This is not cosmetic. On Gemini 2.5 Flash thinking tokens are billed and counted as
+output, so they consume the same cap as the answer. Our memory arm asks for eight
+ranked candidate designs as JSON; that answer plus the model's own thinking exceeds the
+layer's 16k output default, the response is truncated, and the JSON fails to parse.
+The layer raises rather than retrying, so a single truncated call ends a run that has
+been simulating for an hour. Every memory-arm run of cell `dc` was lost this way and had
+to be repeated, and one seed died twice, which is why that arm carries four seeds where
+the others carry five.
+
+Two separable fixes, both small and general:
+1. A `generation_config` passthrough (temperature, `response_mime_type`,
+   `thinking_config`), plus the thinking-token count in `_last_metadata` so a caller can
+   see what the cap is being spent on.
+2. Waiting and retrying on rate limits (429) and truncated or malformed answers instead
+   of raising immediately. We carry this as a backoff wrapper in `agent.ask`; it belongs
+   under the model layer, where every CHIA loop would get it.
+
+**(d) The case memory is simulator-agnostic and reusable.** `loop/memory.py` reads
+knobs and descriptors from a `problem` dict and never touches ChampSim: cases built
+from result tables, retrieval by standardised descriptor distance, the digest an agent
+reads, and the design a memory hands over. Candidate for a `chia.analysis` block that
+any agentic loop could wrap around its own simulator node.
+
+### ChampSim
+
+**(e) Two bugs in `prefetcher/spp_dev/spp_dev.cc`**, both found running SPP on a
+small-core profile (L2 MSHR 16, DDR-1600) with lbm.
+`upstream/0002-champsim-spp-dev-ghr-victim.patch` fixes both:
+- *Heap-buffer-overflow in the lookahead loop.* `confidence_q` and `delta_q` are sized
+  to the L2 MSHR count, but `read_pattern` appends up to `PT_WAY + 1` entries per
+  lookahead step with no bounds check, so a long confident chain overruns them
+  (AddressSanitizer: READ of size 4 past a 64-byte region at `confidence_q[i]`,
+  spp_dev.cc:78). It is a silent SIGTRAP on macOS and heap corruption elsewhere. The fix
+  stops the lookahead when the next step cannot fit.
+- *The GHR victim search never finds a victim* when every entry has confidence 100,
+  because `min_conf` starts at 100 and the search is strict — `assert(0)` "[GHR] Cannot
+  find a replacement victim!". The fix starts the search above any legal confidence.
+
+No existing upstream issue was found for either.
