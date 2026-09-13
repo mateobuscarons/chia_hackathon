@@ -111,7 +111,122 @@ single most useful check we have that a rebuild is faithful.
 
 ---
 
-## 4. Contributions back to the frameworks
+## 4. A ceiling set by one of the arms is not a ceiling.
+
+**confirmed**
+
+Every share we report is a fraction of the stock-to-best-known gap, and "best known" was
+whatever the cached tables held. On the first datacenter suite that became the design the
+memory arm itself had found (0.4936) — so the arm was scored against its own output and
+its maximum was 100% by construction.
+
+Running an independent search on the same suite — the random forest of `loop/forest.py`,
+100 designs, no memory, no LLM — found **0.4994**, a design no arm reached. Re-scoring
+against it costs every arm about five points:
+
+| arm | against 0.4936 (an arm's design) | against 0.4994 (independent) |
+|---|---|---|
+| memory | 98 % | **93 %** |
+| bo | 93 % | **89 %** |
+| llm_direct | 89 % | **84 %** |
+
+The lesson generalises beyond this project: **when the reference comes from the same pool
+the arms write into, the metric silently bounds itself at the best arm.** A reference has
+to be a separate mechanism, run separately, and re-run whenever the arms improve.
+
+Choosing that mechanism produced a second result. Replaying surrogates offline against the
+only candidate pool that is a fair draw from the space (300 uniformly sampled designs,
+60 seeds, 16 designs each), the textbook Gaussian process over one-hot categoricals is
+**statistically indistinguishable from random search**, while a random forest is clearly
+ahead and far more reliable:
+
+| surrogate | area under the gap curve | D16 | spread over seeds at D16 |
+|---|---|---|---|
+| random forest | **72** | 92 % | 62..100 |
+| Gaussian process | 68 | 88 % | 28..100 |
+| random search | 67 | 81 % | 49..100 |
+
+So the same forest now serves the reference, the `bo` baseline and the memory-started arm,
+and no comparison rests on one side having a better model.
+
+**One methodological caveat, recorded because it caused a wrong conclusion here before it
+was caught:** those percentages are shares of the *pool's* gap, and the pool tops out at 86 %
+of the real gap, so they are not comparable with shares measured on a real cell. Worse, the
+replay systematically understates a real arm — it predicts 75 % for the Gaussian-process arm,
+which actually reached 89 %, because a real search sees 20 000 candidates plus the incumbent's
+neighbours rather than 300 pre-measured ones. **Offline replay is trustworthy for ordering
+surrogates and untrustworthy for predicting an arm's level.**
+
+Reproduce: `python -m loop.forest 100 10 <traces>` for the reference;
+`python -m loop.summarize results/run_<cell>_<tag>.json` re-scores against whatever the
+tables now hold.
+
+---
+
+## 5. The memory reaches in one design what an independent search needs forty-two to reach.
+
+**confirmed**
+
+Scored on one scale — the independent ceiling of finding 4 — against the 100-design forest
+search, on the suite the memory has never seen:
+
+| level | reached by | the independent search needs |
+|---|---|---|
+| 0.4883 (90 % of the gap) | the memory arm's **first** design | **D42** |
+| 0.4915 (93 %) | the memory arm at D16 | **D77** |
+| 0.4861 (89 %) | a tuned optimizer at D16 | D35 |
+| 0.4810 (84 %) | a memoryless LLM agent at D16 | D22 |
+
+The independent search's own curve: 75 % at D8, **79 % at D16**, 86 % at D24, 92 % at D50,
+100 % at D100. At the arm's budget it sits below where the memory arm *starts*.
+
+So the claim that survives every change of ceiling is not "98 % versus 93 %" but
+**4.8× fewer simulations for the same design quality**, and a first design worth 42.
+Quality-at-N moves whenever the reference moves — it has moved twice — while
+designs-to-quality does not.
+
+---
+
+## 6. What transfers is a basin, not an optimum.
+
+**confirmed, and it bounds the whole approach**
+
+The memory hands over one design. Measuring every design in the cached tables by how many
+knobs separate it from that handover:
+
+| knobs from the handover | best design measured there | share of the gap |
+|---|---|---|
+| 0 (the handover) | 0.4883 | 90 % |
+| 1 | 0.4910 | 93 % |
+| 2 | 0.4922 | 94 % |
+| 3 | 0.4936 | 95 % |
+| 5 | 0.4932 | 95 % |
+| **6** | **0.4994** | **100 %** |
+| 8 | 0.4945 | 96 % |
+| 10 | 0.4885 | 91 % |
+
+**Everything within five knob changes of the handover is capped at 93–95 %.** The ceiling
+design sits six knobs away and needs all six at once — a 64 KB L2 where the handover has
+512 KB, `lru` at the last level where the handover has `ship`, and the two prefetchers
+swapped between levels.
+
+Three consequences:
+
+1. The memory arm's 93 % is **not an optimizer failure**. It is the ceiling of the
+   neighbourhood it was handed. No local refinement escapes it.
+2. A search continued from the handover must **keep the whole space in view**. One- and
+   two-knob steps provably cannot reach a six-knob move, which is why the memory-started arm
+   keeps its global candidate pool instead of only expanding the incumbent's neighbours.
+3. The digest's consensus is **locally right and globally wrong**. It reports `ship` as a
+   move that pays and hands over a large L2; the best design known does the opposite of both.
+   What the memory transfers reliably is a good region, not the optimum inside it.
+
+This is the honest bound on few-shot transfer as we have built it: it buys the opening
+almost for free, and it cannot by itself buy the last ten percent.
+
+---
+
+## 7. Contributions back to the frameworks
 
 Five gaps hit while building the loop that belong in CHIA or ChampSim rather than in
 this repo. Both are shallow clones here, so each goes through a fork. Patches for the
