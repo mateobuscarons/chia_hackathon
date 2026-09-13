@@ -160,7 +160,7 @@ python -m loop.memory leave_one_out <memory traces> -- <test traces>   # free tr
 python -m loop.workloads admit                                   # the admission gate over every cached profile
 python -m loop.workloads headroom <trace> <trace> <trace>        # headroom and share beyond one knob, from the tables
 python -m loop.workloads probe <trace> ...                       # the 11-design probe for a new candidate (simulates)
-python -m loop.workloads reference 100 10 <trace> <trace> <trace>  # the ceiling for a suite: one long BO search (simulates)
+python -m loop.reference 100 10 <trace> <trace> <trace>          # the ceiling for a suite: one long random-forest search (simulates)
 python -m loop.workloads uniform 300 <trace> <trace> <trace>      # the random-search null (simulates)
 python -m loop.workloads fetch <url> <out> 100                   # a 100 MB trace prefix, enough to profile and simulate
 python -m loop.trace_profile <trace>                             # one workload's profile (cached under results/)
