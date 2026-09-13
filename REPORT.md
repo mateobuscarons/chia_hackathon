@@ -111,64 +111,14 @@ single most useful check we have that a rebuild is faithful.
 
 ---
 
-## 4. A ceiling set by one of the arms is not a ceiling.
+## 4. The memory reaches in one design what an independent search needs forty-two to reach.
 
 **confirmed**
 
-Every share we report is a fraction of the stock-to-best-known gap, and "best known" was
-whatever the cached tables held. On the first datacenter suite that became the design the
-memory arm itself had found (0.4936) — so the arm was scored against its own output and
-its maximum was 100% by construction.
-
-Running an independent search on the same suite — the random forest of `loop/forest.py`,
-100 designs, no memory, no LLM — found **0.4994**, a design no arm reached. Re-scoring
-against it costs every arm about five points:
-
-| arm | against 0.4936 (an arm's design) | against 0.4994 (independent) |
-|---|---|---|
-| memory | 98 % | **93 %** |
-| bo | 93 % | **89 %** |
-| llm_direct | 89 % | **84 %** |
-
-The lesson generalises beyond this project: **when the reference comes from the same pool
-the arms write into, the metric silently bounds itself at the best arm.** A reference has
-to be a separate mechanism, run separately, and re-run whenever the arms improve.
-
-Choosing that mechanism produced a second result. Replaying surrogates offline against the
-only candidate pool that is a fair draw from the space (300 uniformly sampled designs,
-60 seeds, 16 designs each), the textbook Gaussian process over one-hot categoricals is
-**statistically indistinguishable from random search**, while a random forest is clearly
-ahead and far more reliable:
-
-| surrogate | area under the gap curve | D16 | spread over seeds at D16 |
-|---|---|---|---|
-| random forest | **72** | 92 % | 62..100 |
-| Gaussian process | 68 | 88 % | 28..100 |
-| random search | 67 | 81 % | 49..100 |
-
-So the same forest now serves the reference, the `bo` baseline and the memory-started arm,
-and no comparison rests on one side having a better model.
-
-**One methodological caveat, recorded because it caused a wrong conclusion here before it
-was caught:** those percentages are shares of the *pool's* gap, and the pool tops out at 86 %
-of the real gap, so they are not comparable with shares measured on a real cell. Worse, the
-replay systematically understates a real arm — it predicts 75 % for the Gaussian-process arm,
-which actually reached 89 %, because a real search sees 20 000 candidates plus the incumbent's
-neighbours rather than 300 pre-measured ones. **Offline replay is trustworthy for ordering
-surrogates and untrustworthy for predicting an arm's level.**
-
-Reproduce: `python -m loop.forest 100 10 <traces>` for the reference;
-`python -m loop.summarize results/run_<cell>_<tag>.json` re-scores against whatever the
-tables now hold.
-
----
-
-## 5. The memory reaches in one design what an independent search needs forty-two to reach.
-
-**confirmed**
-
-Scored on one scale — the independent ceiling of finding 4 — against the 100-design forest
-search, on the suite the memory has never seen:
+The ceiling here is independent of every arm: a 100-design random-forest search
+(`loop/forest.py`), no memory and no LLM, which found 0.4994 — a design no arm reached.
+That matters, because scoring against a design one of the arms found would bound the metric
+at the best arm. Scored on that one scale, on the suite the memory has never seen:
 
 | level | reached by | the independent search needs |
 |---|---|---|
@@ -187,7 +137,7 @@ designs-to-quality does not.
 
 ---
 
-## 6. What transfers is a basin, not an optimum.
+## 5. What transfers is a basin, not an optimum.
 
 **confirmed, and it bounds the whole approach**
 
@@ -226,7 +176,7 @@ almost for free, and it cannot by itself buy the last ten percent.
 
 ---
 
-## 7. Contributions back to the frameworks
+## 6. Contributions back to the frameworks
 
 Five gaps hit while building the loop that belong in CHIA or ChampSim rather than in
 this repo. Both are shallow clones here, so each goes through a fork. Patches for the

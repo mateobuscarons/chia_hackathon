@@ -23,7 +23,7 @@ llm_direct       5   24%   47%   72%   77%   79%   80%    0.5263       77..88
 memory           5   93%   93%   93%   93%   93%   95%    0.5433       93..98
 ```
 
-Reading: the memory arm's **first** design is at 90 % / 93 % of the gap, above where either baseline ends after sixteen. It then gains only 3 points on `dc` and 2 on `dc2` — the loop adds little once retrieval has opened well, and `REPORT.md` §6 shows why (the remaining headroom is six knobs away). `bo` lost one seed on `dc` to a ChampSim stats-JSON parse error, so it has four there.
+Reading: the memory arm's **first** design is at 90 % / 93 % of the gap, above where either baseline ends after sixteen. It then gains only 3 points on `dc` and 2 on `dc2` — the loop adds little once retrieval has opened well, and `REPORT.md` §5 shows why (the remaining headroom is six knobs away). `bo` lost one seed on `dc` to a ChampSim stats-JSON parse error, so it has four there.
 
 **In flight.**
 - **VM, tag `g1`**: `bo` (now random forest) and `pooled_bo` on both cells, 5 seeds, 16 designs, chained `dc` → `dc2`, self-shutdown at the end. ~3 h, ~5 USD. Replaces the `bo` rows above and answers whether the LLM is load-bearing at test time.
@@ -35,7 +35,7 @@ Reading: the memory arm's **first** design is at 90 % / 93 % of the gap, above w
 2. **The memory arm's candidate filter is still a Gaussian process** (`agent.select_by_gp`) while every other search uses the forest. Test the swap for free first by replaying the ~43 logged rounds in the reports with a forest (the GP filter captures 55 % of each round's candidate spread against 45 % for taking the LLM's own order). Only then change it — changing it makes the `f1` memory rows incomparable.
 3. **Evaluate retrieval and the digest** — the run-time half nobody has measured. Today: the 3 nearest cases per test workload by standardized descriptor distance, consensus and traps from each workload's closest case only, the wider circle for workload-dependent moves, the handover computed over every case. One measurement already argues against the distance filter: effect signs survive on a new workload about two thirds of the time and **flat in descriptor distance**. Free offline checks first: the digest with every case instead of the nearest 3; with another distance, or none; which digest sections the agent actually uses (every prompt and pick is in the reports). Spend designs only after those.
 4. **An unseen chip.** The same question one level up: a memory of searches on chip C, a search on a *different* chip. `loop/configs.py` holds one chip (`CHIP = "C_server"`), so a second profile has to come back. The memory workloads are **not** re-simulated — only the new chip's test suite needs a stock design, the arms' designs and a reference. Settle the mechanism question first: the digest anchors everything on "moves from the stock chip", and two chips have different stock designs, so decide whether the *move* or the *resulting design* is what transfers.
-5. **A stronger model, as an ablation.** Same arms, seeds and cells with `ANALYST_MODEL=gemini-2.5-pro`, everything else fixed. Pro bills thinking as output and CHIA forwards no thinking budget against a 16k default (`REPORT.md` §7c), so that fix probably has to land first. Decide whether Pro runs on every arm or only the memory arm.
+5. **A stronger model, as an ablation.** Same arms, seeds and cells with `ANALYST_MODEL=gemini-2.5-pro`, everything else fixed. Pro bills thinking as output and CHIA forwards no thinking budget against a 16k default (`REPORT.md` §6c), so that fix probably has to land first. Decide whether Pro runs on every arm or only the memory arm.
 
 Small, known: the LLM re-proposes already-measured designs, 4 to 9 of 8 per round; the retry recovers most, and listing measured designs in the task text would remove it. After the above: `gap2` with the same arms, then the paper.
 
@@ -65,7 +65,7 @@ One code path for the LLM arms: `agent.run_agent(..., use_memory, use_gp)`; with
 
 **BUDGET counts designs, not rounds** (`rounds = budget // PER_ROUND`): the cells at BUDGET=16 buy 16 designs over 8 rounds. **The unit of cost is the design, the unit of adaptation is the round** — the two designs of an LLM round are chosen together from the same information and listed in the arm's own rank order, so D1 is the design it ranked first and D2 the better of that pair, not a step of learning. `bo` and `pooled_bo` buy one design per round, so every one of their columns is a fresh decision.
 
-**The reference** (`loop/forest.py`, `python -m loop.forest <designs> <batch> <traces>`): the ceiling a cell is scored against, and it must be an independent mechanism — scoring against a design one of the arms found bounds the metric at the best arm (`REPORT.md` §4). Re-run it whenever the arms improve.
+**The reference** (`loop/forest.py`, `python -m loop.forest <designs> <batch> <traces>`): the ceiling a cell is scored against, and it must be an independent mechanism — scoring against a design one of the arms found bounds the metric at the best arm, which is exactly what happened on `dc` (0.4936, set by the memory arm, against 0.4994 from an independent 100-design search; re-scoring cost every arm about five points). Re-run it whenever the arms improve.
 
 **Search space** (`loop/configs.py`, 13 knobs, 6.6 M raw designs, area-coupled, latency derived from size): L1D sets/ways/prefetcher; L2 sets/ways/prefetcher/replacement/MSHR; LLC sets/ways/prefetcher/replacement/MSHR. Area = L2 + LLC data capacity <= 4608 KB; L1D and MSHRs cost nothing (known simplification). Chip C: wide core, two memory channels, placeholder profile. Fidelity 5M warmup / 10M simulated (Spearman 0.919 against 50M/50M over 26 designs; shorter failed).
 
@@ -102,7 +102,7 @@ One code path for the LLM arms: `agent.run_agent(..., use_memory, use_gp)`; with
 
 ## Upstream: contributions to CHIA and ChampSim
 
-`upstream/` holds the patches. **Every contribution is described in `REPORT.md` §7** (the `gs://` trace resolver, the config-space build node, the Vertex generation-config passthrough and its measured cost, the simulator-agnostic case memory, the two spp_dev bugs). Do not restate them here.
+`upstream/` holds the patches. **Every contribution is described in `REPORT.md` §6** (the `gs://` trace resolver, the config-space build node, the Vertex generation-config passthrough and its measured cost, the simulator-agnostic case memory, the two spp_dev bugs). Do not restate them here.
 
 ## Rules of engagement
 
