@@ -8,7 +8,8 @@
 
 Every arm starts from the stock chip (design D0) and buys BUDGET designs in rounds
 of PER_ROUND, on the same seeds and at the same fidelity. Arms:
-  bo          Gaussian process + expected improvement (loop.bo)
+  bo          random forest + expected improvement from the stock chip (loop.forest)
+  pooled_bo   the same search, started from the design the memory hands over
   llm_direct  the plain LLM agent (loop.agent)
   memory      the agent reading the memory's digest, proposing 8 designs a round, a GP fit on the
               run picking the 2 to simulate
@@ -22,7 +23,7 @@ import sys
 import time
 from concurrent.futures import ProcessPoolExecutor
 
-from loop import agent, bo, memory_build
+from loop import agent, forest, memory, memory_build
 from loop.champsim_problem import make_suite_problem, trace_short_name
 
 
@@ -64,7 +65,7 @@ CELLS = {
     # The gate before any launch: every arm, one round, two workloads.
     "smoke": {"test": [TRACE["mcf"], TRACE["lbm"]], "memory": [[TRACE["omnetpp"]], [TRACE["bfs.urand"]]]},
 }
-ARMS = ["bo", "llm_direct", "memory"]
+ARMS = ["bo", "llm_direct", "memory", "pooled_bo"]
 # The LLM arms' switches: (use_memory, use_gp).
 AGENT_SWITCHES = {"llm_direct": (False, False), "memory": (True, True)}
 BUDGET = 8
@@ -77,6 +78,14 @@ def memory_path():
     agent-built memory (loop.memory_build with the llm searcher), which hands over
     a better design than an optimiser-built one on both held-out suites."""
     return os.environ.get("MEMORY_PATH", "results/memory_llm.json")
+
+
+def handover(memory_file):
+    """The design the memory hands over, fitted to this chip's area budget."""
+    shelf = memory.load(memory_file)
+    if shelf.get("pooled") is None:
+        raise RuntimeError("the memory has no handover design: " + str(memory_file))
+    return memory.fit_to_budget(shelf["pooled"]["knobs"])
 
 
 def report_path(cell_name, tag):
@@ -95,12 +104,17 @@ def run_one(arm, cell_name, seed, rounds, tag_prefix):
     tag = "{}-{}-s{}".format(arm, tag_prefix, seed)
     memory_file = memory_path()
     if arm == "bo":
-        # One design per round, so every pick is made against measured outcomes
-        # (a batch of two makes its second pick against the GP's guess at the
-        # first). The offline sweep found batch size costs nothing either way, so
-        # the baseline takes the more adaptive setting: 16 decisions on a
-        # 16-design budget, where the LLM arms get 8.
-        result = bo.run_bo(problem, rounds * PER_ROUND, 1, seed, tag)
+        # One design per round, so every pick is made against measured outcomes.
+        # The offline sweep found batch size costs nothing either way, so the
+        # baseline takes the more adaptive setting: 16 decisions on a 16-design
+        # budget, where the LLM arms get 8.
+        result = forest.run(problem, rounds * PER_ROUND, 1, seed, tag)
+    elif arm == "pooled_bo":
+        # The same search as `bo`, starting from the design the memory hands over
+        # instead of from the stock chip alone. It is the arm that says whether the
+        # LLM is doing anything at test time: if it matches `memory`, the memory is
+        # the contribution and the agent reading it is not.
+        result = forest.run(problem, rounds * PER_ROUND, 1, seed, tag, start_design=handover(memory_file))
     elif arm in AGENT_SWITCHES:
         use_memory, use_gp = AGENT_SWITCHES[arm]
         result = agent.run_agent(problem, rounds, PER_ROUND, tag, memory_file, use_memory, use_gp, seed=seed)

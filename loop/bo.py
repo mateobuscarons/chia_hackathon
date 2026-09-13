@@ -1,20 +1,22 @@
-"""The statistical baseline: tuned Bayesian optimisation. The search opens with a
-small random initial design, then a Gaussian process fit on every design measured
-so far picks `per_round` designs a round by expected improvement (batch via the
-kriging believer) over a seeded random sample of the feasible space plus every
-unmeasured design one or two knobs away from the incumbent (the random sample
-never holds the incumbent's neighbours, where a search finishes).
+"""The Gaussian process, and a search that uses it.
 
-The initial design, the batch size, the acquisition function and the kernel were
-swept offline against the cached tables (replaying each configuration over the
-measured designs at no simulation cost, scored by the mean gap share over the
-whole budget). Only the initial design mattered: WARM_UP_DESIGNS random designs
-lift the mean and, more importantly, cut the spread over seeds, because a cold
-Gaussian process fit on the stock design alone ranks its first candidates almost
-arbitrarily and a bad first pick misleads the rest of the budget. Batch size,
-expected improvement against log-EI, UCB and greedy, and Matern 5/2 against
-Matern 3/2 and an ARD RBF all landed within noise of each other, so they stand
-as they were.
+Two things still need this. `agent.select_by_gp` fits it on one run to pick which
+of the LLM's proposals to simulate, and `loop.memory_build` runs `run_bo` as the
+optimiser-searched memory build, the ablation against the agent-searched one.
+
+It is NOT the baseline arm any more. The arms and the reference search share the
+random forest in `loop/forest.py`: replayed offline on a fair draw from the space,
+this Gaussian process reached 88% of the gap at 16 designs where the forest reached
+92% and drawing at random reached 81%, so a comparison that gave the baseline this
+model and the ceiling the other one would not have been a comparison.
+
+`run_bo` opens with a small random initial design, then picks by expected
+improvement (batch via the kriging believer) over a seeded random sample of the
+feasible space plus every unmeasured design one or two knobs away from the
+incumbent. The initial design is the only setting a sweep of all four
+hyperparameters changed: it lifts the mean a little and cuts the spread over seeds
+a lot, because a GP fit on the stock design alone ranks its first candidates almost
+at random.
 
 The surrogate: a Gaussian process in log-speedup units. An ORDINAL knob (sets, ways,
 MSHRs) becomes one column, log2(value) rescaled to [0, 1]; a CATEGORICAL knob

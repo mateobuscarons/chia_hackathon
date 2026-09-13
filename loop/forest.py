@@ -1,11 +1,12 @@
-"""The reference search: the ceiling a suite's arms are scored against.
+"""The random-forest optimizer: one surrogate, used everywhere it is needed.
 
-  python -m loop.reference <designs> <batch> <trace> [trace ...]
+  python -m loop.forest <designs> <batch> <trace> [trace ...]   # the reference search
 
-Self-contained on purpose. The arms' searcher (`loop/bo.py`) is tuned for a
-16-design budget and is part of what the experiment measures; the reference is
-not an arm and must not drift with it, so it carries its own surrogate here and
-shares only the problem definition and the result tables.
+`run()` is the same search at an arm's budget, with an optional design to start
+from; `loop/run.py` uses it for the `bo` arm (from the stock chip) and the
+`pooled_bo` arm (from the design the memory hands over). `reference()` is the long
+search that sets the ceiling a cell is scored against. The same surrogate in all
+three so that no comparison rests on one of them having a better model.
 
 The surrogate is a RANDOM FOREST, not a Gaussian process. Replaying both offline
 against the cached tables, on the 300-design uniform sample (the only pool that
@@ -38,7 +39,8 @@ import numpy
 from sklearn.ensemble import RandomForestRegressor
 
 from loop import champsim_problem
-from loop.configs import SEARCH_SPACE, random_feasible_designs
+from loop.champsim_problem import candidate_pool
+from loop.configs import SEARCH_SPACE, random_feasible_designs, typed_knobs
 
 # The initial design, before the forest chooses anything. At a 16-design budget
 # the sweep found any warm-up beats none and the size barely matters; at 100
@@ -133,9 +135,83 @@ def starting_pool(problem):
     return pool
 
 
+# ---------------------------------------------------------------- an arm ----
+
+WARM_UP_DESIGNS = 3       # the initial design at an arm's budget, as the sweep set it
+
+
+def run(problem, rounds, per_round, seed, tag, start_design=None):
+    """One arm's search, `rounds * per_round` designs bought.
+
+    start_design: a design to buy before anything else. `pooled_bo` passes the
+    design the memory hands over, so the only difference from `bo` is where the
+    search begins; everything after that - the surrogate, the warm-up, the
+    candidate pool - is identical, and the arms differ in one thing only.
+
+    The candidate pool is drawn with the run's own seed and keeps the whole space
+    in view, not only the incumbent's neighbours: on this chip the best design
+    measured sits SIX knobs from the memory's handover, and everything within five
+    of it is capped well below the ceiling, so a search that only walks one knob at
+    a time cannot get there from a good start."""
+    objective = problem["objective"]
+    budget = rounds * per_round
+    candidates = candidate_pool(problem, seed)
+    candidates.pop(problem["name_of"](problem["stock"]), None)
+
+    stock_metrics = problem["evaluate"](problem["stock"])
+    history = [{"index": 0, "round": 0, "name": problem["name_of"](problem["stock"]), "knobs": problem["stock"],
+                "metrics": stock_metrics, "source": "stock", "hypothesis": None}]
+    measured_knobs = [problem["stock"]]
+    measured_values = [stock_metrics[objective]]
+    best = stock_metrics[objective]
+    best_knobs = problem["stock"]
+
+    def buy(knobs_list, source, round_number):
+        nonlocal best, best_knobs
+        metrics_list = problem["evaluate_many"](knobs_list)
+        for knobs, metrics in zip(knobs_list, metrics_list):
+            name = problem["name_of"](knobs)
+            candidates.pop(name, None)
+            entry = {"index": len(history), "round": round_number, "name": name, "knobs": knobs,
+                     "metrics": metrics, "source": source, "hypothesis": None}
+            history.append(entry)
+            measured_knobs.append(knobs)
+            measured_values.append(metrics[objective])
+            if metrics[objective] > best:
+                best = metrics[objective]
+                best_knobs = knobs
+            print("[{}] round {} | D{} | {}={:.4f} | {}".format(
+                tag, round_number, entry["index"], objective, metrics[objective], source), flush=True)
+
+    if start_design is not None:
+        buy([typed_knobs(start_design)], "memory", 0)
+
+    warm_up = []
+    for name in candidates:
+        if len(warm_up) == min(WARM_UP_DESIGNS, budget - (len(history) - 1)):
+            break
+        warm_up.append(candidates[name])
+    if len(warm_up) > 0:
+        buy(warm_up, "warm-up", 0)
+
+    round_number = 0
+    while len(history) - 1 < budget:
+        round_number += 1
+        for name, knobs in neighbours(best_knobs, problem).items():
+            if name not in candidates:
+                candidates[name] = knobs
+        wanted = min(per_round, budget - (len(history) - 1))
+        chosen = choose(candidates, measured_knobs, measured_values, best, wanted)
+        knobs_list = []
+        for name in chosen:
+            knobs_list.append(candidates[name])
+        buy(knobs_list, "forest", round_number)
+    return {"designs": history, "rounds": []}
+
+
 # ---------------------------------------------------------------- the search ----
 
-def search(traces, how_many, batch):
+def reference(traces, how_many, batch):
     problem = champsim_problem.make_suite_problem(traces, allow_simulation=True)
     objective = problem["objective"]
     started = time.time()
@@ -227,4 +303,4 @@ if __name__ == "__main__":
     if os.environ.get("LOOP_DISPATCH", "local") == "chia":
         from loop import run
         run.start_chia()
-    search(sys.argv[3:], int(sys.argv[1]), int(sys.argv[2]))
+    reference(sys.argv[3:], int(sys.argv[1]), int(sys.argv[2]))
