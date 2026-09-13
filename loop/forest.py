@@ -157,6 +157,7 @@ def run(problem, rounds, per_round, seed, tag, start_design=None):
     budget = rounds * per_round
     candidates = candidate_pool(problem, seed)
     candidates.pop(problem["name_of"](problem["stock"]), None)
+    broken = set()          # designs the simulator could not measure; never offered again
 
     stock_metrics = problem["evaluate"](problem["stock"])
     history = [{"index": 0, "round": 0, "name": problem["name_of"](problem["stock"]), "knobs": problem["stock"],
@@ -166,9 +167,33 @@ def run(problem, rounds, per_round, seed, tag, start_design=None):
     best = stock_metrics[objective]
     best_knobs = problem["stock"]
 
+    def one_at_a_time(knobs_list):
+        kept = []
+        metrics = []
+        for knobs in knobs_list:
+            name = problem["name_of"](knobs)
+            try:
+                metrics.append(problem["evaluate"](knobs))
+                kept.append(knobs)
+            except Exception as error:
+                broken.add(name)
+                candidates.pop(name, None)
+                print("[{}] dropped {}: {}".format(tag, name, repr(error)[-160:]), flush=True)
+        return kept, metrics
+
     def buy(knobs_list, source, round_number):
+        """Measure a batch and record it. A design that makes the simulator produce
+        no usable stats used to end the whole run - one seed died that way in two
+        separate cells, because the candidate pool is drawn from the seed and so the
+        same bad design came back every time. Retry design by design instead, drop
+        whatever still fails, and let the loop pick a replacement: the budget counts
+        designs that produced a measurement."""
         nonlocal best, best_knobs
-        metrics_list = problem["evaluate_many"](knobs_list)
+        try:
+            metrics_list = problem["evaluate_many"](knobs_list)
+        except Exception as error:
+            print("[{}] batch failed ({}), retrying one at a time".format(tag, repr(error)[-160:]), flush=True)
+            knobs_list, metrics_list = one_at_a_time(knobs_list)
         for knobs, metrics in zip(knobs_list, metrics_list):
             name = problem["name_of"](knobs)
             candidates.pop(name, None)
@@ -198,7 +223,7 @@ def run(problem, rounds, per_round, seed, tag, start_design=None):
     while len(history) - 1 < budget:
         round_number += 1
         for name, knobs in neighbours(best_knobs, problem).items():
-            if name not in candidates:
+            if name not in candidates and name not in broken:
                 candidates[name] = knobs
         wanted = min(per_round, budget - (len(history) - 1))
         chosen = choose(candidates, measured_knobs, measured_values, best, wanted)

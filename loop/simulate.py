@@ -36,9 +36,19 @@ def run_simulation(binary_path, trace_paths, warmup_instructions, simulation_ins
     ] + list(trace_paths)
     subprocess.run(command, check=True, capture_output=True, text=True)
 
-    with open(stats_path) as stats_file:
-        phases = json.load(stats_file)
-    os.remove(stats_path)
+    # A design that makes ChampSim exit cleanly but write no usable stats used to
+    # surface as a bare JSONDecodeError with nothing identifying it, which killed a
+    # whole run. Name the binary and the trace so the next one can be reproduced.
+    try:
+        with open(stats_path) as stats_file:
+            phases = json.load(stats_file)
+    except (json.JSONDecodeError, ValueError) as error:
+        size = os.path.getsize(stats_path) if os.path.isfile(stats_path) else -1
+        raise RuntimeError("ChampSim wrote no usable stats ({} bytes) for {} on {}: {}".format(
+            size, os.path.basename(binary_path), trace_paths[0], error))
+    finally:
+        if os.path.isfile(stats_path):
+            os.remove(stats_path)
 
     # ChampSim reports one entry per phase; we only want the measured one.
     simulation_phase = None
