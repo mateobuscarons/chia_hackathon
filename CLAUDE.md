@@ -11,19 +11,20 @@ A3 workshop hackathon (agentic-arch.org). Deliverable: 4-page paper + open-sourc
 **Both cells are complete, all four arms, against independent ceilings** (`results/run_<cell>_f1.json` + `run_<cell>_g1.json`; reproduce with `python -m loop.summarize <both reports of a cell>`).
 
 ```
-dc    stock 0.3837, best known 0.4994 (independent)     dc2   stock 0.4389, best known 0.5485 (independent)
-arm            D1    D4    D8   D12   D16    final       arm            D1    D4    D8   D12   D16    final
-bo            22%   61%   72%   75%   88%   0.4856       bo            22%   46%   60%   64%   72%   0.5181
-llm_direct    49%   72%   80%   82%   84%   0.4810       llm_direct    24%   72%   77%   79%   80%   0.5263
-memory        90%   91%   92%   93%   93%   0.4915       memory        93%   93%   93%   93%   95%   0.5433
-pooled_bo     90%   90%   91%   91%   92%   0.4899       pooled_bo     93%   93%   95%   95%   96%   0.5443
-D16 spread:  bo 84..92, llm 80..87, mem 91..95,          D16 spread:  bo 48..91, llm 77..88, mem 93..98,
-             pooled 91..93                                            pooled 94..99
+dc   stock 0.3837, ceiling 0.4994 (independent)      dc2  stock 0.4389, ceiling 0.5485 (independent)
+arm            D1    D4    D8   D12   D16   final     arm            D1    D4    D8   D12   D16   final
+bo_gp   (GP)  22%   42%   64%   82%   89%  0.4861     bo_gp   (GP)  22%   46%   72%   78%   84%  0.5315
+bo      (RF)  22%   61%   72%   75%   88%  0.4856     bo      (RF)  19%   45%   57%   61%   68%  0.5139
+llm_direct    49%   72%   80%   82%   84%  0.4810     llm_direct    24%   72%   77%   79%   80%  0.5263
+memory        90%   91%   92%   93%   93%  0.4915     memory        93%   93%   93%   93%   95%  0.5433
+pooled_bo     90%   90%   91%   91%   92%  0.4899     pooled_bo     93%   93%   95%   95%   96%  0.5443
 ```
 
-**What this settles.** The memory's first design (90 % / 93 %) beats sixteen designs of a tuned optimizer from stock (88 % / 72 %) on both suites. And `pooled_bo` — the same optimizer handed the memory's design, no LLM at test time — matches `memory` on `dc` and beats it on `dc2`. **The memory is the contribution; the agent reading it is worth about a point.** The LLM's measured value is at build time (`REPORT.md` §1: 36 controlled single-knob effects against an optimiser's 0). `REPORT.md` §4 is written on these tables.
+**Quote the STRONGER surrogate as the baseline** (GP on both suites: 89 % and 84 %). The two tie on `dc` and differ by 16 points on `dc2`, but per seed the forest lands at 48/62/72/91 and the process at 73/76/88/90/96 — t = 1.6, and all nine cold-start runs span 48-96 %. Taking the forest's 68 % would inflate the margin by a seed draw; the claim does not need it.
 
-**Do not read the surrogate as settled**: the Gaussian process this forest replaced scored 89 % / 85 % where the forest scores 88 % / 72 %, and the seed spreads contain both. At this budget the surrogate is not what decides the outcome, and the offline replay that predicted the forest ahead did not predict either arm.
+**`bo` means different mechanisms in the two reports** — the GP in `f1`, the forest in `g1`. The `f1` arm has been renamed **`bo_gp`** in the stored reports, because `summarize` merges by arm name and seed and silently filled `g1`'s missing `dc2` seed 1 with the GP's, producing a contaminated row. Never let two mechanisms share an arm name across reports of one cell.
+
+**What this settles.** The memory's first design (90 % / 93 %) beats sixteen designs of the best memoryless optimizer (89 % / 84 %) on both suites. And `pooled_bo` — the same optimizer handed the memory's design, no LLM at test time — matches `memory` on `dc` and beats it on `dc2`. **The memory is the contribution; the agent reading it is worth about a point.** The LLM's measured value is at build time (`REPORT.md` §1). `REPORT.md` §4 is written on these tables.
 
 **In flight (Mac, overnight):** the `bo` arm's exact configuration run to **75 designs**, 3 seeds on each cell, six processes under `caffeinate`, scratch code `rf_long.py` (not in the repo). It answers the open question in `REPORT.md` §4 — how many designs a memoryless forest search needs to reach the levels the memory-started arms reach at D16 — which the 100-design references cannot answer because they use warm-up 10 and batch 6. Curves land as `rflong_<cell>_s<seed>.json` in the session scratchpad; the simulations land in the shared tables either way.
 

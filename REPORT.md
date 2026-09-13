@@ -124,14 +124,19 @@ sides. Five seeds per arm, except `bo` on `dc` which has four.
 
 | design | 1 | 2 | 4 | 8 | 12 | 16 |
 |---|---|---|---|---|---|---|
-| `bo` from the stock chip | 22 % / 22 % | 22 % / 26 % | 61 % / 46 % | 72 % / 60 % | 75 % / 64 % | **88 % / 72 %** |
+| best memoryless optimizer from the stock chip | 22 % / 22 % | 22 % / 26 % | 42 % / 46 % | 64 % / 72 % | 82 % / 78 % | **89 % / 84 %** |
 | `pooled_bo` from the memory's design | **90 % / 93 %** | 90 % / 93 % | 90 % / 93 % | 91 % / 95 % | 91 % / 95 % | 92 % / **96 %** |
 | `memory`, the agent reading the digest | **90 % / 93 %** | 91 % / 93 % | 91 % / 93 % | 92 % / 93 % | 93 % / 93 % | 93 % / 95 % |
 
-**The memory's first design is at 90 % and 93 %. The identical optimizer started from the
-stock chip reaches 88 % and 72 % after sixteen designs, and never reaches the opening on
-either suite.** One simulation against more than sixteen, with nothing differing between
-those two rows but where the search begins.
+**The memory's first design is at 90 % and 93 %. The best memoryless optimizer reaches 89 %
+and 84 % after sixteen designs, and never reaches the opening on either suite.** One
+simulation against more than sixteen, with nothing differing between the second and third
+rows but where the search begins.
+
+The first row takes the **stronger of the two surrogates run on each suite**, deliberately.
+Both a tuned Gaussian process and a random forest searched from the stock chip: they tie on
+`dc` (89 % against 88 %) and differ by sixteen points on `dc2` (84 % against 68 %). Taking
+the weaker one would inflate the margin by a seed draw, and the claim does not need it.
 
 Two things fall out of the same table:
 
@@ -140,14 +145,15 @@ Two things fall out of the same table:
   with no digest, no prompt and no model call. **At test time the LLM is worth about a point
   on one suite and nothing on the other.** What it is demonstrably worth is at *build* time
   (§1), which is where the contribution sits.
-- **Which surrogate a memoryless search uses is noise.** The same tuned Gaussian process this
-  forest replaced scored 89 % on `dc` and 85 % on `dc2`; the forest scores 88 % and 72 %. It
-  ties on one suite and loses by thirteen points on the other, with seed spreads (84..92,
-  48..91) wide enough to contain both. An offline replay had predicted the forest four points
-  *ahead* on a fair draw from the space. It is not a reliable ordering either — **replay does
-  not predict a real arm, and at this budget the surrogate is not what decides the outcome.**
-  That is ArchGym's "all optimizers tie under tuned hyperparameters" arriving as noise rather
-  than as a tie.
+- **Which surrogate a memoryless search uses cannot be resolved at these seed counts.** The
+  Gaussian process scores 89 % / 84 %, the random forest 88 % / 68 %. On `dc2` that gap is
+  sixteen points, but per seed the forest lands at 48, 62, 72, 91 and the process at 73, 76,
+  88, 90, 96 — a difference of 16 points against a standard error of 10, t = 1.6, and across
+  all nine cold-start runs the outcomes span 48 % to 96 %. An offline replay had predicted the
+  forest four points *ahead* on a fair draw from the space, and it predicted neither arm.
+  **At this budget the surrogate is not what decides the outcome, and cold-start search is
+  unstable enough that a 16-point mean gap is a seed draw.** That is ArchGym's "all optimizers
+  tie under tuned hyperparameters" arriving as noise rather than as a tie.
 
 **Open, and owed before any "N times fewer simulations" claim is published.** The natural next
 statement is a ratio — how many designs a memoryless search needs to reach what the memory arm

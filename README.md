@@ -27,7 +27,7 @@ one of the arms found would bound the metric at the best arm.
 
 | arm | D1 | D2 | D4 | D8 | D12 | D16 | best design |
 |---|---|---|---|---|---|---|---|
-| optimisation from the stock chip | 22 % | 22 % | 61 % | 72 % | 75 % | 88 % | 0.4856 |
+| optimisation from the stock chip | 22 % | 22 % | 42 % | 64 % | 82 % | 89 % | 0.4861 |
 | LLM alone | 49 % | 56 % | 72 % | 80 % | 82 % | 84 % | 0.4810 |
 | LLM + memory | **90 %** | 91 % | 91 % | 92 % | 93 % | 93 % | 0.4915 |
 | optimisation from the memory's design | **90 %** | 90 % | 90 % | 91 % | 91 % | 92 % | 0.4899 |
@@ -38,15 +38,22 @@ known 0.5485, +25.0 %:
 
 | arm | D1 | D2 | D4 | D8 | D12 | D16 | best design |
 |---|---|---|---|---|---|---|---|
-| optimisation from the stock chip | 22 % | 26 % | 46 % | 60 % | 64 % | 72 % | 0.5181 |
+| optimisation from the stock chip | 22 % | 26 % | 46 % | 72 % | 78 % | 84 % | 0.5315 |
 | LLM alone | 24 % | 47 % | 72 % | 77 % | 79 % | 80 % | 0.5263 |
 | LLM + memory | **93 %** | 93 % | 93 % | 93 % | 93 % | 95 % | 0.5433 |
 | optimisation from the memory's design | **93 %** | 93 % | 93 % | 95 % | 95 % | **96 %** | 0.5443 |
 
+The optimisation row is the **stronger of the two surrogates we ran** on each suite. Both a
+tuned Gaussian process and a random forest were run from the stock chip; they tie on `dc`
+(89 % against 88 %) and differ by 16 points on `dc2` (84 % against 68 %), which is inside the
+noise at these seed counts — individual cold-start runs land anywhere from 48 % to 96 %.
+Reporting the weaker one would inflate the margin through a seed draw, so the table takes the
+better one and both are in the reports.
+
 - **One design from memory beats sixteen designs of search.** The memory-started arms open
-  at 90 % and 93 %; a tuned optimizer from the stock chip reaches 88 % and 72 % after
-  sixteen, and never reaches the opening on either suite. Nothing differs between those two
-  rows but where the search begins.
+  at 90 % and 93 %; the best memoryless optimizer reaches 89 % and 84 % after sixteen, and
+  never reaches the opening on either suite. Nothing differs between those rows but where the
+  search begins.
 - **The memory is the effect, not the agent reading it.** Handing the memory's design to a
   plain optimizer matches the LLM agent on `dc` (92 % against 93 %) and beats it on `dc2`
   (96 % against 95 %) — with no digest, no prompt and no model call at test time. What the
