@@ -113,34 +113,41 @@ single most useful check we have that a rebuild is faithful.
 
 ## 4. One design from memory beats sixteen designs of a tuned optimizer.
 
-**confirmed, matched budget and matched configuration**
+**confirmed on two suites, matched budget and matched configuration**
 
-The comparison is like for like: the same cell, the same independent ceiling (0.4994, found
-by a 100-design random-forest search carrying no memory and no LLM — scoring against a design
-one of the arms found would bound the metric at the best arm), and the same surrogate and
-settings on both sides. Mean over seeds, shares of the stock-to-ceiling gap:
+The comparison is like for like: the same cells, independent ceilings (each from a 100-design
+random-forest search carrying no memory and no LLM — scoring against a design one of the arms
+found would bound the metric at the best arm), and the same surrogate and settings on both
+sides. Five seeds per arm, except `bo` on `dc` which has four.
+
+`dc` (ceiling 0.4994) then `dc2` (ceiling 0.5485), mean over seeds:
 
 | design | 1 | 2 | 4 | 8 | 12 | 16 |
 |---|---|---|---|---|---|---|
-| optimizer from the stock chip (`bo`, 4 seeds) | 21 % | 21 % | 61 % | 72 % | 75 % | **88 %** |
-| optimizer from the memory's design (`pooled_bo`, 5 seeds) | **90 %** | 90 % | 90 % | 91 % | 91 % | 92 % |
-| the memory agent (`memory`, 5 seeds) | **90 %** | 91 % | 91 % | 92 % | 93 % | 93 % |
+| `bo` from the stock chip | 22 % / 22 % | 22 % / 26 % | 61 % / 46 % | 72 % / 60 % | 75 % / 64 % | **88 % / 72 %** |
+| `pooled_bo` from the memory's design | **90 % / 93 %** | 90 % / 93 % | 90 % / 93 % | 91 % / 95 % | 91 % / 95 % | 92 % / **96 %** |
+| `memory`, the agent reading the digest | **90 % / 93 %** | 91 % / 93 % | 91 % / 93 % | 92 % / 93 % | 93 % / 93 % | 93 % / 95 % |
 
-**The memory's first design is at 90 %. The identical optimizer started from the stock chip
-reaches 88 % after sixteen designs and never reaches 90 % inside the budget.** One simulation
-against more than sixteen, with nothing differing but where the search begins.
+**The memory's first design is at 90 % and 93 %. The identical optimizer started from the
+stock chip reaches 88 % and 72 % after sixteen designs, and never reaches the opening on
+either suite.** One simulation against more than sixteen, with nothing differing between
+those two rows but where the search begins.
 
 Two things fall out of the same table:
 
-- **`pooled_bo` matches `memory`** (92 % against 93 %, inside the seed spread, and with a
-  tighter spread). An optimizer handed the memory's design gets where the agent gets, with no
-  digest, no prompt and no model call. **At test time the LLM is worth about a point.** What it
-  is demonstrably worth is at *build* time (§1), which is where the contribution sits.
-- **The surrogate barely matters once the search is real.** This forest baseline lands at 88 %
-  where a tuned Gaussian process landed at 89 % on the same cell — ArchGym's "all optimizers
-  tie under tuned hyperparameters", reproduced in our own searches. An offline replay had
-  predicted the forest four points ahead; it is not. Replay orders surrogates, it does not
-  predict an arm.
+- **`pooled_bo` matches `memory` on `dc` (92 % against 93 %) and beats it on `dc2`
+  (96 % against 95 %).** An optimizer handed the memory's design gets where the agent gets,
+  with no digest, no prompt and no model call. **At test time the LLM is worth about a point
+  on one suite and nothing on the other.** What it is demonstrably worth is at *build* time
+  (§1), which is where the contribution sits.
+- **Which surrogate a memoryless search uses is noise.** The same tuned Gaussian process this
+  forest replaced scored 89 % on `dc` and 85 % on `dc2`; the forest scores 88 % and 72 %. It
+  ties on one suite and loses by thirteen points on the other, with seed spreads (84..92,
+  48..91) wide enough to contain both. An offline replay had predicted the forest four points
+  *ahead* on a fair draw from the space. It is not a reliable ordering either — **replay does
+  not predict a real arm, and at this budget the surrogate is not what decides the outcome.**
+  That is ArchGym's "all optimizers tie under tuned hyperparameters" arriving as noise rather
+  than as a tie.
 
 **Open, and owed before any "N times fewer simulations" claim is published.** The natural next
 statement is a ratio — how many designs a memoryless search needs to reach what the memory arm

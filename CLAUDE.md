@@ -8,31 +8,29 @@ A3 workshop hackathon (agentic-arch.org). Deliverable: 4-page paper + open-sourc
 
 ## Start here
 
-**Both cells have run on the agent-built memory** (`results/run_dc_f1.json`, `results/run_dc2_f1.json`; reproduce with `python -m loop.summarize <report>`). Both are now scored against **independent** ceilings. On `dc` the independent search moved the ceiling (0.4936 -> 0.4994) and cost every arm about five points; on `dc2` it landed on exactly the existing 0.5485, so that table did not move. Do not assume a new reference always lowers the shares.
+**Both cells are complete, all four arms, against independent ceilings** (`results/run_<cell>_f1.json` + `run_<cell>_g1.json`; reproduce with `python -m loop.summarize <both reports of a cell>`).
 
 ```
-dc   stock 0.3837, best known 0.4994 (independent, loop.forest 100 designs)
-arm          seeds    D1    D2    D4    D8   D12   D16     final     D16 spread
-bo (GP)          4   22%   22%   42%   64%   82%   89%    0.4861       84..92
-llm_direct       5   49%   56%   72%   80%   82%   84%    0.4810       80..87
-memory           5   90%   91%   91%   92%   93%   93%    0.4915       91..95
-
-dc2  stock 0.4389, best known 0.5485 (independent: loop.forest 100 designs reached exactly this, confirming it)
-bo (GP)          5   22%   26%   46%   72%   78%   85%    0.5315       73..96
-llm_direct       5   24%   47%   72%   77%   79%   80%    0.5263       77..88
-memory           5   93%   93%   93%   93%   93%   95%    0.5433       93..98
+dc    stock 0.3837, best known 0.4994 (independent)     dc2   stock 0.4389, best known 0.5485 (independent)
+arm            D1    D4    D8   D12   D16    final       arm            D1    D4    D8   D12   D16    final
+bo            22%   61%   72%   75%   88%   0.4856       bo            22%   46%   60%   64%   72%   0.5181
+llm_direct    49%   72%   80%   82%   84%   0.4810       llm_direct    24%   72%   77%   79%   80%   0.5263
+memory        90%   91%   92%   93%   93%   0.4915       memory        93%   93%   93%   93%   95%   0.5433
+pooled_bo     90%   90%   91%   91%   92%   0.4899       pooled_bo     93%   93%   95%   95%   96%   0.5443
+D16 spread:  bo 84..92, llm 80..87, mem 91..95,          D16 spread:  bo 48..91, llm 77..88, mem 93..98,
+             pooled 91..93                                            pooled 94..99
 ```
 
-Reading: the memory arm's **first** design is at 90 % / 93 % of the gap, above where either baseline ends after sixteen. It then gains only 3 points on `dc` and 2 on `dc2` — the loop adds little once retrieval has opened well, and `REPORT.md` §5 shows why (the remaining headroom is six knobs away). `bo` lost one seed on `dc` to a ChampSim stats-JSON parse error, so it has four there.
+**What this settles.** The memory's first design (90 % / 93 %) beats sixteen designs of a tuned optimizer from stock (88 % / 72 %) on both suites. And `pooled_bo` — the same optimizer handed the memory's design, no LLM at test time — matches `memory` on `dc` and beats it on `dc2`. **The memory is the contribution; the agent reading it is worth about a point.** The LLM's measured value is at build time (`REPORT.md` §1: 36 controlled single-knob effects against an optimiser's 0). `REPORT.md` §4 is written on these tables.
 
-**In flight.**
-- **VM, tag `g1`**: `bo` (now random forest) and `pooled_bo` on both cells, 5 seeds, 16 designs, chained `dc` → `dc2`, self-shutdown at the end. ~3 h, ~5 USD. Replaces the `bo` rows above and answers whether the LLM is load-bearing at test time.
-- **Mac**: the `dc2` reference, `python -m loop.forest 100 6 <dc2 traces>`, ~2.5 h. When it lands, re-run `summarize` on both `dc2` reports.
+**Do not read the surrogate as settled**: the Gaussian process this forest replaced scored 89 % / 85 % where the forest scores 88 % / 72 %, and the seed spreads contain both. At this budget the surrogate is not what decides the outcome, and the offline replay that predicted the forest ahead did not predict either arm.
+
+**In flight (Mac, overnight):** the `bo` arm's exact configuration run to **75 designs**, 3 seeds on each cell, six processes under `caffeinate`, scratch code `rf_long.py` (not in the repo). It answers the open question in `REPORT.md` §4 — how many designs a memoryless forest search needs to reach the levels the memory-started arms reach at D16 — which the 100-design references cannot answer because they use warm-up 10 and batch 6. Curves land as `rflong_<cell>_s<seed>.json` in the session scratchpad; the simulations land in the shared tables either way.
 
 **Next, in this order.**
 
-1. **When `g1` lands**: re-score both cells and put the `bo` / `pooled_bo` rows into the tables above. On `dc` (already finished) `pooled_bo` reached 92 % against `memory`'s 93 %, so the tie is the likely outcome and `REPORT.md` §4 is written on it: the memory is the contribution and the agent reading it is worth about a point.
-2. **Measure the ratio, which is currently unpublishable** (`REPORT.md` §4, "Open"). Run the **`bo` arm's exact configuration** — warm-up 3, expected improvement, per-seed candidate pool — for about 100 designs on **both** cells, and read off where it crosses the memory arm's D16. Batch 1 leaves a machine mostly idle, so use batch 3 and say so. The existing 100-design references cannot answer this: they use warm-up 10 and batch 6, which flatten their curve at 79 % from D10 to D16 and inflate the apparent ratio to 4.8x when the true figure is probably 2.5-3x. Until this exists, claim the matched-budget sentence (one design against more than sixteen), never a ratio.
+1. **When the 75-design runs land**: read off where the memoryless forest crosses 90 % / 93 % (the memory arms' opening) and 93 % / 96 % (their D16). That is the ratio `REPORT.md` §4 leaves open — state it per suite with the seed range, never as a single number.
+2. **The ratio is currently unpublishable** (`REPORT.md` §4, "Open"). Run the **`bo` arm's exact configuration** — warm-up 3, expected improvement, per-seed candidate pool — for about 100 designs on **both** cells, and read off where it crosses the memory arm's D16. Batch 1 leaves a machine mostly idle, so use batch 3 and say so. The existing 100-design references cannot answer this: they use warm-up 10 and batch 6, which flatten their curve at 79 % from D10 to D16 and inflate the apparent ratio to 4.8x when the true figure is probably 2.5-3x. Until this exists, claim the matched-budget sentence (one design against more than sixteen), never a ratio.
 3. **The memory arm's candidate filter is still a Gaussian process** (`agent.select_by_gp`) while every other search uses the forest. Test the swap for free first by replaying the ~43 logged rounds in the reports with a forest (the GP filter captures 55 % of each round's candidate spread against 45 % for taking the LLM's own order). Only then change it — changing it makes the `f1` memory rows incomparable.
 4. **Evaluate retrieval and the digest** — the run-time half nobody has measured. Today: the 3 nearest cases per test workload by standardized descriptor distance, consensus and traps from each workload's closest case only, the wider circle for workload-dependent moves, the handover computed over every case. One measurement already argues against the distance filter: effect signs survive on a new workload about two thirds of the time and **flat in descriptor distance**. Free offline checks first: the digest with every case instead of the nearest 3; with another distance, or none; which digest sections the agent actually uses (every prompt and pick is in the reports). Spend designs only after those.
 5. **An unseen chip.** The same question one level up: a memory of searches on chip C, a search on a *different* chip. `loop/configs.py` holds one chip (`CHIP = "C_server"`), so a second profile has to come back. The memory workloads are **not** re-simulated — only the new chip's test suite needs a stock design, the arms' designs and a reference. Settle the mechanism question first: the digest anchors everything on "moves from the stock chip", and two chips have different stock designs, so decide whether the *move* or the *resulting design* is what transfers.

@@ -16,50 +16,50 @@ is tested on Google datacenter traces.
 
 ## Results
 
-Cell `dc`: memory from SPEC17 (mcf, omnetpp, lbm) and GAP graph searches (bfs.urand,
-pr.urand, bfs.kron), tested on three Google datacenter traces the loop has never seen
-(sierra.a.4, merced, tahoe), Gemini 2.5 Flash, 16 designs per run, 5 seeds. The score is
-how much of the distance from the stock chip (0.3837 suite IPC) to the best design known
-(0.4994, +30.1%) a method has covered after N simulated designs.
+Two workload suites the loop has never seen, both Google datacenter traces, memory built
+from SPEC17 (mcf, omnetpp, lbm) and GAP graph searches (bfs.urand, pr.urand, bfs.kron).
+Gemini 2.5 Flash, 16 designs per run, 5 seeds per arm. The score is the share of the
+distance from the stock chip to the best design known, and that ceiling comes from an
+**independent** 100-design search carrying no memory and no LLM — scoring against a design
+one of the arms found would bound the metric at the best arm.
+
+**`dc`** (sierra.a.4, merced, tahoe) — stock 0.3837, best known 0.4994, +30.1 %:
 
 | arm | D1 | D2 | D4 | D8 | D12 | D16 | best design |
 |---|---|---|---|---|---|---|---|
-| optimisation alone | 22% | 22% | 42% | 64% | 82% | 89% | 0.4861 |
-| LLM alone | 49% | 56% | 72% | 80% | 82% | 84% | 0.4810 |
-| LLM + memory | 90% | 91% | 91% | 92% | 93% | 93% | 0.4915 |
+| optimisation from the stock chip | 22 % | 22 % | 61 % | 72 % | 75 % | 88 % | 0.4856 |
+| LLM alone | 49 % | 56 % | 72 % | 80 % | 82 % | 84 % | 0.4810 |
+| LLM + memory | **90 %** | 91 % | 91 % | 92 % | 93 % | 93 % | 0.4915 |
+| optimisation from the memory's design | **90 %** | 90 % | 90 % | 91 % | 91 % | 92 % | 0.4899 |
 
-Mean over seeds; the last column is the mean of each run's best design.
+**`dc2`** (whiskey, bravo, delta — the admitted traces the first suite did not take, so
+nothing about them shaped the memory or the design it hands over) — stock 0.4389, best
+known 0.5485, +25.0 %:
 
-- The memory arm's **first** simulated design is already at 90% of the gap, above where
-  either baseline ends after sixteen. That is the few-shot claim.
-- **The durable form of it is speed, not level.** Against an independent 100-design search
-  on the same suite: the memory arm's first design is what that search needs **42** designs
-  to match, and its 16-design result is what it needs **77** to match — **4.8× fewer
-  simulations for the same design quality**. Quality-at-N moves whenever the reference
-  moves; designs-to-quality does not.
+| arm | D1 | D2 | D4 | D8 | D12 | D16 | best design |
+|---|---|---|---|---|---|---|---|
+| optimisation from the stock chip | 22 % | 26 % | 46 % | 60 % | 64 % | 72 % | 0.5181 |
+| LLM alone | 24 % | 47 % | 72 % | 77 % | 79 % | 80 % | 0.5263 |
+| LLM + memory | **93 %** | 93 % | 93 % | 93 % | 93 % | 95 % | 0.5433 |
+| optimisation from the memory's design | **93 %** | 93 % | 93 % | 95 % | 95 % | **96 %** | 0.5443 |
+
+- **One design from memory beats sixteen designs of search.** The memory-started arms open
+  at 90 % and 93 %; a tuned optimizer from the stock chip reaches 88 % and 72 % after
+  sixteen, and never reaches the opening on either suite. Nothing differs between those two
+  rows but where the search begins.
+- **The memory is the effect, not the agent reading it.** Handing the memory's design to a
+  plain optimizer matches the LLM agent on `dc` (92 % against 93 %) and beats it on `dc2`
+  (96 % against 95 %) — with no digest, no prompt and no model call at test time. What the
+  LLM demonstrably contributes is at *build* time: at an equal budget its search leaves 36
+  single-knob effects supported by controlled pairs where an optimizer's search leaves 0.
 - **What transfers is a good region, not the optimum.** The best design known sits six knob
   changes from the one the memory hands over, and everything within five of it is capped at
-  93–95%. The memory buys the opening almost for free and cannot by itself buy the last ten
+  93–95 %. The memory buys the opening almost for free and cannot by itself buy the last ten
   percent.
-- The ceiling is set by an **independent** search (`loop/forest.py`), not by any arm.
-  Scoring against a design an arm found bounds the metric at the best arm — doing that
-  inflated an earlier version of this table by about five points.
 
-The same loop and the same memory on the three admitted datacenter traces the first suite
-did not take (whiskey, bravo, delta): nothing about them shaped the memory or the design it
-hands over, and that design had never been simulated on them. Stock 0.4389.
-
-| arm | D1 | D2 | D4 | D8 | D12 | D16 | best design |
-|---|---|---|---|---|---|---|---|
-| optimisation alone | 22% | 26% | 46% | 72% | 78% | 85% | 0.5315 |
-| LLM alone | 24% | 47% | 72% | 77% | 79% | 80% | 0.5263 |
-| LLM + memory | 93% | 93% | 93% | 93% | 93% | 95% | 0.5433 |
-
-This suite's ceiling is not yet independent, so these shares will fall by roughly five
-points when its reference search lands. Every design, prompt and model answer is in
-`results/run_dc_f1.json` and `results/run_dc2_f1.json`.
-
-The findings and how they were measured are in `REPORT.md`.
+Every design, prompt and model answer is in `results/run_dc_f1.json`, `run_dc_g1.json`,
+`run_dc2_f1.json` and `run_dc2_g1.json`. The findings and how they were measured are in
+`REPORT.md`.
 
 ## Layout
 
