@@ -7,7 +7,7 @@
   "tahoe_0000"
  ],
  "arms": [
-  "bo",
+  "bo_gp",
   "llm_direct",
   "memory"
  ],
@@ -18,2544 +18,6 @@
  "memory_path": "results/memory_llm.json",
  "model": "gemini-2.5-flash",
  "runs": {
-  "bo": {
-   "0": {
-    "designs": [
-     {
-      "index": 0,
-      "round": 0,
-      "name": "C_server_l1d_prefetcher-no_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-no_l2_replacement-lru_l2_sets-1024_l2_ways-8_llc_mshr-128_llc_prefetcher-no_llc_replacement-lru_llc_sets-2048_llc_ways-16",
-      "knobs": {
-       "l2_sets": 1024,
-       "llc_sets": 2048,
-       "l2_prefetcher": "no",
-       "llc_replacement": "lru",
-       "l2_replacement": "lru",
-       "l1d_sets": 64,
-       "l1d_ways": 12,
-       "l1d_prefetcher": "no",
-       "l2_ways": 8,
-       "llc_ways": 16,
-       "llc_prefetcher": "no",
-       "l2_mshr": 64,
-       "llc_mshr": 128
-      },
-      "source": "stock",
-      "hypothesis": null,
-      "ipc": 0.3837379276950013,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.5363486424935406,
-        "LLC_mpki": 14.6302
-       },
-       "merced_0000": {
-        "ipc": 0.40111123857534914,
-        "LLC_mpki": 13.0422
-       },
-       "tahoe_0000": {
-        "ipc": 0.26265892439290073,
-        "LLC_mpki": 28.729597127040286
-       }
-      }
-     },
-     {
-      "index": 1,
-      "round": 0,
-      "name": "C_server_l1d_prefetcher-no_l1d_sets-64_l1d_ways-8_l2_mshr-32_l2_prefetcher-va_ampm_lite_l2_replacement-srrip_l2_sets-1024_l2_ways-16_llc_mshr-128_llc_prefetcher-no_llc_replacement-drrip_llc_sets-4096_llc_ways-8",
-      "knobs": {
-       "l1d_sets": 64,
-       "l1d_ways": 8,
-       "l1d_prefetcher": "no",
-       "l2_sets": 1024,
-       "l2_ways": 16,
-       "l2_prefetcher": "va_ampm_lite",
-       "l2_replacement": "srrip",
-       "llc_sets": 4096,
-       "llc_ways": 8,
-       "llc_prefetcher": "no",
-       "llc_replacement": "drrip",
-       "l2_mshr": 32,
-       "llc_mshr": 128
-      },
-      "source": "warm-up",
-      "hypothesis": null,
-      "ipc": 0.41937894974170653,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.596782625509354,
-        "LLC_mpki": 16.7162
-       },
-       "merced_0000": {
-        "ipc": 0.4550524491125136,
-        "LLC_mpki": 10.617198938280106
-       },
-       "tahoe_0000": {
-        "ipc": 0.27160781161370984,
-        "LLC_mpki": 28.654897134510286
-       }
-      }
-     },
-     {
-      "index": 2,
-      "round": 0,
-      "name": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-64_l1d_ways-8_l2_mshr-64_l2_prefetcher-ip_stride_l2_replacement-lru_l2_sets-1024_l2_ways-4_llc_mshr-64_llc_prefetcher-next_line_llc_replacement-srrip_llc_sets-2048_llc_ways-8",
-      "knobs": {
-       "l1d_sets": 64,
-       "l1d_ways": 8,
-       "l1d_prefetcher": "va_ampm_lite",
-       "l2_sets": 1024,
-       "l2_ways": 4,
-       "l2_prefetcher": "ip_stride",
-       "l2_replacement": "lru",
-       "llc_sets": 2048,
-       "llc_ways": 8,
-       "llc_prefetcher": "next_line",
-       "llc_replacement": "srrip",
-       "l2_mshr": 64,
-       "llc_mshr": 64
-      },
-      "source": "warm-up",
-      "hypothesis": null,
-      "ipc": 0.3554267153671105,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.4780793220605735,
-        "LLC_mpki": 33.4139
-       },
-       "merced_0000": {
-        "ipc": 0.3999544132005421,
-        "LLC_mpki": 15.554998444500155
-       },
-       "tahoe_0000": {
-        "ipc": 0.23482252362003214,
-        "LLC_mpki": 33.46019665398033
-       }
-      }
-     },
-     {
-      "index": 3,
-      "round": 0,
-      "name": "C_server_l1d_prefetcher-ip_stride_l1d_sets-32_l1d_ways-8_l2_mshr-32_l2_prefetcher-ip_stride_l2_replacement-drrip_l2_sets-2048_l2_ways-4_llc_mshr-32_llc_prefetcher-next_line_llc_replacement-drrip_llc_sets-1024_llc_ways-16",
-      "knobs": {
-       "l1d_sets": 32,
-       "l1d_ways": 8,
-       "l1d_prefetcher": "ip_stride",
-       "l2_sets": 2048,
-       "l2_ways": 4,
-       "l2_prefetcher": "ip_stride",
-       "l2_replacement": "drrip",
-       "llc_sets": 1024,
-       "llc_ways": 16,
-       "llc_prefetcher": "next_line",
-       "llc_replacement": "drrip",
-       "l2_mshr": 32,
-       "llc_mshr": 32
-      },
-      "source": "warm-up",
-      "hypothesis": null,
-      "ipc": 0.3682310950558281,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.4868193419750582,
-        "LLC_mpki": 20.7926
-       },
-       "merced_0000": {
-        "ipc": 0.4081404744134135,
-        "LLC_mpki": 12.590197481960503
-       },
-       "tahoe_0000": {
-        "ipc": 0.2512950236453516,
-        "LLC_mpki": 28.87269711273029
-       }
-      }
-     },
-     {
-      "index": 4,
-      "round": 1,
-      "name": "C_server_l1d_prefetcher-no_l1d_sets-64_l1d_ways-12_l2_mshr-16_l2_prefetcher-va_ampm_lite_l2_replacement-srrip_l2_sets-512_l2_ways-16_llc_mshr-64_llc_prefetcher-no_llc_replacement-drrip_llc_sets-1024_llc_ways-16",
-      "knobs": {
-       "l1d_sets": 64,
-       "l1d_ways": 12,
-       "l1d_prefetcher": "no",
-       "l2_sets": 512,
-       "l2_ways": 16,
-       "l2_prefetcher": "va_ampm_lite",
-       "l2_replacement": "srrip",
-       "llc_sets": 1024,
-       "llc_ways": 16,
-       "llc_prefetcher": "no",
-       "llc_replacement": "drrip",
-       "l2_mshr": 16,
-       "llc_mshr": 64
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.38072261995265116,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.5169468354815145,
-        "LLC_mpki": 19.4605
-       },
-       "merced_0000": {
-        "ipc": 0.42017021680316663,
-        "LLC_mpki": 11.807497638500472
-       },
-       "tahoe_0000": {
-        "ipc": 0.2540708820595715,
-        "LLC_mpki": 30.748196925180306
-       }
-      }
-     },
-     {
-      "index": 5,
-      "round": 2,
-      "name": "C_server_l1d_prefetcher-no_l1d_sets-32_l1d_ways-8_l2_mshr-16_l2_prefetcher-va_ampm_lite_l2_replacement-srrip_l2_sets-256_l2_ways-16_llc_mshr-32_llc_prefetcher-no_llc_replacement-srrip_llc_sets-2048_llc_ways-8",
-      "knobs": {
-       "l1d_sets": 32,
-       "l1d_ways": 8,
-       "l1d_prefetcher": "no",
-       "l2_sets": 256,
-       "l2_ways": 16,
-       "l2_prefetcher": "va_ampm_lite",
-       "l2_replacement": "srrip",
-       "llc_sets": 2048,
-       "llc_ways": 8,
-       "llc_prefetcher": "no",
-       "llc_replacement": "srrip",
-       "l2_mshr": 16,
-       "llc_mshr": 32
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.33558491390423706,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.4274830570347296,
-        "LLC_mpki": 25.21929243421227
-       },
-       "merced_0000": {
-        "ipc": 0.37112672243142014,
-        "LLC_mpki": 14.338398566160143
-       },
-       "tahoe_0000": {
-        "ipc": 0.23821338171160775,
-        "LLC_mpki": 33.39129666087033
-       }
-      }
-     },
-     {
-      "index": 6,
-      "round": 3,
-      "name": "C_server_l1d_prefetcher-no_l1d_sets-128_l1d_ways-12_l2_mshr-64_l2_prefetcher-no_l2_replacement-srrip_l2_sets-2048_l2_ways-16_llc_mshr-64_llc_prefetcher-no_llc_replacement-lru_llc_sets-4096_llc_ways-8",
-      "knobs": {
-       "l1d_sets": 128,
-       "l1d_ways": 12,
-       "l1d_prefetcher": "no",
-       "l2_sets": 2048,
-       "l2_ways": 16,
-       "l2_prefetcher": "no",
-       "l2_replacement": "srrip",
-       "llc_sets": 4096,
-       "llc_ways": 8,
-       "llc_prefetcher": "no",
-       "llc_replacement": "lru",
-       "l2_mshr": 64,
-       "llc_mshr": 64
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.407658890975962,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.5588346732326015,
-        "LLC_mpki": 17.0178
-       },
-       "merced_0000": {
-        "ipc": 0.4438961588700325,
-        "LLC_mpki": 11.414296575711028
-       },
-       "tahoe_0000": {
-        "ipc": 0.27310271941186354,
-        "LLC_mpki": 28.305797169420284
-       }
-      }
-     },
-     {
-      "index": 7,
-      "round": 4,
-      "name": "C_server_l1d_prefetcher-ip_stride_l1d_sets-32_l1d_ways-8_l2_mshr-16_l2_prefetcher-va_ampm_lite_l2_replacement-drrip_l2_sets-1024_l2_ways-8_llc_mshr-128_llc_prefetcher-no_llc_replacement-drrip_llc_sets-1024_llc_ways-8",
-      "knobs": {
-       "l1d_sets": 32,
-       "l1d_ways": 8,
-       "l1d_prefetcher": "ip_stride",
-       "l2_sets": 1024,
-       "l2_ways": 8,
-       "l2_prefetcher": "va_ampm_lite",
-       "l2_replacement": "drrip",
-       "llc_sets": 1024,
-       "llc_ways": 8,
-       "llc_prefetcher": "no",
-       "llc_replacement": "drrip",
-       "l2_mshr": 16,
-       "llc_mshr": 128
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.34135809352748464,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.4296715534787906,
-        "LLC_mpki": 31.4103
-       },
-       "merced_0000": {
-        "ipc": 0.38718707743383013,
-        "LLC_mpki": 13.862095841371248
-       },
-       "tahoe_0000": {
-        "ipc": 0.23909646593187384,
-        "LLC_mpki": 34.8973
-       }
-      }
-     },
-     {
-      "index": 8,
-      "round": 5,
-      "name": "C_server_l1d_prefetcher-no_l1d_sets-32_l1d_ways-8_l2_mshr-32_l2_prefetcher-va_ampm_lite_l2_replacement-lru_l2_sets-1024_l2_ways-16_llc_mshr-128_llc_prefetcher-next_line_llc_replacement-drrip_llc_sets-1024_llc_ways-8",
-      "knobs": {
-       "l1d_sets": 32,
-       "l1d_ways": 8,
-       "l1d_prefetcher": "no",
-       "l2_sets": 1024,
-       "l2_ways": 16,
-       "l2_prefetcher": "va_ampm_lite",
-       "l2_replacement": "lru",
-       "llc_sets": 1024,
-       "llc_ways": 8,
-       "llc_prefetcher": "next_line",
-       "llc_replacement": "drrip",
-       "l2_mshr": 32,
-       "llc_mshr": 128
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.38571354480501824,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.506259440470084,
-        "LLC_mpki": 29.01169129649261
-       },
-       "merced_0000": {
-        "ipc": 0.4369331476251312,
-        "LLC_mpki": 12.594897481020503
-       },
-       "tahoe_0000": {
-        "ipc": 0.2594218437165662,
-        "LLC_mpki": 31.489696851030313
-       }
-      }
-     },
-     {
-      "index": 9,
-      "round": 6,
-      "name": "C_server_l1d_prefetcher-no_l1d_sets-64_l1d_ways-8_l2_mshr-32_l2_prefetcher-va_ampm_lite_l2_replacement-srrip_l2_sets-512_l2_ways-16_llc_mshr-128_llc_prefetcher-no_llc_replacement-drrip_llc_sets-8192_llc_ways-8",
-      "knobs": {
-       "l1d_sets": 64,
-       "l1d_ways": 8,
-       "l1d_prefetcher": "no",
-       "l2_sets": 512,
-       "l2_ways": 16,
-       "l2_prefetcher": "va_ampm_lite",
-       "l2_replacement": "srrip",
-       "llc_sets": 8192,
-       "llc_ways": 8,
-       "llc_prefetcher": "no",
-       "llc_replacement": "drrip",
-       "l2_mshr": 32,
-       "llc_mshr": 128
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.45823138253947304,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.6570728995369148,
-        "LLC_mpki": 11.704498829550117
-       },
-       "merced_0000": {
-        "ipc": 0.48757636175662417,
-        "LLC_mpki": 8.426898314620336
-       },
-       "tahoe_0000": {
-        "ipc": 0.3003297049203882,
-        "LLC_mpki": 23.15879768412023
-       }
-      }
-     },
-     {
-      "index": 10,
-      "round": 7,
-      "name": "C_server_l1d_prefetcher-no_l1d_sets-64_l1d_ways-8_l2_mshr-32_l2_prefetcher-va_ampm_lite_l2_replacement-srrip_l2_sets-256_l2_ways-16_llc_mshr-128_llc_prefetcher-next_line_llc_replacement-drrip_llc_sets-8192_llc_ways-8",
-      "knobs": {
-       "l1d_sets": 64,
-       "l1d_ways": 8,
-       "l1d_prefetcher": "no",
-       "l2_sets": 256,
-       "l2_ways": 16,
-       "l2_prefetcher": "va_ampm_lite",
-       "l2_replacement": "srrip",
-       "llc_sets": 8192,
-       "llc_ways": 8,
-       "llc_prefetcher": "next_line",
-       "llc_replacement": "drrip",
-       "l2_mshr": 32,
-       "llc_mshr": 128
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.47091347714667475,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.6823098697682105,
-        "LLC_mpki": 10.771498922850109
-       },
-       "merced_0000": {
-        "ipc": 0.5109160274766552,
-        "LLC_mpki": 7.2337
-       },
-       "tahoe_0000": {
-        "ipc": 0.2995657644895078,
-        "LLC_mpki": 21.837997816200218
-       }
-      }
-     },
-     {
-      "index": 11,
-      "round": 8,
-      "name": "C_server_l1d_prefetcher-no_l1d_sets-32_l1d_ways-8_l2_mshr-32_l2_prefetcher-ip_stride_l2_replacement-srrip_l2_sets-256_l2_ways-16_llc_mshr-128_llc_prefetcher-next_line_llc_replacement-drrip_llc_sets-8192_llc_ways-8",
-      "knobs": {
-       "l1d_sets": 32,
-       "l1d_ways": 8,
-       "l1d_prefetcher": "no",
-       "l2_sets": 256,
-       "l2_ways": 16,
-       "l2_prefetcher": "ip_stride",
-       "l2_replacement": "srrip",
-       "llc_sets": 8192,
-       "llc_ways": 8,
-       "llc_prefetcher": "next_line",
-       "llc_replacement": "drrip",
-       "l2_mshr": 32,
-       "llc_mshr": 128
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.43396900820069345,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.609478423706268,
-        "LLC_mpki": 11.059397788120442
-       },
-       "merced_0000": {
-        "ipc": 0.4649048944247686,
-        "LLC_mpki": 8.613298277340345
-       },
-       "tahoe_0000": {
-        "ipc": 0.2884388083763314,
-        "LLC_mpki": 23.576997642300235
-       }
-      }
-     },
-     {
-      "index": 12,
-      "round": 9,
-      "name": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-128_l1d_ways-8_l2_mshr-32_l2_prefetcher-va_ampm_lite_l2_replacement-srrip_l2_sets-256_l2_ways-16_llc_mshr-128_llc_prefetcher-next_line_llc_replacement-drrip_llc_sets-8192_llc_ways-8",
-      "knobs": {
-       "l1d_sets": 128,
-       "l1d_ways": 8,
-       "l1d_prefetcher": "va_ampm_lite",
-       "l2_sets": 256,
-       "l2_ways": 16,
-       "l2_prefetcher": "va_ampm_lite",
-       "l2_replacement": "srrip",
-       "llc_sets": 8192,
-       "llc_ways": 8,
-       "llc_prefetcher": "next_line",
-       "llc_replacement": "drrip",
-       "l2_mshr": 32,
-       "llc_mshr": 128
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.46759864956214525,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.6768644833915121,
-        "LLC_mpki": 11.12629554948178
-       },
-       "merced_0000": {
-        "ipc": 0.5091088982188167,
-        "LLC_mpki": 6.841898631620274
-       },
-       "tahoe_0000": {
-        "ipc": 0.2966930210176446,
-        "LLC_mpki": 20.9029
-       }
-      }
-     },
-     {
-      "index": 13,
-      "round": 10,
-      "name": "C_server_l1d_prefetcher-no_l1d_sets-128_l1d_ways-8_l2_mshr-32_l2_prefetcher-va_ampm_lite_l2_replacement-lru_l2_sets-256_l2_ways-16_llc_mshr-128_llc_prefetcher-next_line_llc_replacement-drrip_llc_sets-8192_llc_ways-8",
-      "knobs": {
-       "l1d_sets": 128,
-       "l1d_ways": 8,
-       "l1d_prefetcher": "no",
-       "l2_sets": 256,
-       "l2_ways": 16,
-       "l2_prefetcher": "va_ampm_lite",
-       "l2_replacement": "lru",
-       "llc_sets": 8192,
-       "llc_ways": 8,
-       "llc_prefetcher": "next_line",
-       "llc_replacement": "drrip",
-       "l2_mshr": 32,
-       "llc_mshr": 128
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.4849202917945294,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.7195984266989411,
-        "LLC_mpki": 10.766898923310107
-       },
-       "merced_0000": {
-        "ipc": 0.5256763706339757,
-        "LLC_mpki": 7.263899273610073
-       },
-       "tahoe_0000": {
-        "ipc": 0.30144106297271983,
-        "LLC_mpki": 23.279797672020234
-       }
-      }
-     },
-     {
-      "index": 14,
-      "round": 11,
-      "name": "C_server_l1d_prefetcher-no_l1d_sets-128_l1d_ways-8_l2_mshr-32_l2_prefetcher-va_ampm_lite_l2_replacement-lru_l2_sets-256_l2_ways-4_llc_mshr-32_llc_prefetcher-next_line_llc_replacement-drrip_llc_sets-8192_llc_ways-8",
-      "knobs": {
-       "l1d_sets": 128,
-       "l1d_ways": 8,
-       "l1d_prefetcher": "no",
-       "l2_sets": 256,
-       "l2_ways": 4,
-       "l2_prefetcher": "va_ampm_lite",
-       "l2_replacement": "lru",
-       "llc_sets": 8192,
-       "llc_ways": 8,
-       "llc_prefetcher": "next_line",
-       "llc_replacement": "drrip",
-       "l2_mshr": 32,
-       "llc_mshr": 32
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.4860867389442385,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.7174931135010966,
-        "LLC_mpki": 10.6421
-       },
-       "merced_0000": {
-        "ipc": 0.5263002220671157,
-        "LLC_mpki": 7.2139
-       },
-       "tahoe_0000": {
-        "ipc": 0.30415154653442156,
-        "LLC_mpki": 22.642097735790227
-       }
-      }
-     },
-     {
-      "index": 15,
-      "round": 12,
-      "name": "C_server_l1d_prefetcher-no_l1d_sets-128_l1d_ways-12_l2_mshr-32_l2_prefetcher-va_ampm_lite_l2_replacement-lru_l2_sets-256_l2_ways-4_llc_mshr-128_llc_prefetcher-next_line_llc_replacement-drrip_llc_sets-8192_llc_ways-8",
-      "knobs": {
-       "l1d_sets": 128,
-       "l1d_ways": 12,
-       "l1d_prefetcher": "no",
-       "l2_sets": 256,
-       "l2_ways": 4,
-       "l2_prefetcher": "va_ampm_lite",
-       "l2_replacement": "lru",
-       "llc_sets": 8192,
-       "llc_ways": 8,
-       "llc_prefetcher": "next_line",
-       "llc_replacement": "drrip",
-       "l2_mshr": 32,
-       "llc_mshr": 128
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.4885183578943031,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.7245696346198212,
-        "LLC_mpki": 10.6643
-       },
-       "merced_0000": {
-        "ipc": 0.5284305097567814,
-        "LLC_mpki": 7.224799277520073
-       },
-       "tahoe_0000": {
-        "ipc": 0.30449113416298235,
-        "LLC_mpki": 22.589097741090225
-       }
-      }
-     },
-     {
-      "index": 16,
-      "round": 13,
-      "name": "C_server_l1d_prefetcher-no_l1d_sets-128_l1d_ways-8_l2_mshr-32_l2_prefetcher-va_ampm_lite_l2_replacement-lru_l2_sets-2048_l2_ways-4_llc_mshr-128_llc_prefetcher-next_line_llc_replacement-drrip_llc_sets-8192_llc_ways-8",
-      "knobs": {
-       "l1d_sets": 128,
-       "l1d_ways": 8,
-       "l1d_prefetcher": "no",
-       "l2_sets": 2048,
-       "l2_ways": 4,
-       "l2_prefetcher": "va_ampm_lite",
-       "l2_replacement": "lru",
-       "llc_sets": 8192,
-       "llc_ways": 8,
-       "llc_prefetcher": "next_line",
-       "llc_replacement": "drrip",
-       "l2_mshr": 32,
-       "llc_mshr": 128
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.4796436392344869,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.7151147569564748,
-        "LLC_mpki": 11.00319889968011
-       },
-       "merced_0000": {
-        "ipc": 0.5173805153916016,
-        "LLC_mpki": 7.5970984805803035
-       },
-       "tahoe_0000": {
-        "ipc": 0.29824299996161613,
-        "LLC_mpki": 24.664297533570245
-       }
-      }
-     }
-    ],
-    "rounds": []
-   },
-   "1": {
-    "designs": [
-     {
-      "index": 0,
-      "round": 0,
-      "name": "C_server_l1d_prefetcher-no_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-no_l2_replacement-lru_l2_sets-1024_l2_ways-8_llc_mshr-128_llc_prefetcher-no_llc_replacement-lru_llc_sets-2048_llc_ways-16",
-      "knobs": {
-       "l2_sets": 1024,
-       "llc_sets": 2048,
-       "l2_prefetcher": "no",
-       "llc_replacement": "lru",
-       "l2_replacement": "lru",
-       "l1d_sets": 64,
-       "l1d_ways": 12,
-       "l1d_prefetcher": "no",
-       "l2_ways": 8,
-       "llc_ways": 16,
-       "llc_prefetcher": "no",
-       "l2_mshr": 64,
-       "llc_mshr": 128
-      },
-      "source": "stock",
-      "hypothesis": null,
-      "ipc": 0.3837379276950013,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.5363486424935406,
-        "LLC_mpki": 14.6302
-       },
-       "merced_0000": {
-        "ipc": 0.40111123857534914,
-        "LLC_mpki": 13.0422
-       },
-       "tahoe_0000": {
-        "ipc": 0.26265892439290073,
-        "LLC_mpki": 28.729597127040286
-       }
-      }
-     },
-     {
-      "index": 1,
-      "round": 0,
-      "name": "C_server_l1d_prefetcher-ip_stride_l1d_sets-32_l1d_ways-8_l2_mshr-16_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-256_l2_ways-8_llc_mshr-64_llc_prefetcher-no_llc_replacement-ship_llc_sets-8192_llc_ways-8",
-      "knobs": {
-       "l1d_sets": 32,
-       "l1d_ways": 8,
-       "l1d_prefetcher": "ip_stride",
-       "l2_sets": 256,
-       "l2_ways": 8,
-       "l2_prefetcher": "next_line",
-       "l2_replacement": "ship",
-       "llc_sets": 8192,
-       "llc_ways": 8,
-       "llc_prefetcher": "no",
-       "llc_replacement": "ship",
-       "l2_mshr": 16,
-       "llc_mshr": 64
-      },
-      "source": "warm-up",
-      "hypothesis": null,
-      "ipc": 0.43582074338036747,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.5968468230536337,
-        "LLC_mpki": 10.244897951020409
-       },
-       "merced_0000": {
-        "ipc": 0.47948278963826285,
-        "LLC_mpki": 7.042999295700071
-       },
-       "tahoe_0000": {
-        "ipc": 0.289259600135628,
-        "LLC_mpki": 20.4687
-       }
-      }
-     },
-     {
-      "index": 2,
-      "round": 0,
-      "name": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-64_l1d_ways-8_l2_mshr-64_l2_prefetcher-spp_dev_l2_replacement-lru_l2_sets-1024_l2_ways-16_llc_mshr-128_llc_prefetcher-no_llc_replacement-lru_llc_sets-4096_llc_ways-8",
-      "knobs": {
-       "l1d_sets": 64,
-       "l1d_ways": 8,
-       "l1d_prefetcher": "va_ampm_lite",
-       "l2_sets": 1024,
-       "l2_ways": 16,
-       "l2_prefetcher": "spp_dev",
-       "l2_replacement": "lru",
-       "llc_sets": 4096,
-       "llc_ways": 8,
-       "llc_prefetcher": "no",
-       "llc_replacement": "lru",
-       "l2_mshr": 64,
-       "llc_mshr": 128
-      },
-      "source": "warm-up",
-      "hypothesis": null,
-      "ipc": 0.41257806028352617,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.5760764794449019,
-        "LLC_mpki": 14.915398508460148
-       },
-       "merced_0000": {
-        "ipc": 0.4529231088367328,
-        "LLC_mpki": 9.9603990039601
-       },
-       "tahoe_0000": {
-        "ipc": 0.2691620118017302,
-        "LLC_mpki": 24.733897526610246
-       }
-      }
-     },
-     {
-      "index": 3,
-      "round": 0,
-      "name": "C_server_l1d_prefetcher-ip_stride_l1d_sets-32_l1d_ways-12_l2_mshr-64_l2_prefetcher-va_ampm_lite_l2_replacement-lru_l2_sets-256_l2_ways-8_llc_mshr-128_llc_prefetcher-no_llc_replacement-drrip_llc_sets-2048_llc_ways-16",
-      "knobs": {
-       "l1d_sets": 32,
-       "l1d_ways": 12,
-       "l1d_prefetcher": "ip_stride",
-       "l2_sets": 256,
-       "l2_ways": 8,
-       "l2_prefetcher": "va_ampm_lite",
-       "l2_replacement": "lru",
-       "llc_sets": 2048,
-       "llc_ways": 16,
-       "llc_prefetcher": "no",
-       "llc_replacement": "drrip",
-       "l2_mshr": 64,
-       "llc_mshr": 128
-      },
-      "source": "warm-up",
-      "hypothesis": null,
-      "ipc": 0.3923932680079127,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.5360402077327338,
-        "LLC_mpki": 14.0933
-       },
-       "merced_0000": {
-        "ipc": 0.4293136135319624,
-        "LLC_mpki": 9.688498062300388
-       },
-       "tahoe_0000": {
-        "ipc": 0.26253826855871676,
-        "LLC_mpki": 25.399897460010255
-       }
-      }
-     },
-     {
-      "index": 4,
-      "round": 1,
-      "name": "C_server_l1d_prefetcher-no_l1d_sets-128_l1d_ways-8_l2_mshr-16_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-256_l2_ways-8_llc_mshr-64_llc_prefetcher-no_llc_replacement-ship_llc_sets-8192_llc_ways-8",
-      "knobs": {
-       "l1d_sets": 128,
-       "l1d_ways": 8,
-       "l1d_prefetcher": "no",
-       "l2_sets": 256,
-       "l2_ways": 8,
-       "l2_prefetcher": "next_line",
-       "l2_replacement": "ship",
-       "llc_sets": 8192,
-       "llc_ways": 8,
-       "llc_prefetcher": "no",
-       "llc_replacement": "ship",
-       "l2_mshr": 16,
-       "llc_mshr": 64
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.46566900746170864,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.6657288102035979,
-        "LLC_mpki": 10.282098971790102
-       },
-       "merced_0000": {
-        "ipc": 0.5097456456647955,
-        "LLC_mpki": 7.305197808440657
-       },
-       "tahoe_0000": {
-        "ipc": 0.29756450617598046,
-        "LLC_mpki": 20.707597929240208
-       }
-      }
-     },
-     {
-      "index": 5,
-      "round": 2,
-      "name": "C_server_l1d_prefetcher-no_l1d_sets-128_l1d_ways-8_l2_mshr-16_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-2048_l2_ways-4_llc_mshr-64_llc_prefetcher-no_llc_replacement-ship_llc_sets-8192_llc_ways-8",
-      "knobs": {
-       "l1d_sets": 128,
-       "l1d_ways": 8,
-       "l1d_prefetcher": "no",
-       "l2_sets": 2048,
-       "l2_ways": 4,
-       "l2_prefetcher": "next_line",
-       "l2_replacement": "ship",
-       "llc_sets": 8192,
-       "llc_ways": 8,
-       "llc_prefetcher": "no",
-       "llc_replacement": "ship",
-       "l2_mshr": 16,
-       "llc_mshr": 64
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.46774475789519576,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.6631580964764955,
-        "LLC_mpki": 10.675298932470106
-       },
-       "merced_0000": {
-        "ipc": 0.5124271776999914,
-        "LLC_mpki": 7.350099264990074
-       },
-       "tahoe_0000": {
-        "ipc": 0.3011463163500179,
-        "LLC_mpki": 20.576797942320205
-       }
-      }
-     },
-     {
-      "index": 6,
-      "round": 3,
-      "name": "C_server_l1d_prefetcher-no_l1d_sets-128_l1d_ways-12_l2_mshr-16_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-2048_l2_ways-4_llc_mshr-64_llc_prefetcher-no_llc_replacement-ship_llc_sets-8192_llc_ways-8",
-      "knobs": {
-       "l1d_sets": 128,
-       "l1d_ways": 12,
-       "l1d_prefetcher": "no",
-       "l2_sets": 2048,
-       "l2_ways": 4,
-       "l2_prefetcher": "next_line",
-       "l2_replacement": "ship",
-       "llc_sets": 8192,
-       "llc_ways": 8,
-       "llc_prefetcher": "no",
-       "llc_replacement": "ship",
-       "l2_mshr": 16,
-       "llc_mshr": 64
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.4675862238558104,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.6646860575067708,
-        "LLC_mpki": 10.641898935810106
-       },
-       "merced_0000": {
-        "ipc": 0.5123928343303984,
-        "LLC_mpki": 7.352599264740074
-       },
-       "tahoe_0000": {
-        "ipc": 0.30016876987398466,
-        "LLC_mpki": 20.628897937110207
-       }
-      }
-     },
-     {
-      "index": 7,
-      "round": 4,
-      "name": "C_server_l1d_prefetcher-no_l1d_sets-128_l1d_ways-8_l2_mshr-16_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-2048_l2_ways-4_llc_mshr-64_llc_prefetcher-no_llc_replacement-ship_llc_sets-4096_llc_ways-8",
-      "knobs": {
-       "l1d_sets": 128,
-       "l1d_ways": 8,
-       "l1d_prefetcher": "no",
-       "l2_sets": 2048,
-       "l2_ways": 4,
-       "l2_prefetcher": "next_line",
-       "l2_replacement": "ship",
-       "llc_sets": 4096,
-       "llc_ways": 8,
-       "llc_prefetcher": "no",
-       "llc_replacement": "ship",
-       "l2_mshr": 16,
-       "llc_mshr": 64
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.4193411906566584,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.5833280882421311,
-        "LLC_mpki": 14.00189859981014
-       },
-       "merced_0000": {
-        "ipc": 0.46049254835563175,
-        "LLC_mpki": 9.3571
-       },
-       "tahoe_0000": {
-        "ipc": 0.27451562957325837,
-        "LLC_mpki": 25.07229749277025
-       }
-      }
-     },
-     {
-      "index": 8,
-      "round": 5,
-      "name": "C_server_l1d_prefetcher-no_l1d_sets-128_l1d_ways-8_l2_mshr-16_l2_prefetcher-va_ampm_lite_l2_replacement-ship_l2_sets-2048_l2_ways-4_llc_mshr-64_llc_prefetcher-no_llc_replacement-drrip_llc_sets-8192_llc_ways-8",
-      "knobs": {
-       "l1d_sets": 128,
-       "l1d_ways": 8,
-       "l1d_prefetcher": "no",
-       "l2_sets": 2048,
-       "l2_ways": 4,
-       "l2_prefetcher": "va_ampm_lite",
-       "l2_replacement": "ship",
-       "llc_sets": 8192,
-       "llc_ways": 8,
-       "llc_prefetcher": "no",
-       "llc_replacement": "drrip",
-       "l2_mshr": 16,
-       "llc_mshr": 64
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.46651375316087323,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.672831393986745,
-        "LLC_mpki": 11.481298851870115
-       },
-       "merced_0000": {
-        "ipc": 0.4991763591720942,
-        "LLC_mpki": 9.128898174220366
-       },
-       "tahoe_0000": {
-        "ipc": 0.3022964857130161,
-        "LLC_mpki": 25.668297433170256
-       }
-      }
-     },
-     {
-      "index": 9,
-      "round": 6,
-      "name": "C_server_l1d_prefetcher-no_l1d_sets-128_l1d_ways-8_l2_mshr-16_l2_prefetcher-no_l2_replacement-lru_l2_sets-2048_l2_ways-4_llc_mshr-64_llc_prefetcher-no_llc_replacement-ship_llc_sets-8192_llc_ways-8",
-      "knobs": {
-       "l1d_sets": 128,
-       "l1d_ways": 8,
-       "l1d_prefetcher": "no",
-       "l2_sets": 2048,
-       "l2_ways": 4,
-       "l2_prefetcher": "no",
-       "l2_replacement": "lru",
-       "llc_sets": 8192,
-       "llc_ways": 8,
-       "llc_prefetcher": "no",
-       "llc_replacement": "ship",
-       "l2_mshr": 16,
-       "llc_mshr": 64
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.4213835471845967,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.5825093301975691,
-        "LLC_mpki": 12.7372
-       },
-       "merced_0000": {
-        "ipc": 0.44939021798029855,
-        "LLC_mpki": 10.336498966350103
-       },
-       "tahoe_0000": {
-        "ipc": 0.285828956196774,
-        "LLC_mpki": 23.132997686700232
-       }
-      }
-     },
-     {
-      "index": 10,
-      "round": 7,
-      "name": "C_server_l1d_prefetcher-no_l1d_sets-128_l1d_ways-8_l2_mshr-16_l2_prefetcher-spp_dev_l2_replacement-ship_l2_sets-2048_l2_ways-4_llc_mshr-64_llc_prefetcher-no_llc_replacement-lru_llc_sets-8192_llc_ways-8",
-      "knobs": {
-       "l1d_sets": 128,
-       "l1d_ways": 8,
-       "l1d_prefetcher": "no",
-       "l2_sets": 2048,
-       "l2_ways": 4,
-       "l2_prefetcher": "spp_dev",
-       "l2_replacement": "ship",
-       "llc_sets": 8192,
-       "llc_ways": 8,
-       "llc_prefetcher": "no",
-       "llc_replacement": "lru",
-       "l2_mshr": 16,
-       "llc_mshr": 64
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.4585412509093028,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.6730685809096077,
-        "LLC_mpki": 10.7164
-       },
-       "merced_0000": {
-        "ipc": 0.4957931218336489,
-        "LLC_mpki": 8.656598268680346
-       },
-       "tahoe_0000": {
-        "ipc": 0.28891854476944084,
-        "LLC_mpki": 23.346997665300233
-       }
-      }
-     },
-     {
-      "index": 11,
-      "round": 8,
-      "name": "C_server_l1d_prefetcher-no_l1d_sets-128_l1d_ways-8_l2_mshr-64_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-2048_l2_ways-4_llc_mshr-64_llc_prefetcher-no_llc_replacement-drrip_llc_sets-8192_llc_ways-8",
-      "knobs": {
-       "l1d_sets": 128,
-       "l1d_ways": 8,
-       "l1d_prefetcher": "no",
-       "l2_sets": 2048,
-       "l2_ways": 4,
-       "l2_prefetcher": "next_line",
-       "l2_replacement": "ship",
-       "llc_sets": 8192,
-       "llc_ways": 8,
-       "llc_prefetcher": "no",
-       "llc_replacement": "drrip",
-       "l2_mshr": 64,
-       "llc_mshr": 64
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.4748049730819791,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.690761984995546,
-        "LLC_mpki": 10.841198915880108
-       },
-       "merced_0000": {
-        "ipc": 0.5077375900694661,
-        "LLC_mpki": 7.870499212950079
-       },
-       "tahoe_0000": {
-        "ipc": 0.3051954334217688,
-        "LLC_mpki": 24.0104
-       }
-      }
-     },
-     {
-      "index": 12,
-      "round": 9,
-      "name": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-128_l1d_ways-8_l2_mshr-64_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-2048_l2_ways-4_llc_mshr-32_llc_prefetcher-no_llc_replacement-drrip_llc_sets-8192_llc_ways-8",
-      "knobs": {
-       "l1d_sets": 128,
-       "l1d_ways": 8,
-       "l1d_prefetcher": "va_ampm_lite",
-       "l2_sets": 2048,
-       "l2_ways": 4,
-       "l2_prefetcher": "next_line",
-       "l2_replacement": "ship",
-       "llc_sets": 8192,
-       "llc_ways": 8,
-       "llc_prefetcher": "no",
-       "llc_replacement": "drrip",
-       "l2_mshr": 64,
-       "llc_mshr": 32
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.4801855558388597,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.6983120472712516,
-        "LLC_mpki": 11.05039889496011
-       },
-       "merced_0000": {
-        "ipc": 0.5207157654769092,
-        "LLC_mpki": 6.977
-       },
-       "tahoe_0000": {
-        "ipc": 0.3044927911331699,
-        "LLC_mpki": 23.1934
-       }
-      }
-     },
-     {
-      "index": 13,
-      "round": 10,
-      "name": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-128_l1d_ways-8_l2_mshr-64_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-1024_l2_ways-4_llc_mshr-32_llc_prefetcher-no_llc_replacement-drrip_llc_sets-8192_llc_ways-8",
-      "knobs": {
-       "l1d_sets": 128,
-       "l1d_ways": 8,
-       "l1d_prefetcher": "va_ampm_lite",
-       "l2_sets": 1024,
-       "l2_ways": 4,
-       "l2_prefetcher": "next_line",
-       "l2_replacement": "ship",
-       "llc_sets": 8192,
-       "llc_ways": 8,
-       "llc_prefetcher": "no",
-       "llc_replacement": "drrip",
-       "l2_mshr": 64,
-       "llc_mshr": 32
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.48031197357323374,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.7019565703725079,
-        "LLC_mpki": 10.861298913870108
-       },
-       "merced_0000": {
-        "ipc": 0.5207942423083263,
-        "LLC_mpki": 6.847498630500274
-       },
-       "tahoe_0000": {
-        "ipc": 0.30310550349820087,
-        "LLC_mpki": 22.338697766130224
-       }
-      }
-     },
-     {
-      "index": 14,
-      "round": 11,
-      "name": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-128_l1d_ways-8_l2_mshr-64_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-512_l2_ways-4_llc_mshr-32_llc_prefetcher-no_llc_replacement-drrip_llc_sets-8192_llc_ways-8",
-      "knobs": {
-       "l1d_sets": 128,
-       "l1d_ways": 8,
-       "l1d_prefetcher": "va_ampm_lite",
-       "l2_sets": 512,
-       "l2_ways": 4,
-       "l2_prefetcher": "next_line",
-       "l2_replacement": "ship",
-       "llc_sets": 8192,
-       "llc_ways": 8,
-       "llc_prefetcher": "no",
-       "llc_replacement": "drrip",
-       "l2_mshr": 64,
-       "llc_mshr": 32
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.4771125881062401,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.6954122960008233,
-        "LLC_mpki": 10.759198924080108
-       },
-       "merced_0000": {
-        "ipc": 0.5160493658966643,
-        "LLC_mpki": 6.861499313850069
-       },
-       "tahoe_0000": {
-        "ipc": 0.3026418695663306,
-        "LLC_mpki": 21.426897857310216
-       }
-      }
-     },
-     {
-      "index": 15,
-      "round": 12,
-      "name": "C_server_l1d_prefetcher-next_line_l1d_sets-128_l1d_ways-8_l2_mshr-64_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-2048_l2_ways-4_llc_mshr-32_llc_prefetcher-no_llc_replacement-drrip_llc_sets-8192_llc_ways-8",
-      "knobs": {
-       "l1d_sets": 128,
-       "l1d_ways": 8,
-       "l1d_prefetcher": "next_line",
-       "l2_sets": 2048,
-       "l2_ways": 4,
-       "l2_prefetcher": "next_line",
-       "l2_replacement": "ship",
-       "llc_sets": 8192,
-       "llc_ways": 8,
-       "llc_prefetcher": "no",
-       "llc_replacement": "drrip",
-       "l2_mshr": 64,
-       "llc_mshr": 32
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.47759372531297106,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.6994231717218176,
-        "LLC_mpki": 10.8124
-       },
-       "merced_0000": {
-        "ipc": 0.5091922179745973,
-        "LLC_mpki": 7.594
-       },
-       "tahoe_0000": {
-        "ipc": 0.3058820999587121,
-        "LLC_mpki": 23.14449768555023
-       }
-      }
-     },
-     {
-      "index": 16,
-      "round": 13,
-      "name": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-128_l1d_ways-8_l2_mshr-64_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-2048_l2_ways-4_llc_mshr-32_llc_prefetcher-no_llc_replacement-srrip_llc_sets-8192_llc_ways-8",
-      "knobs": {
-       "l1d_sets": 128,
-       "l1d_ways": 8,
-       "l1d_prefetcher": "va_ampm_lite",
-       "l2_sets": 2048,
-       "l2_ways": 4,
-       "l2_prefetcher": "next_line",
-       "l2_replacement": "ship",
-       "llc_sets": 8192,
-       "llc_ways": 8,
-       "llc_prefetcher": "no",
-       "llc_replacement": "srrip",
-       "l2_mshr": 64,
-       "llc_mshr": 32
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.45007963677217155,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.6250005078129126,
-        "LLC_mpki": 20.3109
-       },
-       "merced_0000": {
-        "ipc": 0.5254457592380449,
-        "LLC_mpki": 8.597699140230086
-       },
-       "tahoe_0000": {
-        "ipc": 0.2776258054270842,
-        "LLC_mpki": 27.99189720081028
-       }
-      }
-     }
-    ],
-    "rounds": []
-   },
-   "3": {
-    "designs": [
-     {
-      "index": 0,
-      "round": 0,
-      "name": "C_server_l1d_prefetcher-no_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-no_l2_replacement-lru_l2_sets-1024_l2_ways-8_llc_mshr-128_llc_prefetcher-no_llc_replacement-lru_llc_sets-2048_llc_ways-16",
-      "knobs": {
-       "l2_sets": 1024,
-       "llc_sets": 2048,
-       "l2_prefetcher": "no",
-       "llc_replacement": "lru",
-       "l2_replacement": "lru",
-       "l1d_sets": 64,
-       "l1d_ways": 12,
-       "l1d_prefetcher": "no",
-       "l2_ways": 8,
-       "llc_ways": 16,
-       "llc_prefetcher": "no",
-       "l2_mshr": 64,
-       "llc_mshr": 128
-      },
-      "source": "stock",
-      "hypothesis": null,
-      "ipc": 0.3837379276950013,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.5363486424935406,
-        "LLC_mpki": 14.6302
-       },
-       "merced_0000": {
-        "ipc": 0.40111123857534914,
-        "LLC_mpki": 13.0422
-       },
-       "tahoe_0000": {
-        "ipc": 0.26265892439290073,
-        "LLC_mpki": 28.729597127040286
-       }
-      }
-     },
-     {
-      "index": 1,
-      "round": 0,
-      "name": "C_server_l1d_prefetcher-ip_stride_l1d_sets-32_l1d_ways-8_l2_mshr-16_l2_prefetcher-va_ampm_lite_l2_replacement-lru_l2_sets-2048_l2_ways-16_llc_mshr-128_llc_prefetcher-ip_stride_llc_replacement-srrip_llc_sets-1024_llc_ways-16",
-      "knobs": {
-       "l1d_sets": 32,
-       "l1d_ways": 8,
-       "l1d_prefetcher": "ip_stride",
-       "l2_sets": 2048,
-       "l2_ways": 16,
-       "l2_prefetcher": "va_ampm_lite",
-       "l2_replacement": "lru",
-       "llc_sets": 1024,
-       "llc_ways": 16,
-       "llc_prefetcher": "ip_stride",
-       "llc_replacement": "srrip",
-       "l2_mshr": 16,
-       "llc_mshr": 128
-      },
-      "source": "warm-up",
-      "hypothesis": null,
-      "ipc": 0.3994416255609052,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.5467989795859224,
-        "LLC_mpki": 20.786493764051873
-       },
-       "merced_0000": {
-        "ipc": 0.43568232282066954,
-        "LLC_mpki": 12.137297572540486
-       },
-       "tahoe_0000": {
-        "ipc": 0.2675237395192235,
-        "LLC_mpki": 31.96969680303032
-       }
-      }
-     },
-     {
-      "index": 2,
-      "round": 0,
-      "name": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-64_l1d_ways-12_l2_mshr-32_l2_prefetcher-spp_dev_l2_replacement-ship_l2_sets-512_l2_ways-4_llc_mshr-32_llc_prefetcher-next_line_llc_replacement-lru_llc_sets-1024_llc_ways-8",
-      "knobs": {
-       "l1d_sets": 64,
-       "l1d_ways": 12,
-       "l1d_prefetcher": "va_ampm_lite",
-       "l2_sets": 512,
-       "l2_ways": 4,
-       "l2_prefetcher": "spp_dev",
-       "l2_replacement": "ship",
-       "llc_sets": 1024,
-       "llc_ways": 8,
-       "llc_prefetcher": "next_line",
-       "llc_replacement": "lru",
-       "l2_mshr": 32,
-       "llc_mshr": 32
-      },
-      "source": "warm-up",
-      "hypothesis": null,
-      "ipc": 0.36980031843042577,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.48310982983955586,
-        "LLC_mpki": 24.91269750873025
-       },
-       "merced_0000": {
-        "ipc": 0.4271385556745421,
-        "LLC_mpki": 12.207
-       },
-       "tahoe_0000": {
-        "ipc": 0.24506833117060553,
-        "LLC_mpki": 28.315297168470284
-       }
-      }
-     },
-     {
-      "index": 3,
-      "round": 0,
-      "name": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-64_l1d_ways-12_l2_mshr-16_l2_prefetcher-va_ampm_lite_l2_replacement-ship_l2_sets-2048_l2_ways-8_llc_mshr-64_llc_prefetcher-no_llc_replacement-lru_llc_sets-2048_llc_ways-16",
-      "knobs": {
-       "l1d_sets": 64,
-       "l1d_ways": 12,
-       "l1d_prefetcher": "va_ampm_lite",
-       "l2_sets": 2048,
-       "l2_ways": 8,
-       "l2_prefetcher": "va_ampm_lite",
-       "l2_replacement": "ship",
-       "llc_sets": 2048,
-       "llc_ways": 16,
-       "llc_prefetcher": "no",
-       "llc_replacement": "lru",
-       "l2_mshr": 16,
-       "llc_mshr": 64
-      },
-      "source": "warm-up",
-      "hypothesis": null,
-      "ipc": 0.4064721206635159,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.5542192405966037,
-        "LLC_mpki": 15.5229
-       },
-       "merced_0000": {
-        "ipc": 0.45380659971779586,
-        "LLC_mpki": 9.720999027900097
-       },
-       "tahoe_0000": {
-        "ipc": 0.2670175971788419,
-        "LLC_mpki": 28.95679710432029
-       }
-      }
-     },
-     {
-      "index": 4,
-      "round": 1,
-      "name": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-64_l1d_ways-12_l2_mshr-16_l2_prefetcher-va_ampm_lite_l2_replacement-ship_l2_sets-2048_l2_ways-4_llc_mshr-64_llc_prefetcher-no_llc_replacement-lru_llc_sets-2048_llc_ways-16",
-      "knobs": {
-       "l1d_sets": 64,
-       "l1d_ways": 12,
-       "l1d_prefetcher": "va_ampm_lite",
-       "l2_sets": 2048,
-       "l2_ways": 4,
-       "l2_prefetcher": "va_ampm_lite",
-       "l2_replacement": "ship",
-       "llc_sets": 2048,
-       "llc_ways": 16,
-       "llc_prefetcher": "no",
-       "llc_replacement": "lru",
-       "l2_mshr": 16,
-       "llc_mshr": 64
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.40861673209988153,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.56201848714852,
-        "LLC_mpki": 14.0348
-       },
-       "merced_0000": {
-        "ipc": 0.45580854547952376,
-        "LLC_mpki": 8.99019910098009
-       },
-       "tahoe_0000": {
-        "ipc": 0.2663271085148363,
-        "LLC_mpki": 26.634697336530266
-       }
-      }
-     },
-     {
-      "index": 5,
-      "round": 2,
-      "name": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-128_l1d_ways-12_l2_mshr-32_l2_prefetcher-va_ampm_lite_l2_replacement-ship_l2_sets-512_l2_ways-4_llc_mshr-64_llc_prefetcher-no_llc_replacement-lru_llc_sets-2048_llc_ways-8",
-      "knobs": {
-       "l1d_sets": 128,
-       "l1d_ways": 12,
-       "l1d_prefetcher": "va_ampm_lite",
-       "l2_sets": 512,
-       "l2_ways": 4,
-       "l2_prefetcher": "va_ampm_lite",
-       "l2_replacement": "ship",
-       "llc_sets": 2048,
-       "llc_ways": 8,
-       "llc_prefetcher": "no",
-       "llc_replacement": "lru",
-       "l2_mshr": 32,
-       "llc_mshr": 64
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.3757352956248998,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.49114526480710885,
-        "LLC_mpki": 21.5393
-       },
-       "merced_0000": {
-        "ipc": 0.42887113591472537,
-        "LLC_mpki": 10.335097932980414
-       },
-       "tahoe_0000": {
-        "ipc": 0.2518310064024753,
-        "LLC_mpki": 26.591097340890265
-       }
-      }
-     },
-     {
-      "index": 6,
-      "round": 3,
-      "name": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-64_l1d_ways-12_l2_mshr-16_l2_prefetcher-va_ampm_lite_l2_replacement-ship_l2_sets-2048_l2_ways-4_llc_mshr-64_llc_prefetcher-no_llc_replacement-lru_llc_sets-4096_llc_ways-16",
-      "knobs": {
-       "l1d_sets": 64,
-       "l1d_ways": 12,
-       "l1d_prefetcher": "va_ampm_lite",
-       "l2_sets": 2048,
-       "l2_ways": 4,
-       "l2_prefetcher": "va_ampm_lite",
-       "l2_replacement": "ship",
-       "llc_sets": 4096,
-       "llc_ways": 16,
-       "llc_prefetcher": "no",
-       "llc_replacement": "lru",
-       "l2_mshr": 16,
-       "llc_mshr": 64
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.4498425243544366,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.6456550518499694,
-        "LLC_mpki": 10.99029890097011
-       },
-       "merced_0000": {
-        "ipc": 0.48709849145125184,
-        "LLC_mpki": 7.779999222000078
-       },
-       "tahoe_0000": {
-        "ipc": 0.28944375572917674,
-        "LLC_mpki": 22.569297743070226
-       }
-      }
-     },
-     {
-      "index": 7,
-      "round": 4,
-      "name": "C_server_l1d_prefetcher-ip_stride_l1d_sets-64_l1d_ways-12_l2_mshr-16_l2_prefetcher-va_ampm_lite_l2_replacement-lru_l2_sets-2048_l2_ways-4_llc_mshr-64_llc_prefetcher-no_llc_replacement-lru_llc_sets-4096_llc_ways-16",
-      "knobs": {
-       "l1d_sets": 64,
-       "l1d_ways": 12,
-       "l1d_prefetcher": "ip_stride",
-       "l2_sets": 2048,
-       "l2_ways": 4,
-       "l2_prefetcher": "va_ampm_lite",
-       "l2_replacement": "lru",
-       "llc_sets": 4096,
-       "llc_ways": 16,
-       "llc_prefetcher": "no",
-       "llc_replacement": "lru",
-       "l2_mshr": 16,
-       "llc_mshr": 64
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.46062960587429524,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.6762077542628808,
-        "LLC_mpki": 10.554998944500106
-       },
-       "merced_0000": {
-        "ipc": 0.49685518029357284,
-        "LLC_mpki": 8.00419919958008
-       },
-       "tahoe_0000": {
-        "ipc": 0.2909012413365619,
-        "LLC_mpki": 22.90209770979023
-       }
-      }
-     },
-     {
-      "index": 8,
-      "round": 5,
-      "name": "C_server_l1d_prefetcher-ip_stride_l1d_sets-64_l1d_ways-12_l2_mshr-16_l2_prefetcher-va_ampm_lite_l2_replacement-lru_l2_sets-2048_l2_ways-4_llc_mshr-64_llc_prefetcher-ip_stride_llc_replacement-srrip_llc_sets-4096_llc_ways-16",
-      "knobs": {
-       "l1d_sets": 64,
-       "l1d_ways": 12,
-       "l1d_prefetcher": "ip_stride",
-       "l2_sets": 2048,
-       "l2_ways": 4,
-       "l2_prefetcher": "va_ampm_lite",
-       "l2_replacement": "lru",
-       "llc_sets": 4096,
-       "llc_ways": 16,
-       "llc_prefetcher": "ip_stride",
-       "llc_replacement": "srrip",
-       "l2_mshr": 16,
-       "llc_mshr": 64
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.41979106117468973,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.5718942812350467,
-        "LLC_mpki": 25.848897415110258
-       },
-       "merced_0000": {
-        "ipc": 0.48902699443140185,
-        "LLC_mpki": 10.823997835200434
-       },
-       "tahoe_0000": {
-        "ipc": 0.2645154071612513,
-        "LLC_mpki": 33.18409668159033
-       }
-      }
-     },
-     {
-      "index": 9,
-      "round": 6,
-      "name": "C_server_l1d_prefetcher-ip_stride_l1d_sets-64_l1d_ways-8_l2_mshr-16_l2_prefetcher-va_ampm_lite_l2_replacement-lru_l2_sets-2048_l2_ways-4_llc_mshr-64_llc_prefetcher-next_line_llc_replacement-lru_llc_sets-4096_llc_ways-16",
-      "knobs": {
-       "l1d_sets": 64,
-       "l1d_ways": 8,
-       "l1d_prefetcher": "ip_stride",
-       "l2_sets": 2048,
-       "l2_ways": 4,
-       "l2_prefetcher": "va_ampm_lite",
-       "l2_replacement": "lru",
-       "llc_sets": 4096,
-       "llc_ways": 16,
-       "llc_prefetcher": "next_line",
-       "llc_replacement": "lru",
-       "l2_mshr": 16,
-       "llc_mshr": 64
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.4814951241077899,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.6958459942511988,
-        "LLC_mpki": 10.1966
-       },
-       "merced_0000": {
-        "ipc": 0.526124526612928,
-        "LLC_mpki": 6.904299309570069
-       },
-       "tahoe_0000": {
-        "ipc": 0.3049116381406612,
-        "LLC_mpki": 20.86989791301021
-       }
-      }
-     },
-     {
-      "index": 10,
-      "round": 7,
-      "name": "C_server_l1d_prefetcher-ip_stride_l1d_sets-64_l1d_ways-8_l2_mshr-16_l2_prefetcher-spp_dev_l2_replacement-lru_l2_sets-2048_l2_ways-4_llc_mshr-32_llc_prefetcher-next_line_llc_replacement-lru_llc_sets-4096_llc_ways-16",
-      "knobs": {
-       "l1d_sets": 64,
-       "l1d_ways": 8,
-       "l1d_prefetcher": "ip_stride",
-       "l2_sets": 2048,
-       "l2_ways": 4,
-       "l2_prefetcher": "spp_dev",
-       "l2_replacement": "lru",
-       "llc_sets": 4096,
-       "llc_ways": 16,
-       "llc_prefetcher": "next_line",
-       "llc_replacement": "lru",
-       "l2_mshr": 16,
-       "llc_mshr": 32
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.47724881757710125,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.6940956826072897,
-        "LLC_mpki": 10.211898978810103
-       },
-       "merced_0000": {
-        "ipc": 0.5190591223853048,
-        "LLC_mpki": 7.524099247590075
-       },
-       "tahoe_0000": {
-        "ipc": 0.3017160490806276,
-        "LLC_mpki": 21.196297880370214
-       }
-      }
-     },
-     {
-      "index": 11,
-      "round": 8,
-      "name": "C_server_l1d_prefetcher-ip_stride_l1d_sets-64_l1d_ways-8_l2_mshr-16_l2_prefetcher-va_ampm_lite_l2_replacement-lru_l2_sets-2048_l2_ways-4_llc_mshr-32_llc_prefetcher-next_line_llc_replacement-lru_llc_sets-4096_llc_ways-8",
-      "knobs": {
-       "l1d_sets": 64,
-       "l1d_ways": 8,
-       "l1d_prefetcher": "ip_stride",
-       "l2_sets": 2048,
-       "l2_ways": 4,
-       "l2_prefetcher": "va_ampm_lite",
-       "l2_replacement": "lru",
-       "llc_sets": 4096,
-       "llc_ways": 8,
-       "llc_prefetcher": "next_line",
-       "llc_replacement": "lru",
-       "l2_mshr": 16,
-       "llc_mshr": 32
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.43561800588988325,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.6112743179417124,
-        "LLC_mpki": 12.90969870903013
-       },
-       "merced_0000": {
-        "ipc": 0.48956039488133324,
-        "LLC_mpki": 8.01529919847008
-       },
-       "tahoe_0000": {
-        "ipc": 0.27623267033625193,
-        "LLC_mpki": 24.383
-       }
-      }
-     },
-     {
-      "index": 12,
-      "round": 9,
-      "name": "C_server_l1d_prefetcher-ip_stride_l1d_sets-64_l1d_ways-8_l2_mshr-16_l2_prefetcher-no_l2_replacement-lru_l2_sets-2048_l2_ways-4_llc_mshr-128_llc_prefetcher-next_line_llc_replacement-lru_llc_sets-4096_llc_ways-16",
-      "knobs": {
-       "l1d_sets": 64,
-       "l1d_ways": 8,
-       "l1d_prefetcher": "ip_stride",
-       "l2_sets": 2048,
-       "l2_ways": 4,
-       "l2_prefetcher": "no",
-       "l2_replacement": "lru",
-       "llc_sets": 4096,
-       "llc_ways": 16,
-       "llc_prefetcher": "next_line",
-       "llc_replacement": "lru",
-       "l2_mshr": 16,
-       "llc_mshr": 128
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.46459225442915547,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.671288104406771,
-        "LLC_mpki": 10.818098918190108
-       },
-       "merced_0000": {
-        "ipc": 0.5005125749279837,
-        "LLC_mpki": 8.4781
-       },
-       "tahoe_0000": {
-        "ipc": 0.2984639969781121,
-        "LLC_mpki": 21.660197833980217
-       }
-      }
-     },
-     {
-      "index": 13,
-      "round": 10,
-      "name": "C_server_l1d_prefetcher-ip_stride_l1d_sets-64_l1d_ways-8_l2_mshr-16_l2_prefetcher-va_ampm_lite_l2_replacement-lru_l2_sets-256_l2_ways-4_llc_mshr-32_llc_prefetcher-next_line_llc_replacement-lru_llc_sets-4096_llc_ways-16",
-      "knobs": {
-       "l1d_sets": 64,
-       "l1d_ways": 8,
-       "l1d_prefetcher": "ip_stride",
-       "l2_sets": 256,
-       "l2_ways": 4,
-       "l2_prefetcher": "va_ampm_lite",
-       "l2_replacement": "lru",
-       "llc_sets": 4096,
-       "llc_ways": 16,
-       "llc_prefetcher": "next_line",
-       "llc_replacement": "lru",
-       "l2_mshr": 16,
-       "llc_mshr": 32
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.48448131137179534,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.698043098995844,
-        "LLC_mpki": 10.1923
-       },
-       "merced_0000": {
-        "ipc": 0.5265880077585371,
-        "LLC_mpki": 6.8818
-       },
-       "tahoe_0000": {
-        "ipc": 0.30936977725809156,
-        "LLC_mpki": 20.8454
-       }
-      }
-     },
-     {
-      "index": 14,
-      "round": 11,
-      "name": "C_server_l1d_prefetcher-ip_stride_l1d_sets-64_l1d_ways-8_l2_mshr-16_l2_prefetcher-va_ampm_lite_l2_replacement-lru_l2_sets-512_l2_ways-4_llc_mshr-32_llc_prefetcher-next_line_llc_replacement-lru_llc_sets-4096_llc_ways-16",
-      "knobs": {
-       "l1d_sets": 64,
-       "l1d_ways": 8,
-       "l1d_prefetcher": "ip_stride",
-       "l2_sets": 512,
-       "l2_ways": 4,
-       "l2_prefetcher": "va_ampm_lite",
-       "l2_replacement": "lru",
-       "llc_sets": 4096,
-       "llc_ways": 16,
-       "llc_prefetcher": "next_line",
-       "llc_replacement": "lru",
-       "l2_mshr": 16,
-       "llc_mshr": 32
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.48144412517334734,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.6951669836280528,
-        "LLC_mpki": 10.1889
-       },
-       "merced_0000": {
-        "ipc": 0.5234696275362166,
-        "LLC_mpki": 6.879999312000069
-       },
-       "tahoe_0000": {
-        "ipc": 0.30665994181925504,
-        "LLC_mpki": 20.878597912140208
-       }
-      }
-     },
-     {
-      "index": 15,
-      "round": 12,
-      "name": "C_server_l1d_prefetcher-ip_stride_l1d_sets-32_l1d_ways-8_l2_mshr-16_l2_prefetcher-va_ampm_lite_l2_replacement-lru_l2_sets-256_l2_ways-4_llc_mshr-128_llc_prefetcher-next_line_llc_replacement-lru_llc_sets-4096_llc_ways-16",
-      "knobs": {
-       "l1d_sets": 32,
-       "l1d_ways": 8,
-       "l1d_prefetcher": "ip_stride",
-       "l2_sets": 256,
-       "l2_ways": 4,
-       "l2_prefetcher": "va_ampm_lite",
-       "l2_replacement": "lru",
-       "llc_sets": 4096,
-       "llc_ways": 16,
-       "llc_prefetcher": "next_line",
-       "llc_replacement": "lru",
-       "l2_mshr": 16,
-       "llc_mshr": 128
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.44990475517900924,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.6204711423525225,
-        "LLC_mpki": 10.2909
-       },
-       "merced_0000": {
-        "ipc": 0.4907207906727344,
-        "LLC_mpki": 6.912198617560277
-       },
-       "tahoe_0000": {
-        "ipc": 0.2990926248491751,
-        "LLC_mpki": 20.877397912260207
-       }
-      }
-     },
-     {
-      "index": 16,
-      "round": 13,
-      "name": "C_server_l1d_prefetcher-ip_stride_l1d_sets-128_l1d_ways-8_l2_mshr-16_l2_prefetcher-va_ampm_lite_l2_replacement-lru_l2_sets-256_l2_ways-4_llc_mshr-64_llc_prefetcher-next_line_llc_replacement-lru_llc_sets-4096_llc_ways-16",
-      "knobs": {
-       "l1d_sets": 128,
-       "l1d_ways": 8,
-       "l1d_prefetcher": "ip_stride",
-       "l2_sets": 256,
-       "l2_ways": 4,
-       "l2_prefetcher": "va_ampm_lite",
-       "l2_replacement": "lru",
-       "llc_sets": 4096,
-       "llc_ways": 16,
-       "llc_prefetcher": "next_line",
-       "llc_replacement": "lru",
-       "l2_mshr": 16,
-       "llc_mshr": 64
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.4906169420707056,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.7142470429101053,
-        "LLC_mpki": 10.0888
-       },
-       "merced_0000": {
-        "ipc": 0.5321001946794982,
-        "LLC_mpki": 6.885
-       },
-       "tahoe_0000": {
-        "ipc": 0.3107318387339045,
-        "LLC_mpki": 20.8852
-       }
-      }
-     }
-    ],
-    "rounds": []
-   },
-   "4": {
-    "designs": [
-     {
-      "index": 0,
-      "round": 0,
-      "name": "C_server_l1d_prefetcher-no_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-no_l2_replacement-lru_l2_sets-1024_l2_ways-8_llc_mshr-128_llc_prefetcher-no_llc_replacement-lru_llc_sets-2048_llc_ways-16",
-      "knobs": {
-       "l2_sets": 1024,
-       "llc_sets": 2048,
-       "l2_prefetcher": "no",
-       "llc_replacement": "lru",
-       "l2_replacement": "lru",
-       "l1d_sets": 64,
-       "l1d_ways": 12,
-       "l1d_prefetcher": "no",
-       "l2_ways": 8,
-       "llc_ways": 16,
-       "llc_prefetcher": "no",
-       "l2_mshr": 64,
-       "llc_mshr": 128
-      },
-      "source": "stock",
-      "hypothesis": null,
-      "ipc": 0.3837379276950013,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.5363486424935406,
-        "LLC_mpki": 14.6302
-       },
-       "merced_0000": {
-        "ipc": 0.40111123857534914,
-        "LLC_mpki": 13.0422
-       },
-       "tahoe_0000": {
-        "ipc": 0.26265892439290073,
-        "LLC_mpki": 28.729597127040286
-       }
-      }
-     },
-     {
-      "index": 1,
-      "round": 0,
-      "name": "C_server_l1d_prefetcher-no_l1d_sets-32_l1d_ways-12_l2_mshr-16_l2_prefetcher-spp_dev_l2_replacement-lru_l2_sets-2048_l2_ways-8_llc_mshr-32_llc_prefetcher-spp_dev_llc_replacement-drrip_llc_sets-1024_llc_ways-8",
-      "knobs": {
-       "l1d_sets": 32,
-       "l1d_ways": 12,
-       "l1d_prefetcher": "no",
-       "l2_sets": 2048,
-       "l2_ways": 8,
-       "l2_prefetcher": "spp_dev",
-       "l2_replacement": "lru",
-       "llc_sets": 1024,
-       "llc_ways": 8,
-       "llc_prefetcher": "spp_dev",
-       "llc_replacement": "drrip",
-       "l2_mshr": 16,
-       "llc_mshr": 32
-      },
-      "source": "warm-up",
-      "hypothesis": null,
-      "ipc": 0.3757769237359131,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.5012325559166267,
-        "LLC_mpki": 26.1926
-       },
-       "merced_0000": {
-        "ipc": 0.42023411742280214,
-        "LLC_mpki": 14.562097087580582
-       },
-       "tahoe_0000": {
-        "ipc": 0.25191831368114564,
-        "LLC_mpki": 35.59439644056036
-       }
-      }
-     },
-     {
-      "index": 2,
-      "round": 0,
-      "name": "C_server_l1d_prefetcher-ip_stride_l1d_sets-128_l1d_ways-12_l2_mshr-16_l2_prefetcher-ip_stride_l2_replacement-srrip_l2_sets-512_l2_ways-4_llc_mshr-64_llc_prefetcher-ip_stride_llc_replacement-srrip_llc_sets-1024_llc_ways-16",
-      "knobs": {
-       "l1d_sets": 128,
-       "l1d_ways": 12,
-       "l1d_prefetcher": "ip_stride",
-       "l2_sets": 512,
-       "l2_ways": 4,
-       "l2_prefetcher": "ip_stride",
-       "l2_replacement": "srrip",
-       "llc_sets": 1024,
-       "llc_ways": 16,
-       "llc_prefetcher": "ip_stride",
-       "llc_replacement": "srrip",
-       "l2_mshr": 16,
-       "llc_mshr": 64
-      },
-      "source": "warm-up",
-      "hypothesis": null,
-      "ipc": 0.31006184656373326,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.3968233969614518,
-        "LLC_mpki": 39.6323
-       },
-       "merced_0000": {
-        "ipc": 0.3420359117833378,
-        "LLC_mpki": 22.244997775500224
-       },
-       "tahoe_0000": {
-        "ipc": 0.2196220848959626,
-        "LLC_mpki": 42.80229571977043
-       }
-      }
-     },
-     {
-      "index": 3,
-      "round": 0,
-      "name": "C_server_l1d_prefetcher-no_l1d_sets-64_l1d_ways-12_l2_mshr-16_l2_prefetcher-next_line_l2_replacement-srrip_l2_sets-1024_l2_ways-16_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-drrip_llc_sets-2048_llc_ways-8",
-      "knobs": {
-       "l1d_sets": 64,
-       "l1d_ways": 12,
-       "l1d_prefetcher": "no",
-       "l2_sets": 1024,
-       "l2_ways": 16,
-       "l2_prefetcher": "next_line",
-       "l2_replacement": "srrip",
-       "llc_sets": 2048,
-       "llc_ways": 8,
-       "llc_prefetcher": "spp_dev",
-       "llc_replacement": "drrip",
-       "l2_mshr": 16,
-       "llc_mshr": 128
-      },
-      "source": "warm-up",
-      "hypothesis": null,
-      "ipc": 0.3975362261028825,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.5486343751112699,
-        "LLC_mpki": 18.862298113770187
-       },
-       "merced_0000": {
-        "ipc": 0.43987318985052537,
-        "LLC_mpki": 11.428398857160115
-       },
-       "tahoe_0000": {
-        "ipc": 0.26032724589368955,
-        "LLC_mpki": 29.18159708184029
-       }
-      }
-     },
-     {
-      "index": 4,
-      "round": 1,
-      "name": "C_server_l1d_prefetcher-no_l1d_sets-128_l1d_ways-12_l2_mshr-64_l2_prefetcher-next_line_l2_replacement-srrip_l2_sets-256_l2_ways-16_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-drrip_llc_sets-4096_llc_ways-8",
-      "knobs": {
-       "l1d_sets": 128,
-       "l1d_ways": 12,
-       "l1d_prefetcher": "no",
-       "l2_sets": 256,
-       "l2_ways": 16,
-       "l2_prefetcher": "next_line",
-       "l2_replacement": "srrip",
-       "llc_sets": 4096,
-       "llc_ways": 8,
-       "llc_prefetcher": "spp_dev",
-       "llc_replacement": "drrip",
-       "l2_mshr": 64,
-       "llc_mshr": 128
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.4343515465832269,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.6290700042940318,
-        "LLC_mpki": 12.8273
-       },
-       "merced_0000": {
-        "ipc": 0.47069092344099167,
-        "LLC_mpki": 9.2513
-       },
-       "tahoe_0000": {
-        "ipc": 0.2767510744444264,
-        "LLC_mpki": 23.736697626330237
-       }
-      }
-     },
-     {
-      "index": 5,
-      "round": 2,
-      "name": "C_server_l1d_prefetcher-no_l1d_sets-128_l1d_ways-12_l2_mshr-64_l2_prefetcher-no_l2_replacement-srrip_l2_sets-256_l2_ways-4_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-drrip_llc_sets-4096_llc_ways-8",
-      "knobs": {
-       "l1d_sets": 128,
-       "l1d_ways": 12,
-       "l1d_prefetcher": "no",
-       "l2_sets": 256,
-       "l2_ways": 4,
-       "l2_prefetcher": "no",
-       "l2_replacement": "srrip",
-       "llc_sets": 4096,
-       "llc_ways": 8,
-       "llc_prefetcher": "spp_dev",
-       "llc_replacement": "drrip",
-       "l2_mshr": 64,
-       "llc_mshr": 128
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.4032679339812476,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.5762249605069857,
-        "LLC_mpki": 15.10059848994015
-       },
-       "merced_0000": {
-        "ipc": 0.4287133755558804,
-        "LLC_mpki": 12.722998727700126
-       },
-       "tahoe_0000": {
-        "ipc": 0.2654739859677898,
-        "LLC_mpki": 29.619697038030296
-       }
-      }
-     },
-     {
-      "index": 6,
-      "round": 3,
-      "name": "C_server_l1d_prefetcher-no_l1d_sets-128_l1d_ways-8_l2_mshr-64_l2_prefetcher-next_line_l2_replacement-srrip_l2_sets-256_l2_ways-16_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-drrip_llc_sets-8192_llc_ways-8",
-      "knobs": {
-       "l1d_sets": 128,
-       "l1d_ways": 8,
-       "l1d_prefetcher": "no",
-       "l2_sets": 256,
-       "l2_ways": 16,
-       "l2_prefetcher": "next_line",
-       "l2_replacement": "srrip",
-       "llc_sets": 8192,
-       "llc_ways": 8,
-       "llc_prefetcher": "spp_dev",
-       "llc_replacement": "drrip",
-       "l2_mshr": 64,
-       "llc_mshr": 128
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.4732245886086938,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.6977688007504642,
-        "LLC_mpki": 10.459298954070105
-       },
-       "merced_0000": {
-        "ipc": 0.5171366930218461,
-        "LLC_mpki": 7.3485992651400736
-       },
-       "tahoe_0000": {
-        "ipc": 0.29368719151284045,
-        "LLC_mpki": 20.92679790732021
-       }
-      }
-     },
-     {
-      "index": 7,
-      "round": 4,
-      "name": "C_server_l1d_prefetcher-no_l1d_sets-128_l1d_ways-8_l2_mshr-64_l2_prefetcher-next_line_l2_replacement-lru_l2_sets-256_l2_ways-16_llc_mshr-32_llc_prefetcher-spp_dev_llc_replacement-drrip_llc_sets-8192_llc_ways-8",
-      "knobs": {
-       "l1d_sets": 128,
-       "l1d_ways": 8,
-       "l1d_prefetcher": "no",
-       "l2_sets": 256,
-       "l2_ways": 16,
-       "l2_prefetcher": "next_line",
-       "l2_replacement": "lru",
-       "llc_sets": 8192,
-       "llc_ways": 8,
-       "llc_prefetcher": "spp_dev",
-       "llc_replacement": "drrip",
-       "l2_mshr": 64,
-       "llc_mshr": 32
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.482086828567986,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.7187724661296478,
-        "LLC_mpki": 10.522798947720105
-       },
-       "merced_0000": {
-        "ipc": 0.5240068747599066,
-        "LLC_mpki": 7.301299269870073
-       },
-       "tahoe_0000": {
-        "ipc": 0.29747288185422444,
-        "LLC_mpki": 21.741197825880217
-       }
-      }
-     },
-     {
-      "index": 8,
-      "round": 5,
-      "name": "C_server_l1d_prefetcher-no_l1d_sets-32_l1d_ways-8_l2_mshr-64_l2_prefetcher-next_line_l2_replacement-lru_l2_sets-256_l2_ways-16_llc_mshr-32_llc_prefetcher-no_llc_replacement-drrip_llc_sets-8192_llc_ways-8",
-      "knobs": {
-       "l1d_sets": 32,
-       "l1d_ways": 8,
-       "l1d_prefetcher": "no",
-       "l2_sets": 256,
-       "l2_ways": 16,
-       "l2_prefetcher": "next_line",
-       "l2_replacement": "lru",
-       "llc_sets": 8192,
-       "llc_ways": 8,
-       "llc_prefetcher": "no",
-       "llc_replacement": "drrip",
-       "l2_mshr": 64,
-       "llc_mshr": 32
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.44627686883941214,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.6208859407298675,
-        "LLC_mpki": 10.567697886460422
-       },
-       "merced_0000": {
-        "ipc": 0.48263790300071824,
-        "LLC_mpki": 7.345297796410661
-       },
-       "tahoe_0000": {
-        "ipc": 0.29660596497671177,
-        "LLC_mpki": 21.539897846010216
-       }
-      }
-     },
-     {
-      "index": 9,
-      "round": 6,
-      "name": "C_server_l1d_prefetcher-no_l1d_sets-128_l1d_ways-8_l2_mshr-64_l2_prefetcher-next_line_l2_replacement-lru_l2_sets-256_l2_ways-16_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-lru_llc_sets-8192_llc_ways-8",
-      "knobs": {
-       "l1d_sets": 128,
-       "l1d_ways": 8,
-       "l1d_prefetcher": "no",
-       "l2_sets": 256,
-       "l2_ways": 16,
-       "l2_prefetcher": "next_line",
-       "l2_replacement": "lru",
-       "llc_sets": 8192,
-       "llc_ways": 8,
-       "llc_prefetcher": "spp_dev",
-       "llc_replacement": "lru",
-       "l2_mshr": 64,
-       "llc_mshr": 128
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.4836364094087526,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.7186005715173494,
-        "LLC_mpki": 10.0450989954901
-       },
-       "merced_0000": {
-        "ipc": 0.5180907157065039,
-        "LLC_mpki": 7.543799245620075
-       },
-       "tahoe_0000": {
-        "ipc": 0.3038530476867836,
-        "LLC_mpki": 19.749498025050197
-       }
-      }
-     },
-     {
-      "index": 10,
-      "round": 7,
-      "name": "C_server_l1d_prefetcher-no_l1d_sets-128_l1d_ways-8_l2_mshr-64_l2_prefetcher-spp_dev_l2_replacement-lru_l2_sets-256_l2_ways-16_llc_mshr-32_llc_prefetcher-spp_dev_llc_replacement-lru_llc_sets-8192_llc_ways-8",
-      "knobs": {
-       "l1d_sets": 128,
-       "l1d_ways": 8,
-       "l1d_prefetcher": "no",
-       "l2_sets": 256,
-       "l2_ways": 16,
-       "l2_prefetcher": "spp_dev",
-       "l2_replacement": "lru",
-       "llc_sets": 8192,
-       "llc_ways": 8,
-       "llc_prefetcher": "spp_dev",
-       "llc_replacement": "lru",
-       "l2_mshr": 64,
-       "llc_mshr": 32
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.47392771636153364,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.7059003450934672,
-        "LLC_mpki": 10.630098936990107
-       },
-       "merced_0000": {
-        "ipc": 0.5115674587502778,
-        "LLC_mpki": 8.48549830290034
-       },
-       "tahoe_0000": {
-        "ipc": 0.2947745729365369,
-        "LLC_mpki": 22.643397735660226
-       }
-      }
-     },
-     {
-      "index": 11,
-      "round": 8,
-      "name": "C_server_l1d_prefetcher-no_l1d_sets-128_l1d_ways-8_l2_mshr-64_l2_prefetcher-next_line_l2_replacement-lru_l2_sets-256_l2_ways-16_llc_mshr-64_llc_prefetcher-spp_dev_llc_replacement-ship_llc_sets-8192_llc_ways-8",
-      "knobs": {
-       "l1d_sets": 128,
-       "l1d_ways": 8,
-       "l1d_prefetcher": "no",
-       "l2_sets": 256,
-       "l2_ways": 16,
-       "l2_prefetcher": "next_line",
-       "l2_replacement": "lru",
-       "llc_sets": 8192,
-       "llc_ways": 8,
-       "llc_prefetcher": "spp_dev",
-       "llc_replacement": "ship",
-       "l2_mshr": 64,
-       "llc_mshr": 64
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.4796225634230853,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.7032947247972577,
-        "LLC_mpki": 10.2896
-       },
-       "merced_0000": {
-        "ipc": 0.5209954909928746,
-        "LLC_mpki": 7.3474992652500735
-       },
-       "tahoe_0000": {
-        "ipc": 0.30111160456606795,
-        "LLC_mpki": 19.771098022890197
-       }
-      }
-     },
-     {
-      "index": 12,
-      "round": 9,
-      "name": "C_server_l1d_prefetcher-no_l1d_sets-128_l1d_ways-8_l2_mshr-64_l2_prefetcher-next_line_l2_replacement-drrip_l2_sets-256_l2_ways-16_llc_mshr-64_llc_prefetcher-spp_dev_llc_replacement-lru_llc_sets-8192_llc_ways-8",
-      "knobs": {
-       "l1d_sets": 128,
-       "l1d_ways": 8,
-       "l1d_prefetcher": "no",
-       "l2_sets": 256,
-       "l2_ways": 16,
-       "l2_prefetcher": "next_line",
-       "l2_replacement": "drrip",
-       "llc_sets": 8192,
-       "llc_ways": 8,
-       "llc_prefetcher": "spp_dev",
-       "llc_replacement": "lru",
-       "l2_mshr": 64,
-       "llc_mshr": 64
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.48260949962853,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.7156716327116295,
-        "LLC_mpki": 10.0482989951701
-       },
-       "merced_0000": {
-        "ipc": 0.517378725521325,
-        "LLC_mpki": 7.5609
-       },
-       "tahoe_0000": {
-        "ipc": 0.3035744583526394,
-        "LLC_mpki": 19.7746980225302
-       }
-      }
-     },
-     {
-      "index": 13,
-      "round": 10,
-      "name": "C_server_l1d_prefetcher-no_l1d_sets-128_l1d_ways-8_l2_mshr-64_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-256_l2_ways-16_llc_mshr-32_llc_prefetcher-spp_dev_llc_replacement-lru_llc_sets-8192_llc_ways-8",
-      "knobs": {
-       "l1d_sets": 128,
-       "l1d_ways": 8,
-       "l1d_prefetcher": "no",
-       "l2_sets": 256,
-       "l2_ways": 16,
-       "l2_prefetcher": "next_line",
-       "l2_replacement": "ship",
-       "llc_sets": 8192,
-       "llc_ways": 8,
-       "llc_prefetcher": "spp_dev",
-       "llc_replacement": "lru",
-       "l2_mshr": 64,
-       "llc_mshr": 32
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.48249969274391974,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.7163839720277877,
-        "LLC_mpki": 10.033498996650101
-       },
-       "merced_0000": {
-        "ipc": 0.5188546036719129,
-        "LLC_mpki": 7.559699244030075
-       },
-       "tahoe_0000": {
-        "ipc": 0.30220356847377633,
-        "LLC_mpki": 19.797698020230197
-       }
-      }
-     },
-     {
-      "index": 14,
-      "round": 11,
-      "name": "C_server_l1d_prefetcher-no_l1d_sets-128_l1d_ways-8_l2_mshr-64_l2_prefetcher-va_ampm_lite_l2_replacement-lru_l2_sets-256_l2_ways-16_llc_mshr-32_llc_prefetcher-spp_dev_llc_replacement-lru_llc_sets-8192_llc_ways-8",
-      "knobs": {
-       "l1d_sets": 128,
-       "l1d_ways": 8,
-       "l1d_prefetcher": "no",
-       "l2_sets": 256,
-       "l2_ways": 16,
-       "l2_prefetcher": "va_ampm_lite",
-       "l2_replacement": "lru",
-       "llc_sets": 8192,
-       "llc_ways": 8,
-       "llc_prefetcher": "spp_dev",
-       "llc_replacement": "lru",
-       "l2_mshr": 64,
-       "llc_mshr": 32
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.46745011622911153,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.6931618756015778,
-        "LLC_mpki": 10.662698933730107
-       },
-       "merced_0000": {
-        "ipc": 0.503275011152572,
-        "LLC_mpki": 8.160498367900326
-       },
-       "tahoe_0000": {
-        "ipc": 0.2927964325686223,
-        "LLC_mpki": 22.621697737830225
-       }
-      }
-     },
-     {
-      "index": 15,
-      "round": 12,
-      "name": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-128_l1d_ways-8_l2_mshr-64_l2_prefetcher-next_line_l2_replacement-lru_l2_sets-256_l2_ways-16_llc_mshr-64_llc_prefetcher-spp_dev_llc_replacement-lru_llc_sets-8192_llc_ways-8",
-      "knobs": {
-       "l1d_sets": 128,
-       "l1d_ways": 8,
-       "l1d_prefetcher": "va_ampm_lite",
-       "l2_sets": 256,
-       "l2_ways": 16,
-       "l2_prefetcher": "next_line",
-       "l2_replacement": "lru",
-       "llc_sets": 8192,
-       "llc_ways": 8,
-       "llc_prefetcher": "spp_dev",
-       "llc_replacement": "lru",
-       "l2_mshr": 64,
-       "llc_mshr": 64
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.48072293656609905,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.703378276626156,
-        "LLC_mpki": 10.3456
-       },
-       "merced_0000": {
-        "ipc": 0.5170040263748518,
-        "LLC_mpki": 6.99859860028028
-       },
-       "tahoe_0000": {
-        "ipc": 0.30549327566598444,
-        "LLC_mpki": 18.93849810615019
-       }
-      }
-     },
-     {
-      "index": 16,
-      "round": 13,
-      "name": "C_server_l1d_prefetcher-no_l1d_sets-128_l1d_ways-8_l2_mshr-64_l2_prefetcher-next_line_l2_replacement-lru_l2_sets-256_l2_ways-4_llc_mshr-64_llc_prefetcher-spp_dev_llc_replacement-lru_llc_sets-8192_llc_ways-8",
-      "knobs": {
-       "l1d_sets": 128,
-       "l1d_ways": 8,
-       "l1d_prefetcher": "no",
-       "l2_sets": 256,
-       "l2_ways": 4,
-       "l2_prefetcher": "next_line",
-       "l2_replacement": "lru",
-       "llc_sets": 8192,
-       "llc_ways": 8,
-       "llc_prefetcher": "spp_dev",
-       "llc_replacement": "lru",
-       "l2_mshr": 64,
-       "llc_mshr": 64
-      },
-      "source": "bo",
-      "hypothesis": null,
-      "ipc": 0.48491884236879895,
-      "per_workload": {
-       "sierra.a.4_0000": {
-        "ipc": 0.7212946053949081,
-        "LLC_mpki": 10.0340989965901
-       },
-       "merced_0000": {
-        "ipc": 0.5169308553804773,
-        "LLC_mpki": 7.5304
-       },
-       "tahoe_0000": {
-        "ipc": 0.3058172926572725,
-        "LLC_mpki": 19.750198024980197
-       }
-      }
-     }
-    ],
-    "rounds": []
-   }
-  },
   "llm_direct": {
    "0": {
     "designs": [
@@ -17365,14 +14827,2553 @@
      }
     ]
    }
+  },
+  "bo_gp": {
+   "0": {
+    "designs": [
+     {
+      "index": 0,
+      "round": 0,
+      "name": "C_server_l1d_prefetcher-no_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-no_l2_replacement-lru_l2_sets-1024_l2_ways-8_llc_mshr-128_llc_prefetcher-no_llc_replacement-lru_llc_sets-2048_llc_ways-16",
+      "knobs": {
+       "l2_sets": 1024,
+       "llc_sets": 2048,
+       "l2_prefetcher": "no",
+       "llc_replacement": "lru",
+       "l2_replacement": "lru",
+       "l1d_sets": 64,
+       "l1d_ways": 12,
+       "l1d_prefetcher": "no",
+       "l2_ways": 8,
+       "llc_ways": 16,
+       "llc_prefetcher": "no",
+       "l2_mshr": 64,
+       "llc_mshr": 128
+      },
+      "source": "stock",
+      "hypothesis": null,
+      "ipc": 0.3837379276950013,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.5363486424935406,
+        "LLC_mpki": 14.6302
+       },
+       "merced_0000": {
+        "ipc": 0.40111123857534914,
+        "LLC_mpki": 13.0422
+       },
+       "tahoe_0000": {
+        "ipc": 0.26265892439290073,
+        "LLC_mpki": 28.729597127040286
+       }
+      }
+     },
+     {
+      "index": 1,
+      "round": 0,
+      "name": "C_server_l1d_prefetcher-no_l1d_sets-64_l1d_ways-8_l2_mshr-32_l2_prefetcher-va_ampm_lite_l2_replacement-srrip_l2_sets-1024_l2_ways-16_llc_mshr-128_llc_prefetcher-no_llc_replacement-drrip_llc_sets-4096_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 64,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "no",
+       "l2_sets": 1024,
+       "l2_ways": 16,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "srrip",
+       "llc_sets": 4096,
+       "llc_ways": 8,
+       "llc_prefetcher": "no",
+       "llc_replacement": "drrip",
+       "l2_mshr": 32,
+       "llc_mshr": 128
+      },
+      "source": "warm-up",
+      "hypothesis": null,
+      "ipc": 0.41937894974170653,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.596782625509354,
+        "LLC_mpki": 16.7162
+       },
+       "merced_0000": {
+        "ipc": 0.4550524491125136,
+        "LLC_mpki": 10.617198938280106
+       },
+       "tahoe_0000": {
+        "ipc": 0.27160781161370984,
+        "LLC_mpki": 28.654897134510286
+       }
+      }
+     },
+     {
+      "index": 2,
+      "round": 0,
+      "name": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-64_l1d_ways-8_l2_mshr-64_l2_prefetcher-ip_stride_l2_replacement-lru_l2_sets-1024_l2_ways-4_llc_mshr-64_llc_prefetcher-next_line_llc_replacement-srrip_llc_sets-2048_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 64,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "va_ampm_lite",
+       "l2_sets": 1024,
+       "l2_ways": 4,
+       "l2_prefetcher": "ip_stride",
+       "l2_replacement": "lru",
+       "llc_sets": 2048,
+       "llc_ways": 8,
+       "llc_prefetcher": "next_line",
+       "llc_replacement": "srrip",
+       "l2_mshr": 64,
+       "llc_mshr": 64
+      },
+      "source": "warm-up",
+      "hypothesis": null,
+      "ipc": 0.3554267153671105,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.4780793220605735,
+        "LLC_mpki": 33.4139
+       },
+       "merced_0000": {
+        "ipc": 0.3999544132005421,
+        "LLC_mpki": 15.554998444500155
+       },
+       "tahoe_0000": {
+        "ipc": 0.23482252362003214,
+        "LLC_mpki": 33.46019665398033
+       }
+      }
+     },
+     {
+      "index": 3,
+      "round": 0,
+      "name": "C_server_l1d_prefetcher-ip_stride_l1d_sets-32_l1d_ways-8_l2_mshr-32_l2_prefetcher-ip_stride_l2_replacement-drrip_l2_sets-2048_l2_ways-4_llc_mshr-32_llc_prefetcher-next_line_llc_replacement-drrip_llc_sets-1024_llc_ways-16",
+      "knobs": {
+       "l1d_sets": 32,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "ip_stride",
+       "l2_sets": 2048,
+       "l2_ways": 4,
+       "l2_prefetcher": "ip_stride",
+       "l2_replacement": "drrip",
+       "llc_sets": 1024,
+       "llc_ways": 16,
+       "llc_prefetcher": "next_line",
+       "llc_replacement": "drrip",
+       "l2_mshr": 32,
+       "llc_mshr": 32
+      },
+      "source": "warm-up",
+      "hypothesis": null,
+      "ipc": 0.3682310950558281,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.4868193419750582,
+        "LLC_mpki": 20.7926
+       },
+       "merced_0000": {
+        "ipc": 0.4081404744134135,
+        "LLC_mpki": 12.590197481960503
+       },
+       "tahoe_0000": {
+        "ipc": 0.2512950236453516,
+        "LLC_mpki": 28.87269711273029
+       }
+      }
+     },
+     {
+      "index": 4,
+      "round": 1,
+      "name": "C_server_l1d_prefetcher-no_l1d_sets-64_l1d_ways-12_l2_mshr-16_l2_prefetcher-va_ampm_lite_l2_replacement-srrip_l2_sets-512_l2_ways-16_llc_mshr-64_llc_prefetcher-no_llc_replacement-drrip_llc_sets-1024_llc_ways-16",
+      "knobs": {
+       "l1d_sets": 64,
+       "l1d_ways": 12,
+       "l1d_prefetcher": "no",
+       "l2_sets": 512,
+       "l2_ways": 16,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "srrip",
+       "llc_sets": 1024,
+       "llc_ways": 16,
+       "llc_prefetcher": "no",
+       "llc_replacement": "drrip",
+       "l2_mshr": 16,
+       "llc_mshr": 64
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.38072261995265116,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.5169468354815145,
+        "LLC_mpki": 19.4605
+       },
+       "merced_0000": {
+        "ipc": 0.42017021680316663,
+        "LLC_mpki": 11.807497638500472
+       },
+       "tahoe_0000": {
+        "ipc": 0.2540708820595715,
+        "LLC_mpki": 30.748196925180306
+       }
+      }
+     },
+     {
+      "index": 5,
+      "round": 2,
+      "name": "C_server_l1d_prefetcher-no_l1d_sets-32_l1d_ways-8_l2_mshr-16_l2_prefetcher-va_ampm_lite_l2_replacement-srrip_l2_sets-256_l2_ways-16_llc_mshr-32_llc_prefetcher-no_llc_replacement-srrip_llc_sets-2048_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 32,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "no",
+       "l2_sets": 256,
+       "l2_ways": 16,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "srrip",
+       "llc_sets": 2048,
+       "llc_ways": 8,
+       "llc_prefetcher": "no",
+       "llc_replacement": "srrip",
+       "l2_mshr": 16,
+       "llc_mshr": 32
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.33558491390423706,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.4274830570347296,
+        "LLC_mpki": 25.21929243421227
+       },
+       "merced_0000": {
+        "ipc": 0.37112672243142014,
+        "LLC_mpki": 14.338398566160143
+       },
+       "tahoe_0000": {
+        "ipc": 0.23821338171160775,
+        "LLC_mpki": 33.39129666087033
+       }
+      }
+     },
+     {
+      "index": 6,
+      "round": 3,
+      "name": "C_server_l1d_prefetcher-no_l1d_sets-128_l1d_ways-12_l2_mshr-64_l2_prefetcher-no_l2_replacement-srrip_l2_sets-2048_l2_ways-16_llc_mshr-64_llc_prefetcher-no_llc_replacement-lru_llc_sets-4096_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 128,
+       "l1d_ways": 12,
+       "l1d_prefetcher": "no",
+       "l2_sets": 2048,
+       "l2_ways": 16,
+       "l2_prefetcher": "no",
+       "l2_replacement": "srrip",
+       "llc_sets": 4096,
+       "llc_ways": 8,
+       "llc_prefetcher": "no",
+       "llc_replacement": "lru",
+       "l2_mshr": 64,
+       "llc_mshr": 64
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.407658890975962,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.5588346732326015,
+        "LLC_mpki": 17.0178
+       },
+       "merced_0000": {
+        "ipc": 0.4438961588700325,
+        "LLC_mpki": 11.414296575711028
+       },
+       "tahoe_0000": {
+        "ipc": 0.27310271941186354,
+        "LLC_mpki": 28.305797169420284
+       }
+      }
+     },
+     {
+      "index": 7,
+      "round": 4,
+      "name": "C_server_l1d_prefetcher-ip_stride_l1d_sets-32_l1d_ways-8_l2_mshr-16_l2_prefetcher-va_ampm_lite_l2_replacement-drrip_l2_sets-1024_l2_ways-8_llc_mshr-128_llc_prefetcher-no_llc_replacement-drrip_llc_sets-1024_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 32,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "ip_stride",
+       "l2_sets": 1024,
+       "l2_ways": 8,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "drrip",
+       "llc_sets": 1024,
+       "llc_ways": 8,
+       "llc_prefetcher": "no",
+       "llc_replacement": "drrip",
+       "l2_mshr": 16,
+       "llc_mshr": 128
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.34135809352748464,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.4296715534787906,
+        "LLC_mpki": 31.4103
+       },
+       "merced_0000": {
+        "ipc": 0.38718707743383013,
+        "LLC_mpki": 13.862095841371248
+       },
+       "tahoe_0000": {
+        "ipc": 0.23909646593187384,
+        "LLC_mpki": 34.8973
+       }
+      }
+     },
+     {
+      "index": 8,
+      "round": 5,
+      "name": "C_server_l1d_prefetcher-no_l1d_sets-32_l1d_ways-8_l2_mshr-32_l2_prefetcher-va_ampm_lite_l2_replacement-lru_l2_sets-1024_l2_ways-16_llc_mshr-128_llc_prefetcher-next_line_llc_replacement-drrip_llc_sets-1024_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 32,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "no",
+       "l2_sets": 1024,
+       "l2_ways": 16,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "lru",
+       "llc_sets": 1024,
+       "llc_ways": 8,
+       "llc_prefetcher": "next_line",
+       "llc_replacement": "drrip",
+       "l2_mshr": 32,
+       "llc_mshr": 128
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.38571354480501824,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.506259440470084,
+        "LLC_mpki": 29.01169129649261
+       },
+       "merced_0000": {
+        "ipc": 0.4369331476251312,
+        "LLC_mpki": 12.594897481020503
+       },
+       "tahoe_0000": {
+        "ipc": 0.2594218437165662,
+        "LLC_mpki": 31.489696851030313
+       }
+      }
+     },
+     {
+      "index": 9,
+      "round": 6,
+      "name": "C_server_l1d_prefetcher-no_l1d_sets-64_l1d_ways-8_l2_mshr-32_l2_prefetcher-va_ampm_lite_l2_replacement-srrip_l2_sets-512_l2_ways-16_llc_mshr-128_llc_prefetcher-no_llc_replacement-drrip_llc_sets-8192_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 64,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "no",
+       "l2_sets": 512,
+       "l2_ways": 16,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "srrip",
+       "llc_sets": 8192,
+       "llc_ways": 8,
+       "llc_prefetcher": "no",
+       "llc_replacement": "drrip",
+       "l2_mshr": 32,
+       "llc_mshr": 128
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.45823138253947304,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.6570728995369148,
+        "LLC_mpki": 11.704498829550117
+       },
+       "merced_0000": {
+        "ipc": 0.48757636175662417,
+        "LLC_mpki": 8.426898314620336
+       },
+       "tahoe_0000": {
+        "ipc": 0.3003297049203882,
+        "LLC_mpki": 23.15879768412023
+       }
+      }
+     },
+     {
+      "index": 10,
+      "round": 7,
+      "name": "C_server_l1d_prefetcher-no_l1d_sets-64_l1d_ways-8_l2_mshr-32_l2_prefetcher-va_ampm_lite_l2_replacement-srrip_l2_sets-256_l2_ways-16_llc_mshr-128_llc_prefetcher-next_line_llc_replacement-drrip_llc_sets-8192_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 64,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "no",
+       "l2_sets": 256,
+       "l2_ways": 16,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "srrip",
+       "llc_sets": 8192,
+       "llc_ways": 8,
+       "llc_prefetcher": "next_line",
+       "llc_replacement": "drrip",
+       "l2_mshr": 32,
+       "llc_mshr": 128
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.47091347714667475,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.6823098697682105,
+        "LLC_mpki": 10.771498922850109
+       },
+       "merced_0000": {
+        "ipc": 0.5109160274766552,
+        "LLC_mpki": 7.2337
+       },
+       "tahoe_0000": {
+        "ipc": 0.2995657644895078,
+        "LLC_mpki": 21.837997816200218
+       }
+      }
+     },
+     {
+      "index": 11,
+      "round": 8,
+      "name": "C_server_l1d_prefetcher-no_l1d_sets-32_l1d_ways-8_l2_mshr-32_l2_prefetcher-ip_stride_l2_replacement-srrip_l2_sets-256_l2_ways-16_llc_mshr-128_llc_prefetcher-next_line_llc_replacement-drrip_llc_sets-8192_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 32,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "no",
+       "l2_sets": 256,
+       "l2_ways": 16,
+       "l2_prefetcher": "ip_stride",
+       "l2_replacement": "srrip",
+       "llc_sets": 8192,
+       "llc_ways": 8,
+       "llc_prefetcher": "next_line",
+       "llc_replacement": "drrip",
+       "l2_mshr": 32,
+       "llc_mshr": 128
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.43396900820069345,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.609478423706268,
+        "LLC_mpki": 11.059397788120442
+       },
+       "merced_0000": {
+        "ipc": 0.4649048944247686,
+        "LLC_mpki": 8.613298277340345
+       },
+       "tahoe_0000": {
+        "ipc": 0.2884388083763314,
+        "LLC_mpki": 23.576997642300235
+       }
+      }
+     },
+     {
+      "index": 12,
+      "round": 9,
+      "name": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-128_l1d_ways-8_l2_mshr-32_l2_prefetcher-va_ampm_lite_l2_replacement-srrip_l2_sets-256_l2_ways-16_llc_mshr-128_llc_prefetcher-next_line_llc_replacement-drrip_llc_sets-8192_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 128,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "va_ampm_lite",
+       "l2_sets": 256,
+       "l2_ways": 16,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "srrip",
+       "llc_sets": 8192,
+       "llc_ways": 8,
+       "llc_prefetcher": "next_line",
+       "llc_replacement": "drrip",
+       "l2_mshr": 32,
+       "llc_mshr": 128
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.46759864956214525,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.6768644833915121,
+        "LLC_mpki": 11.12629554948178
+       },
+       "merced_0000": {
+        "ipc": 0.5091088982188167,
+        "LLC_mpki": 6.841898631620274
+       },
+       "tahoe_0000": {
+        "ipc": 0.2966930210176446,
+        "LLC_mpki": 20.9029
+       }
+      }
+     },
+     {
+      "index": 13,
+      "round": 10,
+      "name": "C_server_l1d_prefetcher-no_l1d_sets-128_l1d_ways-8_l2_mshr-32_l2_prefetcher-va_ampm_lite_l2_replacement-lru_l2_sets-256_l2_ways-16_llc_mshr-128_llc_prefetcher-next_line_llc_replacement-drrip_llc_sets-8192_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 128,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "no",
+       "l2_sets": 256,
+       "l2_ways": 16,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "lru",
+       "llc_sets": 8192,
+       "llc_ways": 8,
+       "llc_prefetcher": "next_line",
+       "llc_replacement": "drrip",
+       "l2_mshr": 32,
+       "llc_mshr": 128
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.4849202917945294,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.7195984266989411,
+        "LLC_mpki": 10.766898923310107
+       },
+       "merced_0000": {
+        "ipc": 0.5256763706339757,
+        "LLC_mpki": 7.263899273610073
+       },
+       "tahoe_0000": {
+        "ipc": 0.30144106297271983,
+        "LLC_mpki": 23.279797672020234
+       }
+      }
+     },
+     {
+      "index": 14,
+      "round": 11,
+      "name": "C_server_l1d_prefetcher-no_l1d_sets-128_l1d_ways-8_l2_mshr-32_l2_prefetcher-va_ampm_lite_l2_replacement-lru_l2_sets-256_l2_ways-4_llc_mshr-32_llc_prefetcher-next_line_llc_replacement-drrip_llc_sets-8192_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 128,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "no",
+       "l2_sets": 256,
+       "l2_ways": 4,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "lru",
+       "llc_sets": 8192,
+       "llc_ways": 8,
+       "llc_prefetcher": "next_line",
+       "llc_replacement": "drrip",
+       "l2_mshr": 32,
+       "llc_mshr": 32
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.4860867389442385,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.7174931135010966,
+        "LLC_mpki": 10.6421
+       },
+       "merced_0000": {
+        "ipc": 0.5263002220671157,
+        "LLC_mpki": 7.2139
+       },
+       "tahoe_0000": {
+        "ipc": 0.30415154653442156,
+        "LLC_mpki": 22.642097735790227
+       }
+      }
+     },
+     {
+      "index": 15,
+      "round": 12,
+      "name": "C_server_l1d_prefetcher-no_l1d_sets-128_l1d_ways-12_l2_mshr-32_l2_prefetcher-va_ampm_lite_l2_replacement-lru_l2_sets-256_l2_ways-4_llc_mshr-128_llc_prefetcher-next_line_llc_replacement-drrip_llc_sets-8192_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 128,
+       "l1d_ways": 12,
+       "l1d_prefetcher": "no",
+       "l2_sets": 256,
+       "l2_ways": 4,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "lru",
+       "llc_sets": 8192,
+       "llc_ways": 8,
+       "llc_prefetcher": "next_line",
+       "llc_replacement": "drrip",
+       "l2_mshr": 32,
+       "llc_mshr": 128
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.4885183578943031,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.7245696346198212,
+        "LLC_mpki": 10.6643
+       },
+       "merced_0000": {
+        "ipc": 0.5284305097567814,
+        "LLC_mpki": 7.224799277520073
+       },
+       "tahoe_0000": {
+        "ipc": 0.30449113416298235,
+        "LLC_mpki": 22.589097741090225
+       }
+      }
+     },
+     {
+      "index": 16,
+      "round": 13,
+      "name": "C_server_l1d_prefetcher-no_l1d_sets-128_l1d_ways-8_l2_mshr-32_l2_prefetcher-va_ampm_lite_l2_replacement-lru_l2_sets-2048_l2_ways-4_llc_mshr-128_llc_prefetcher-next_line_llc_replacement-drrip_llc_sets-8192_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 128,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "no",
+       "l2_sets": 2048,
+       "l2_ways": 4,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "lru",
+       "llc_sets": 8192,
+       "llc_ways": 8,
+       "llc_prefetcher": "next_line",
+       "llc_replacement": "drrip",
+       "l2_mshr": 32,
+       "llc_mshr": 128
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.4796436392344869,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.7151147569564748,
+        "LLC_mpki": 11.00319889968011
+       },
+       "merced_0000": {
+        "ipc": 0.5173805153916016,
+        "LLC_mpki": 7.5970984805803035
+       },
+       "tahoe_0000": {
+        "ipc": 0.29824299996161613,
+        "LLC_mpki": 24.664297533570245
+       }
+      }
+     }
+    ],
+    "rounds": []
+   },
+   "1": {
+    "designs": [
+     {
+      "index": 0,
+      "round": 0,
+      "name": "C_server_l1d_prefetcher-no_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-no_l2_replacement-lru_l2_sets-1024_l2_ways-8_llc_mshr-128_llc_prefetcher-no_llc_replacement-lru_llc_sets-2048_llc_ways-16",
+      "knobs": {
+       "l2_sets": 1024,
+       "llc_sets": 2048,
+       "l2_prefetcher": "no",
+       "llc_replacement": "lru",
+       "l2_replacement": "lru",
+       "l1d_sets": 64,
+       "l1d_ways": 12,
+       "l1d_prefetcher": "no",
+       "l2_ways": 8,
+       "llc_ways": 16,
+       "llc_prefetcher": "no",
+       "l2_mshr": 64,
+       "llc_mshr": 128
+      },
+      "source": "stock",
+      "hypothesis": null,
+      "ipc": 0.3837379276950013,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.5363486424935406,
+        "LLC_mpki": 14.6302
+       },
+       "merced_0000": {
+        "ipc": 0.40111123857534914,
+        "LLC_mpki": 13.0422
+       },
+       "tahoe_0000": {
+        "ipc": 0.26265892439290073,
+        "LLC_mpki": 28.729597127040286
+       }
+      }
+     },
+     {
+      "index": 1,
+      "round": 0,
+      "name": "C_server_l1d_prefetcher-ip_stride_l1d_sets-32_l1d_ways-8_l2_mshr-16_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-256_l2_ways-8_llc_mshr-64_llc_prefetcher-no_llc_replacement-ship_llc_sets-8192_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 32,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "ip_stride",
+       "l2_sets": 256,
+       "l2_ways": 8,
+       "l2_prefetcher": "next_line",
+       "l2_replacement": "ship",
+       "llc_sets": 8192,
+       "llc_ways": 8,
+       "llc_prefetcher": "no",
+       "llc_replacement": "ship",
+       "l2_mshr": 16,
+       "llc_mshr": 64
+      },
+      "source": "warm-up",
+      "hypothesis": null,
+      "ipc": 0.43582074338036747,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.5968468230536337,
+        "LLC_mpki": 10.244897951020409
+       },
+       "merced_0000": {
+        "ipc": 0.47948278963826285,
+        "LLC_mpki": 7.042999295700071
+       },
+       "tahoe_0000": {
+        "ipc": 0.289259600135628,
+        "LLC_mpki": 20.4687
+       }
+      }
+     },
+     {
+      "index": 2,
+      "round": 0,
+      "name": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-64_l1d_ways-8_l2_mshr-64_l2_prefetcher-spp_dev_l2_replacement-lru_l2_sets-1024_l2_ways-16_llc_mshr-128_llc_prefetcher-no_llc_replacement-lru_llc_sets-4096_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 64,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "va_ampm_lite",
+       "l2_sets": 1024,
+       "l2_ways": 16,
+       "l2_prefetcher": "spp_dev",
+       "l2_replacement": "lru",
+       "llc_sets": 4096,
+       "llc_ways": 8,
+       "llc_prefetcher": "no",
+       "llc_replacement": "lru",
+       "l2_mshr": 64,
+       "llc_mshr": 128
+      },
+      "source": "warm-up",
+      "hypothesis": null,
+      "ipc": 0.41257806028352617,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.5760764794449019,
+        "LLC_mpki": 14.915398508460148
+       },
+       "merced_0000": {
+        "ipc": 0.4529231088367328,
+        "LLC_mpki": 9.9603990039601
+       },
+       "tahoe_0000": {
+        "ipc": 0.2691620118017302,
+        "LLC_mpki": 24.733897526610246
+       }
+      }
+     },
+     {
+      "index": 3,
+      "round": 0,
+      "name": "C_server_l1d_prefetcher-ip_stride_l1d_sets-32_l1d_ways-12_l2_mshr-64_l2_prefetcher-va_ampm_lite_l2_replacement-lru_l2_sets-256_l2_ways-8_llc_mshr-128_llc_prefetcher-no_llc_replacement-drrip_llc_sets-2048_llc_ways-16",
+      "knobs": {
+       "l1d_sets": 32,
+       "l1d_ways": 12,
+       "l1d_prefetcher": "ip_stride",
+       "l2_sets": 256,
+       "l2_ways": 8,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "lru",
+       "llc_sets": 2048,
+       "llc_ways": 16,
+       "llc_prefetcher": "no",
+       "llc_replacement": "drrip",
+       "l2_mshr": 64,
+       "llc_mshr": 128
+      },
+      "source": "warm-up",
+      "hypothesis": null,
+      "ipc": 0.3923932680079127,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.5360402077327338,
+        "LLC_mpki": 14.0933
+       },
+       "merced_0000": {
+        "ipc": 0.4293136135319624,
+        "LLC_mpki": 9.688498062300388
+       },
+       "tahoe_0000": {
+        "ipc": 0.26253826855871676,
+        "LLC_mpki": 25.399897460010255
+       }
+      }
+     },
+     {
+      "index": 4,
+      "round": 1,
+      "name": "C_server_l1d_prefetcher-no_l1d_sets-128_l1d_ways-8_l2_mshr-16_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-256_l2_ways-8_llc_mshr-64_llc_prefetcher-no_llc_replacement-ship_llc_sets-8192_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 128,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "no",
+       "l2_sets": 256,
+       "l2_ways": 8,
+       "l2_prefetcher": "next_line",
+       "l2_replacement": "ship",
+       "llc_sets": 8192,
+       "llc_ways": 8,
+       "llc_prefetcher": "no",
+       "llc_replacement": "ship",
+       "l2_mshr": 16,
+       "llc_mshr": 64
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.46566900746170864,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.6657288102035979,
+        "LLC_mpki": 10.282098971790102
+       },
+       "merced_0000": {
+        "ipc": 0.5097456456647955,
+        "LLC_mpki": 7.305197808440657
+       },
+       "tahoe_0000": {
+        "ipc": 0.29756450617598046,
+        "LLC_mpki": 20.707597929240208
+       }
+      }
+     },
+     {
+      "index": 5,
+      "round": 2,
+      "name": "C_server_l1d_prefetcher-no_l1d_sets-128_l1d_ways-8_l2_mshr-16_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-2048_l2_ways-4_llc_mshr-64_llc_prefetcher-no_llc_replacement-ship_llc_sets-8192_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 128,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "no",
+       "l2_sets": 2048,
+       "l2_ways": 4,
+       "l2_prefetcher": "next_line",
+       "l2_replacement": "ship",
+       "llc_sets": 8192,
+       "llc_ways": 8,
+       "llc_prefetcher": "no",
+       "llc_replacement": "ship",
+       "l2_mshr": 16,
+       "llc_mshr": 64
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.46774475789519576,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.6631580964764955,
+        "LLC_mpki": 10.675298932470106
+       },
+       "merced_0000": {
+        "ipc": 0.5124271776999914,
+        "LLC_mpki": 7.350099264990074
+       },
+       "tahoe_0000": {
+        "ipc": 0.3011463163500179,
+        "LLC_mpki": 20.576797942320205
+       }
+      }
+     },
+     {
+      "index": 6,
+      "round": 3,
+      "name": "C_server_l1d_prefetcher-no_l1d_sets-128_l1d_ways-12_l2_mshr-16_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-2048_l2_ways-4_llc_mshr-64_llc_prefetcher-no_llc_replacement-ship_llc_sets-8192_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 128,
+       "l1d_ways": 12,
+       "l1d_prefetcher": "no",
+       "l2_sets": 2048,
+       "l2_ways": 4,
+       "l2_prefetcher": "next_line",
+       "l2_replacement": "ship",
+       "llc_sets": 8192,
+       "llc_ways": 8,
+       "llc_prefetcher": "no",
+       "llc_replacement": "ship",
+       "l2_mshr": 16,
+       "llc_mshr": 64
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.4675862238558104,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.6646860575067708,
+        "LLC_mpki": 10.641898935810106
+       },
+       "merced_0000": {
+        "ipc": 0.5123928343303984,
+        "LLC_mpki": 7.352599264740074
+       },
+       "tahoe_0000": {
+        "ipc": 0.30016876987398466,
+        "LLC_mpki": 20.628897937110207
+       }
+      }
+     },
+     {
+      "index": 7,
+      "round": 4,
+      "name": "C_server_l1d_prefetcher-no_l1d_sets-128_l1d_ways-8_l2_mshr-16_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-2048_l2_ways-4_llc_mshr-64_llc_prefetcher-no_llc_replacement-ship_llc_sets-4096_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 128,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "no",
+       "l2_sets": 2048,
+       "l2_ways": 4,
+       "l2_prefetcher": "next_line",
+       "l2_replacement": "ship",
+       "llc_sets": 4096,
+       "llc_ways": 8,
+       "llc_prefetcher": "no",
+       "llc_replacement": "ship",
+       "l2_mshr": 16,
+       "llc_mshr": 64
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.4193411906566584,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.5833280882421311,
+        "LLC_mpki": 14.00189859981014
+       },
+       "merced_0000": {
+        "ipc": 0.46049254835563175,
+        "LLC_mpki": 9.3571
+       },
+       "tahoe_0000": {
+        "ipc": 0.27451562957325837,
+        "LLC_mpki": 25.07229749277025
+       }
+      }
+     },
+     {
+      "index": 8,
+      "round": 5,
+      "name": "C_server_l1d_prefetcher-no_l1d_sets-128_l1d_ways-8_l2_mshr-16_l2_prefetcher-va_ampm_lite_l2_replacement-ship_l2_sets-2048_l2_ways-4_llc_mshr-64_llc_prefetcher-no_llc_replacement-drrip_llc_sets-8192_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 128,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "no",
+       "l2_sets": 2048,
+       "l2_ways": 4,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "ship",
+       "llc_sets": 8192,
+       "llc_ways": 8,
+       "llc_prefetcher": "no",
+       "llc_replacement": "drrip",
+       "l2_mshr": 16,
+       "llc_mshr": 64
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.46651375316087323,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.672831393986745,
+        "LLC_mpki": 11.481298851870115
+       },
+       "merced_0000": {
+        "ipc": 0.4991763591720942,
+        "LLC_mpki": 9.128898174220366
+       },
+       "tahoe_0000": {
+        "ipc": 0.3022964857130161,
+        "LLC_mpki": 25.668297433170256
+       }
+      }
+     },
+     {
+      "index": 9,
+      "round": 6,
+      "name": "C_server_l1d_prefetcher-no_l1d_sets-128_l1d_ways-8_l2_mshr-16_l2_prefetcher-no_l2_replacement-lru_l2_sets-2048_l2_ways-4_llc_mshr-64_llc_prefetcher-no_llc_replacement-ship_llc_sets-8192_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 128,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "no",
+       "l2_sets": 2048,
+       "l2_ways": 4,
+       "l2_prefetcher": "no",
+       "l2_replacement": "lru",
+       "llc_sets": 8192,
+       "llc_ways": 8,
+       "llc_prefetcher": "no",
+       "llc_replacement": "ship",
+       "l2_mshr": 16,
+       "llc_mshr": 64
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.4213835471845967,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.5825093301975691,
+        "LLC_mpki": 12.7372
+       },
+       "merced_0000": {
+        "ipc": 0.44939021798029855,
+        "LLC_mpki": 10.336498966350103
+       },
+       "tahoe_0000": {
+        "ipc": 0.285828956196774,
+        "LLC_mpki": 23.132997686700232
+       }
+      }
+     },
+     {
+      "index": 10,
+      "round": 7,
+      "name": "C_server_l1d_prefetcher-no_l1d_sets-128_l1d_ways-8_l2_mshr-16_l2_prefetcher-spp_dev_l2_replacement-ship_l2_sets-2048_l2_ways-4_llc_mshr-64_llc_prefetcher-no_llc_replacement-lru_llc_sets-8192_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 128,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "no",
+       "l2_sets": 2048,
+       "l2_ways": 4,
+       "l2_prefetcher": "spp_dev",
+       "l2_replacement": "ship",
+       "llc_sets": 8192,
+       "llc_ways": 8,
+       "llc_prefetcher": "no",
+       "llc_replacement": "lru",
+       "l2_mshr": 16,
+       "llc_mshr": 64
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.4585412509093028,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.6730685809096077,
+        "LLC_mpki": 10.7164
+       },
+       "merced_0000": {
+        "ipc": 0.4957931218336489,
+        "LLC_mpki": 8.656598268680346
+       },
+       "tahoe_0000": {
+        "ipc": 0.28891854476944084,
+        "LLC_mpki": 23.346997665300233
+       }
+      }
+     },
+     {
+      "index": 11,
+      "round": 8,
+      "name": "C_server_l1d_prefetcher-no_l1d_sets-128_l1d_ways-8_l2_mshr-64_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-2048_l2_ways-4_llc_mshr-64_llc_prefetcher-no_llc_replacement-drrip_llc_sets-8192_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 128,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "no",
+       "l2_sets": 2048,
+       "l2_ways": 4,
+       "l2_prefetcher": "next_line",
+       "l2_replacement": "ship",
+       "llc_sets": 8192,
+       "llc_ways": 8,
+       "llc_prefetcher": "no",
+       "llc_replacement": "drrip",
+       "l2_mshr": 64,
+       "llc_mshr": 64
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.4748049730819791,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.690761984995546,
+        "LLC_mpki": 10.841198915880108
+       },
+       "merced_0000": {
+        "ipc": 0.5077375900694661,
+        "LLC_mpki": 7.870499212950079
+       },
+       "tahoe_0000": {
+        "ipc": 0.3051954334217688,
+        "LLC_mpki": 24.0104
+       }
+      }
+     },
+     {
+      "index": 12,
+      "round": 9,
+      "name": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-128_l1d_ways-8_l2_mshr-64_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-2048_l2_ways-4_llc_mshr-32_llc_prefetcher-no_llc_replacement-drrip_llc_sets-8192_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 128,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "va_ampm_lite",
+       "l2_sets": 2048,
+       "l2_ways": 4,
+       "l2_prefetcher": "next_line",
+       "l2_replacement": "ship",
+       "llc_sets": 8192,
+       "llc_ways": 8,
+       "llc_prefetcher": "no",
+       "llc_replacement": "drrip",
+       "l2_mshr": 64,
+       "llc_mshr": 32
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.4801855558388597,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.6983120472712516,
+        "LLC_mpki": 11.05039889496011
+       },
+       "merced_0000": {
+        "ipc": 0.5207157654769092,
+        "LLC_mpki": 6.977
+       },
+       "tahoe_0000": {
+        "ipc": 0.3044927911331699,
+        "LLC_mpki": 23.1934
+       }
+      }
+     },
+     {
+      "index": 13,
+      "round": 10,
+      "name": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-128_l1d_ways-8_l2_mshr-64_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-1024_l2_ways-4_llc_mshr-32_llc_prefetcher-no_llc_replacement-drrip_llc_sets-8192_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 128,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "va_ampm_lite",
+       "l2_sets": 1024,
+       "l2_ways": 4,
+       "l2_prefetcher": "next_line",
+       "l2_replacement": "ship",
+       "llc_sets": 8192,
+       "llc_ways": 8,
+       "llc_prefetcher": "no",
+       "llc_replacement": "drrip",
+       "l2_mshr": 64,
+       "llc_mshr": 32
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.48031197357323374,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.7019565703725079,
+        "LLC_mpki": 10.861298913870108
+       },
+       "merced_0000": {
+        "ipc": 0.5207942423083263,
+        "LLC_mpki": 6.847498630500274
+       },
+       "tahoe_0000": {
+        "ipc": 0.30310550349820087,
+        "LLC_mpki": 22.338697766130224
+       }
+      }
+     },
+     {
+      "index": 14,
+      "round": 11,
+      "name": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-128_l1d_ways-8_l2_mshr-64_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-512_l2_ways-4_llc_mshr-32_llc_prefetcher-no_llc_replacement-drrip_llc_sets-8192_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 128,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "va_ampm_lite",
+       "l2_sets": 512,
+       "l2_ways": 4,
+       "l2_prefetcher": "next_line",
+       "l2_replacement": "ship",
+       "llc_sets": 8192,
+       "llc_ways": 8,
+       "llc_prefetcher": "no",
+       "llc_replacement": "drrip",
+       "l2_mshr": 64,
+       "llc_mshr": 32
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.4771125881062401,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.6954122960008233,
+        "LLC_mpki": 10.759198924080108
+       },
+       "merced_0000": {
+        "ipc": 0.5160493658966643,
+        "LLC_mpki": 6.861499313850069
+       },
+       "tahoe_0000": {
+        "ipc": 0.3026418695663306,
+        "LLC_mpki": 21.426897857310216
+       }
+      }
+     },
+     {
+      "index": 15,
+      "round": 12,
+      "name": "C_server_l1d_prefetcher-next_line_l1d_sets-128_l1d_ways-8_l2_mshr-64_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-2048_l2_ways-4_llc_mshr-32_llc_prefetcher-no_llc_replacement-drrip_llc_sets-8192_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 128,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "next_line",
+       "l2_sets": 2048,
+       "l2_ways": 4,
+       "l2_prefetcher": "next_line",
+       "l2_replacement": "ship",
+       "llc_sets": 8192,
+       "llc_ways": 8,
+       "llc_prefetcher": "no",
+       "llc_replacement": "drrip",
+       "l2_mshr": 64,
+       "llc_mshr": 32
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.47759372531297106,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.6994231717218176,
+        "LLC_mpki": 10.8124
+       },
+       "merced_0000": {
+        "ipc": 0.5091922179745973,
+        "LLC_mpki": 7.594
+       },
+       "tahoe_0000": {
+        "ipc": 0.3058820999587121,
+        "LLC_mpki": 23.14449768555023
+       }
+      }
+     },
+     {
+      "index": 16,
+      "round": 13,
+      "name": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-128_l1d_ways-8_l2_mshr-64_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-2048_l2_ways-4_llc_mshr-32_llc_prefetcher-no_llc_replacement-srrip_llc_sets-8192_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 128,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "va_ampm_lite",
+       "l2_sets": 2048,
+       "l2_ways": 4,
+       "l2_prefetcher": "next_line",
+       "l2_replacement": "ship",
+       "llc_sets": 8192,
+       "llc_ways": 8,
+       "llc_prefetcher": "no",
+       "llc_replacement": "srrip",
+       "l2_mshr": 64,
+       "llc_mshr": 32
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.45007963677217155,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.6250005078129126,
+        "LLC_mpki": 20.3109
+       },
+       "merced_0000": {
+        "ipc": 0.5254457592380449,
+        "LLC_mpki": 8.597699140230086
+       },
+       "tahoe_0000": {
+        "ipc": 0.2776258054270842,
+        "LLC_mpki": 27.99189720081028
+       }
+      }
+     }
+    ],
+    "rounds": []
+   },
+   "3": {
+    "designs": [
+     {
+      "index": 0,
+      "round": 0,
+      "name": "C_server_l1d_prefetcher-no_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-no_l2_replacement-lru_l2_sets-1024_l2_ways-8_llc_mshr-128_llc_prefetcher-no_llc_replacement-lru_llc_sets-2048_llc_ways-16",
+      "knobs": {
+       "l2_sets": 1024,
+       "llc_sets": 2048,
+       "l2_prefetcher": "no",
+       "llc_replacement": "lru",
+       "l2_replacement": "lru",
+       "l1d_sets": 64,
+       "l1d_ways": 12,
+       "l1d_prefetcher": "no",
+       "l2_ways": 8,
+       "llc_ways": 16,
+       "llc_prefetcher": "no",
+       "l2_mshr": 64,
+       "llc_mshr": 128
+      },
+      "source": "stock",
+      "hypothesis": null,
+      "ipc": 0.3837379276950013,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.5363486424935406,
+        "LLC_mpki": 14.6302
+       },
+       "merced_0000": {
+        "ipc": 0.40111123857534914,
+        "LLC_mpki": 13.0422
+       },
+       "tahoe_0000": {
+        "ipc": 0.26265892439290073,
+        "LLC_mpki": 28.729597127040286
+       }
+      }
+     },
+     {
+      "index": 1,
+      "round": 0,
+      "name": "C_server_l1d_prefetcher-ip_stride_l1d_sets-32_l1d_ways-8_l2_mshr-16_l2_prefetcher-va_ampm_lite_l2_replacement-lru_l2_sets-2048_l2_ways-16_llc_mshr-128_llc_prefetcher-ip_stride_llc_replacement-srrip_llc_sets-1024_llc_ways-16",
+      "knobs": {
+       "l1d_sets": 32,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "ip_stride",
+       "l2_sets": 2048,
+       "l2_ways": 16,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "lru",
+       "llc_sets": 1024,
+       "llc_ways": 16,
+       "llc_prefetcher": "ip_stride",
+       "llc_replacement": "srrip",
+       "l2_mshr": 16,
+       "llc_mshr": 128
+      },
+      "source": "warm-up",
+      "hypothesis": null,
+      "ipc": 0.3994416255609052,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.5467989795859224,
+        "LLC_mpki": 20.786493764051873
+       },
+       "merced_0000": {
+        "ipc": 0.43568232282066954,
+        "LLC_mpki": 12.137297572540486
+       },
+       "tahoe_0000": {
+        "ipc": 0.2675237395192235,
+        "LLC_mpki": 31.96969680303032
+       }
+      }
+     },
+     {
+      "index": 2,
+      "round": 0,
+      "name": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-64_l1d_ways-12_l2_mshr-32_l2_prefetcher-spp_dev_l2_replacement-ship_l2_sets-512_l2_ways-4_llc_mshr-32_llc_prefetcher-next_line_llc_replacement-lru_llc_sets-1024_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 64,
+       "l1d_ways": 12,
+       "l1d_prefetcher": "va_ampm_lite",
+       "l2_sets": 512,
+       "l2_ways": 4,
+       "l2_prefetcher": "spp_dev",
+       "l2_replacement": "ship",
+       "llc_sets": 1024,
+       "llc_ways": 8,
+       "llc_prefetcher": "next_line",
+       "llc_replacement": "lru",
+       "l2_mshr": 32,
+       "llc_mshr": 32
+      },
+      "source": "warm-up",
+      "hypothesis": null,
+      "ipc": 0.36980031843042577,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.48310982983955586,
+        "LLC_mpki": 24.91269750873025
+       },
+       "merced_0000": {
+        "ipc": 0.4271385556745421,
+        "LLC_mpki": 12.207
+       },
+       "tahoe_0000": {
+        "ipc": 0.24506833117060553,
+        "LLC_mpki": 28.315297168470284
+       }
+      }
+     },
+     {
+      "index": 3,
+      "round": 0,
+      "name": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-64_l1d_ways-12_l2_mshr-16_l2_prefetcher-va_ampm_lite_l2_replacement-ship_l2_sets-2048_l2_ways-8_llc_mshr-64_llc_prefetcher-no_llc_replacement-lru_llc_sets-2048_llc_ways-16",
+      "knobs": {
+       "l1d_sets": 64,
+       "l1d_ways": 12,
+       "l1d_prefetcher": "va_ampm_lite",
+       "l2_sets": 2048,
+       "l2_ways": 8,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "ship",
+       "llc_sets": 2048,
+       "llc_ways": 16,
+       "llc_prefetcher": "no",
+       "llc_replacement": "lru",
+       "l2_mshr": 16,
+       "llc_mshr": 64
+      },
+      "source": "warm-up",
+      "hypothesis": null,
+      "ipc": 0.4064721206635159,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.5542192405966037,
+        "LLC_mpki": 15.5229
+       },
+       "merced_0000": {
+        "ipc": 0.45380659971779586,
+        "LLC_mpki": 9.720999027900097
+       },
+       "tahoe_0000": {
+        "ipc": 0.2670175971788419,
+        "LLC_mpki": 28.95679710432029
+       }
+      }
+     },
+     {
+      "index": 4,
+      "round": 1,
+      "name": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-64_l1d_ways-12_l2_mshr-16_l2_prefetcher-va_ampm_lite_l2_replacement-ship_l2_sets-2048_l2_ways-4_llc_mshr-64_llc_prefetcher-no_llc_replacement-lru_llc_sets-2048_llc_ways-16",
+      "knobs": {
+       "l1d_sets": 64,
+       "l1d_ways": 12,
+       "l1d_prefetcher": "va_ampm_lite",
+       "l2_sets": 2048,
+       "l2_ways": 4,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "ship",
+       "llc_sets": 2048,
+       "llc_ways": 16,
+       "llc_prefetcher": "no",
+       "llc_replacement": "lru",
+       "l2_mshr": 16,
+       "llc_mshr": 64
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.40861673209988153,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.56201848714852,
+        "LLC_mpki": 14.0348
+       },
+       "merced_0000": {
+        "ipc": 0.45580854547952376,
+        "LLC_mpki": 8.99019910098009
+       },
+       "tahoe_0000": {
+        "ipc": 0.2663271085148363,
+        "LLC_mpki": 26.634697336530266
+       }
+      }
+     },
+     {
+      "index": 5,
+      "round": 2,
+      "name": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-128_l1d_ways-12_l2_mshr-32_l2_prefetcher-va_ampm_lite_l2_replacement-ship_l2_sets-512_l2_ways-4_llc_mshr-64_llc_prefetcher-no_llc_replacement-lru_llc_sets-2048_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 128,
+       "l1d_ways": 12,
+       "l1d_prefetcher": "va_ampm_lite",
+       "l2_sets": 512,
+       "l2_ways": 4,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "ship",
+       "llc_sets": 2048,
+       "llc_ways": 8,
+       "llc_prefetcher": "no",
+       "llc_replacement": "lru",
+       "l2_mshr": 32,
+       "llc_mshr": 64
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.3757352956248998,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.49114526480710885,
+        "LLC_mpki": 21.5393
+       },
+       "merced_0000": {
+        "ipc": 0.42887113591472537,
+        "LLC_mpki": 10.335097932980414
+       },
+       "tahoe_0000": {
+        "ipc": 0.2518310064024753,
+        "LLC_mpki": 26.591097340890265
+       }
+      }
+     },
+     {
+      "index": 6,
+      "round": 3,
+      "name": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-64_l1d_ways-12_l2_mshr-16_l2_prefetcher-va_ampm_lite_l2_replacement-ship_l2_sets-2048_l2_ways-4_llc_mshr-64_llc_prefetcher-no_llc_replacement-lru_llc_sets-4096_llc_ways-16",
+      "knobs": {
+       "l1d_sets": 64,
+       "l1d_ways": 12,
+       "l1d_prefetcher": "va_ampm_lite",
+       "l2_sets": 2048,
+       "l2_ways": 4,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "ship",
+       "llc_sets": 4096,
+       "llc_ways": 16,
+       "llc_prefetcher": "no",
+       "llc_replacement": "lru",
+       "l2_mshr": 16,
+       "llc_mshr": 64
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.4498425243544366,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.6456550518499694,
+        "LLC_mpki": 10.99029890097011
+       },
+       "merced_0000": {
+        "ipc": 0.48709849145125184,
+        "LLC_mpki": 7.779999222000078
+       },
+       "tahoe_0000": {
+        "ipc": 0.28944375572917674,
+        "LLC_mpki": 22.569297743070226
+       }
+      }
+     },
+     {
+      "index": 7,
+      "round": 4,
+      "name": "C_server_l1d_prefetcher-ip_stride_l1d_sets-64_l1d_ways-12_l2_mshr-16_l2_prefetcher-va_ampm_lite_l2_replacement-lru_l2_sets-2048_l2_ways-4_llc_mshr-64_llc_prefetcher-no_llc_replacement-lru_llc_sets-4096_llc_ways-16",
+      "knobs": {
+       "l1d_sets": 64,
+       "l1d_ways": 12,
+       "l1d_prefetcher": "ip_stride",
+       "l2_sets": 2048,
+       "l2_ways": 4,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "lru",
+       "llc_sets": 4096,
+       "llc_ways": 16,
+       "llc_prefetcher": "no",
+       "llc_replacement": "lru",
+       "l2_mshr": 16,
+       "llc_mshr": 64
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.46062960587429524,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.6762077542628808,
+        "LLC_mpki": 10.554998944500106
+       },
+       "merced_0000": {
+        "ipc": 0.49685518029357284,
+        "LLC_mpki": 8.00419919958008
+       },
+       "tahoe_0000": {
+        "ipc": 0.2909012413365619,
+        "LLC_mpki": 22.90209770979023
+       }
+      }
+     },
+     {
+      "index": 8,
+      "round": 5,
+      "name": "C_server_l1d_prefetcher-ip_stride_l1d_sets-64_l1d_ways-12_l2_mshr-16_l2_prefetcher-va_ampm_lite_l2_replacement-lru_l2_sets-2048_l2_ways-4_llc_mshr-64_llc_prefetcher-ip_stride_llc_replacement-srrip_llc_sets-4096_llc_ways-16",
+      "knobs": {
+       "l1d_sets": 64,
+       "l1d_ways": 12,
+       "l1d_prefetcher": "ip_stride",
+       "l2_sets": 2048,
+       "l2_ways": 4,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "lru",
+       "llc_sets": 4096,
+       "llc_ways": 16,
+       "llc_prefetcher": "ip_stride",
+       "llc_replacement": "srrip",
+       "l2_mshr": 16,
+       "llc_mshr": 64
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.41979106117468973,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.5718942812350467,
+        "LLC_mpki": 25.848897415110258
+       },
+       "merced_0000": {
+        "ipc": 0.48902699443140185,
+        "LLC_mpki": 10.823997835200434
+       },
+       "tahoe_0000": {
+        "ipc": 0.2645154071612513,
+        "LLC_mpki": 33.18409668159033
+       }
+      }
+     },
+     {
+      "index": 9,
+      "round": 6,
+      "name": "C_server_l1d_prefetcher-ip_stride_l1d_sets-64_l1d_ways-8_l2_mshr-16_l2_prefetcher-va_ampm_lite_l2_replacement-lru_l2_sets-2048_l2_ways-4_llc_mshr-64_llc_prefetcher-next_line_llc_replacement-lru_llc_sets-4096_llc_ways-16",
+      "knobs": {
+       "l1d_sets": 64,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "ip_stride",
+       "l2_sets": 2048,
+       "l2_ways": 4,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "lru",
+       "llc_sets": 4096,
+       "llc_ways": 16,
+       "llc_prefetcher": "next_line",
+       "llc_replacement": "lru",
+       "l2_mshr": 16,
+       "llc_mshr": 64
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.4814951241077899,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.6958459942511988,
+        "LLC_mpki": 10.1966
+       },
+       "merced_0000": {
+        "ipc": 0.526124526612928,
+        "LLC_mpki": 6.904299309570069
+       },
+       "tahoe_0000": {
+        "ipc": 0.3049116381406612,
+        "LLC_mpki": 20.86989791301021
+       }
+      }
+     },
+     {
+      "index": 10,
+      "round": 7,
+      "name": "C_server_l1d_prefetcher-ip_stride_l1d_sets-64_l1d_ways-8_l2_mshr-16_l2_prefetcher-spp_dev_l2_replacement-lru_l2_sets-2048_l2_ways-4_llc_mshr-32_llc_prefetcher-next_line_llc_replacement-lru_llc_sets-4096_llc_ways-16",
+      "knobs": {
+       "l1d_sets": 64,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "ip_stride",
+       "l2_sets": 2048,
+       "l2_ways": 4,
+       "l2_prefetcher": "spp_dev",
+       "l2_replacement": "lru",
+       "llc_sets": 4096,
+       "llc_ways": 16,
+       "llc_prefetcher": "next_line",
+       "llc_replacement": "lru",
+       "l2_mshr": 16,
+       "llc_mshr": 32
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.47724881757710125,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.6940956826072897,
+        "LLC_mpki": 10.211898978810103
+       },
+       "merced_0000": {
+        "ipc": 0.5190591223853048,
+        "LLC_mpki": 7.524099247590075
+       },
+       "tahoe_0000": {
+        "ipc": 0.3017160490806276,
+        "LLC_mpki": 21.196297880370214
+       }
+      }
+     },
+     {
+      "index": 11,
+      "round": 8,
+      "name": "C_server_l1d_prefetcher-ip_stride_l1d_sets-64_l1d_ways-8_l2_mshr-16_l2_prefetcher-va_ampm_lite_l2_replacement-lru_l2_sets-2048_l2_ways-4_llc_mshr-32_llc_prefetcher-next_line_llc_replacement-lru_llc_sets-4096_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 64,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "ip_stride",
+       "l2_sets": 2048,
+       "l2_ways": 4,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "lru",
+       "llc_sets": 4096,
+       "llc_ways": 8,
+       "llc_prefetcher": "next_line",
+       "llc_replacement": "lru",
+       "l2_mshr": 16,
+       "llc_mshr": 32
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.43561800588988325,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.6112743179417124,
+        "LLC_mpki": 12.90969870903013
+       },
+       "merced_0000": {
+        "ipc": 0.48956039488133324,
+        "LLC_mpki": 8.01529919847008
+       },
+       "tahoe_0000": {
+        "ipc": 0.27623267033625193,
+        "LLC_mpki": 24.383
+       }
+      }
+     },
+     {
+      "index": 12,
+      "round": 9,
+      "name": "C_server_l1d_prefetcher-ip_stride_l1d_sets-64_l1d_ways-8_l2_mshr-16_l2_prefetcher-no_l2_replacement-lru_l2_sets-2048_l2_ways-4_llc_mshr-128_llc_prefetcher-next_line_llc_replacement-lru_llc_sets-4096_llc_ways-16",
+      "knobs": {
+       "l1d_sets": 64,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "ip_stride",
+       "l2_sets": 2048,
+       "l2_ways": 4,
+       "l2_prefetcher": "no",
+       "l2_replacement": "lru",
+       "llc_sets": 4096,
+       "llc_ways": 16,
+       "llc_prefetcher": "next_line",
+       "llc_replacement": "lru",
+       "l2_mshr": 16,
+       "llc_mshr": 128
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.46459225442915547,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.671288104406771,
+        "LLC_mpki": 10.818098918190108
+       },
+       "merced_0000": {
+        "ipc": 0.5005125749279837,
+        "LLC_mpki": 8.4781
+       },
+       "tahoe_0000": {
+        "ipc": 0.2984639969781121,
+        "LLC_mpki": 21.660197833980217
+       }
+      }
+     },
+     {
+      "index": 13,
+      "round": 10,
+      "name": "C_server_l1d_prefetcher-ip_stride_l1d_sets-64_l1d_ways-8_l2_mshr-16_l2_prefetcher-va_ampm_lite_l2_replacement-lru_l2_sets-256_l2_ways-4_llc_mshr-32_llc_prefetcher-next_line_llc_replacement-lru_llc_sets-4096_llc_ways-16",
+      "knobs": {
+       "l1d_sets": 64,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "ip_stride",
+       "l2_sets": 256,
+       "l2_ways": 4,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "lru",
+       "llc_sets": 4096,
+       "llc_ways": 16,
+       "llc_prefetcher": "next_line",
+       "llc_replacement": "lru",
+       "l2_mshr": 16,
+       "llc_mshr": 32
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.48448131137179534,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.698043098995844,
+        "LLC_mpki": 10.1923
+       },
+       "merced_0000": {
+        "ipc": 0.5265880077585371,
+        "LLC_mpki": 6.8818
+       },
+       "tahoe_0000": {
+        "ipc": 0.30936977725809156,
+        "LLC_mpki": 20.8454
+       }
+      }
+     },
+     {
+      "index": 14,
+      "round": 11,
+      "name": "C_server_l1d_prefetcher-ip_stride_l1d_sets-64_l1d_ways-8_l2_mshr-16_l2_prefetcher-va_ampm_lite_l2_replacement-lru_l2_sets-512_l2_ways-4_llc_mshr-32_llc_prefetcher-next_line_llc_replacement-lru_llc_sets-4096_llc_ways-16",
+      "knobs": {
+       "l1d_sets": 64,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "ip_stride",
+       "l2_sets": 512,
+       "l2_ways": 4,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "lru",
+       "llc_sets": 4096,
+       "llc_ways": 16,
+       "llc_prefetcher": "next_line",
+       "llc_replacement": "lru",
+       "l2_mshr": 16,
+       "llc_mshr": 32
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.48144412517334734,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.6951669836280528,
+        "LLC_mpki": 10.1889
+       },
+       "merced_0000": {
+        "ipc": 0.5234696275362166,
+        "LLC_mpki": 6.879999312000069
+       },
+       "tahoe_0000": {
+        "ipc": 0.30665994181925504,
+        "LLC_mpki": 20.878597912140208
+       }
+      }
+     },
+     {
+      "index": 15,
+      "round": 12,
+      "name": "C_server_l1d_prefetcher-ip_stride_l1d_sets-32_l1d_ways-8_l2_mshr-16_l2_prefetcher-va_ampm_lite_l2_replacement-lru_l2_sets-256_l2_ways-4_llc_mshr-128_llc_prefetcher-next_line_llc_replacement-lru_llc_sets-4096_llc_ways-16",
+      "knobs": {
+       "l1d_sets": 32,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "ip_stride",
+       "l2_sets": 256,
+       "l2_ways": 4,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "lru",
+       "llc_sets": 4096,
+       "llc_ways": 16,
+       "llc_prefetcher": "next_line",
+       "llc_replacement": "lru",
+       "l2_mshr": 16,
+       "llc_mshr": 128
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.44990475517900924,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.6204711423525225,
+        "LLC_mpki": 10.2909
+       },
+       "merced_0000": {
+        "ipc": 0.4907207906727344,
+        "LLC_mpki": 6.912198617560277
+       },
+       "tahoe_0000": {
+        "ipc": 0.2990926248491751,
+        "LLC_mpki": 20.877397912260207
+       }
+      }
+     },
+     {
+      "index": 16,
+      "round": 13,
+      "name": "C_server_l1d_prefetcher-ip_stride_l1d_sets-128_l1d_ways-8_l2_mshr-16_l2_prefetcher-va_ampm_lite_l2_replacement-lru_l2_sets-256_l2_ways-4_llc_mshr-64_llc_prefetcher-next_line_llc_replacement-lru_llc_sets-4096_llc_ways-16",
+      "knobs": {
+       "l1d_sets": 128,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "ip_stride",
+       "l2_sets": 256,
+       "l2_ways": 4,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "lru",
+       "llc_sets": 4096,
+       "llc_ways": 16,
+       "llc_prefetcher": "next_line",
+       "llc_replacement": "lru",
+       "l2_mshr": 16,
+       "llc_mshr": 64
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.4906169420707056,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.7142470429101053,
+        "LLC_mpki": 10.0888
+       },
+       "merced_0000": {
+        "ipc": 0.5321001946794982,
+        "LLC_mpki": 6.885
+       },
+       "tahoe_0000": {
+        "ipc": 0.3107318387339045,
+        "LLC_mpki": 20.8852
+       }
+      }
+     }
+    ],
+    "rounds": []
+   },
+   "4": {
+    "designs": [
+     {
+      "index": 0,
+      "round": 0,
+      "name": "C_server_l1d_prefetcher-no_l1d_sets-64_l1d_ways-12_l2_mshr-64_l2_prefetcher-no_l2_replacement-lru_l2_sets-1024_l2_ways-8_llc_mshr-128_llc_prefetcher-no_llc_replacement-lru_llc_sets-2048_llc_ways-16",
+      "knobs": {
+       "l2_sets": 1024,
+       "llc_sets": 2048,
+       "l2_prefetcher": "no",
+       "llc_replacement": "lru",
+       "l2_replacement": "lru",
+       "l1d_sets": 64,
+       "l1d_ways": 12,
+       "l1d_prefetcher": "no",
+       "l2_ways": 8,
+       "llc_ways": 16,
+       "llc_prefetcher": "no",
+       "l2_mshr": 64,
+       "llc_mshr": 128
+      },
+      "source": "stock",
+      "hypothesis": null,
+      "ipc": 0.3837379276950013,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.5363486424935406,
+        "LLC_mpki": 14.6302
+       },
+       "merced_0000": {
+        "ipc": 0.40111123857534914,
+        "LLC_mpki": 13.0422
+       },
+       "tahoe_0000": {
+        "ipc": 0.26265892439290073,
+        "LLC_mpki": 28.729597127040286
+       }
+      }
+     },
+     {
+      "index": 1,
+      "round": 0,
+      "name": "C_server_l1d_prefetcher-no_l1d_sets-32_l1d_ways-12_l2_mshr-16_l2_prefetcher-spp_dev_l2_replacement-lru_l2_sets-2048_l2_ways-8_llc_mshr-32_llc_prefetcher-spp_dev_llc_replacement-drrip_llc_sets-1024_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 32,
+       "l1d_ways": 12,
+       "l1d_prefetcher": "no",
+       "l2_sets": 2048,
+       "l2_ways": 8,
+       "l2_prefetcher": "spp_dev",
+       "l2_replacement": "lru",
+       "llc_sets": 1024,
+       "llc_ways": 8,
+       "llc_prefetcher": "spp_dev",
+       "llc_replacement": "drrip",
+       "l2_mshr": 16,
+       "llc_mshr": 32
+      },
+      "source": "warm-up",
+      "hypothesis": null,
+      "ipc": 0.3757769237359131,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.5012325559166267,
+        "LLC_mpki": 26.1926
+       },
+       "merced_0000": {
+        "ipc": 0.42023411742280214,
+        "LLC_mpki": 14.562097087580582
+       },
+       "tahoe_0000": {
+        "ipc": 0.25191831368114564,
+        "LLC_mpki": 35.59439644056036
+       }
+      }
+     },
+     {
+      "index": 2,
+      "round": 0,
+      "name": "C_server_l1d_prefetcher-ip_stride_l1d_sets-128_l1d_ways-12_l2_mshr-16_l2_prefetcher-ip_stride_l2_replacement-srrip_l2_sets-512_l2_ways-4_llc_mshr-64_llc_prefetcher-ip_stride_llc_replacement-srrip_llc_sets-1024_llc_ways-16",
+      "knobs": {
+       "l1d_sets": 128,
+       "l1d_ways": 12,
+       "l1d_prefetcher": "ip_stride",
+       "l2_sets": 512,
+       "l2_ways": 4,
+       "l2_prefetcher": "ip_stride",
+       "l2_replacement": "srrip",
+       "llc_sets": 1024,
+       "llc_ways": 16,
+       "llc_prefetcher": "ip_stride",
+       "llc_replacement": "srrip",
+       "l2_mshr": 16,
+       "llc_mshr": 64
+      },
+      "source": "warm-up",
+      "hypothesis": null,
+      "ipc": 0.31006184656373326,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.3968233969614518,
+        "LLC_mpki": 39.6323
+       },
+       "merced_0000": {
+        "ipc": 0.3420359117833378,
+        "LLC_mpki": 22.244997775500224
+       },
+       "tahoe_0000": {
+        "ipc": 0.2196220848959626,
+        "LLC_mpki": 42.80229571977043
+       }
+      }
+     },
+     {
+      "index": 3,
+      "round": 0,
+      "name": "C_server_l1d_prefetcher-no_l1d_sets-64_l1d_ways-12_l2_mshr-16_l2_prefetcher-next_line_l2_replacement-srrip_l2_sets-1024_l2_ways-16_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-drrip_llc_sets-2048_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 64,
+       "l1d_ways": 12,
+       "l1d_prefetcher": "no",
+       "l2_sets": 1024,
+       "l2_ways": 16,
+       "l2_prefetcher": "next_line",
+       "l2_replacement": "srrip",
+       "llc_sets": 2048,
+       "llc_ways": 8,
+       "llc_prefetcher": "spp_dev",
+       "llc_replacement": "drrip",
+       "l2_mshr": 16,
+       "llc_mshr": 128
+      },
+      "source": "warm-up",
+      "hypothesis": null,
+      "ipc": 0.3975362261028825,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.5486343751112699,
+        "LLC_mpki": 18.862298113770187
+       },
+       "merced_0000": {
+        "ipc": 0.43987318985052537,
+        "LLC_mpki": 11.428398857160115
+       },
+       "tahoe_0000": {
+        "ipc": 0.26032724589368955,
+        "LLC_mpki": 29.18159708184029
+       }
+      }
+     },
+     {
+      "index": 4,
+      "round": 1,
+      "name": "C_server_l1d_prefetcher-no_l1d_sets-128_l1d_ways-12_l2_mshr-64_l2_prefetcher-next_line_l2_replacement-srrip_l2_sets-256_l2_ways-16_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-drrip_llc_sets-4096_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 128,
+       "l1d_ways": 12,
+       "l1d_prefetcher": "no",
+       "l2_sets": 256,
+       "l2_ways": 16,
+       "l2_prefetcher": "next_line",
+       "l2_replacement": "srrip",
+       "llc_sets": 4096,
+       "llc_ways": 8,
+       "llc_prefetcher": "spp_dev",
+       "llc_replacement": "drrip",
+       "l2_mshr": 64,
+       "llc_mshr": 128
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.4343515465832269,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.6290700042940318,
+        "LLC_mpki": 12.8273
+       },
+       "merced_0000": {
+        "ipc": 0.47069092344099167,
+        "LLC_mpki": 9.2513
+       },
+       "tahoe_0000": {
+        "ipc": 0.2767510744444264,
+        "LLC_mpki": 23.736697626330237
+       }
+      }
+     },
+     {
+      "index": 5,
+      "round": 2,
+      "name": "C_server_l1d_prefetcher-no_l1d_sets-128_l1d_ways-12_l2_mshr-64_l2_prefetcher-no_l2_replacement-srrip_l2_sets-256_l2_ways-4_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-drrip_llc_sets-4096_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 128,
+       "l1d_ways": 12,
+       "l1d_prefetcher": "no",
+       "l2_sets": 256,
+       "l2_ways": 4,
+       "l2_prefetcher": "no",
+       "l2_replacement": "srrip",
+       "llc_sets": 4096,
+       "llc_ways": 8,
+       "llc_prefetcher": "spp_dev",
+       "llc_replacement": "drrip",
+       "l2_mshr": 64,
+       "llc_mshr": 128
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.4032679339812476,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.5762249605069857,
+        "LLC_mpki": 15.10059848994015
+       },
+       "merced_0000": {
+        "ipc": 0.4287133755558804,
+        "LLC_mpki": 12.722998727700126
+       },
+       "tahoe_0000": {
+        "ipc": 0.2654739859677898,
+        "LLC_mpki": 29.619697038030296
+       }
+      }
+     },
+     {
+      "index": 6,
+      "round": 3,
+      "name": "C_server_l1d_prefetcher-no_l1d_sets-128_l1d_ways-8_l2_mshr-64_l2_prefetcher-next_line_l2_replacement-srrip_l2_sets-256_l2_ways-16_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-drrip_llc_sets-8192_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 128,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "no",
+       "l2_sets": 256,
+       "l2_ways": 16,
+       "l2_prefetcher": "next_line",
+       "l2_replacement": "srrip",
+       "llc_sets": 8192,
+       "llc_ways": 8,
+       "llc_prefetcher": "spp_dev",
+       "llc_replacement": "drrip",
+       "l2_mshr": 64,
+       "llc_mshr": 128
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.4732245886086938,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.6977688007504642,
+        "LLC_mpki": 10.459298954070105
+       },
+       "merced_0000": {
+        "ipc": 0.5171366930218461,
+        "LLC_mpki": 7.3485992651400736
+       },
+       "tahoe_0000": {
+        "ipc": 0.29368719151284045,
+        "LLC_mpki": 20.92679790732021
+       }
+      }
+     },
+     {
+      "index": 7,
+      "round": 4,
+      "name": "C_server_l1d_prefetcher-no_l1d_sets-128_l1d_ways-8_l2_mshr-64_l2_prefetcher-next_line_l2_replacement-lru_l2_sets-256_l2_ways-16_llc_mshr-32_llc_prefetcher-spp_dev_llc_replacement-drrip_llc_sets-8192_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 128,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "no",
+       "l2_sets": 256,
+       "l2_ways": 16,
+       "l2_prefetcher": "next_line",
+       "l2_replacement": "lru",
+       "llc_sets": 8192,
+       "llc_ways": 8,
+       "llc_prefetcher": "spp_dev",
+       "llc_replacement": "drrip",
+       "l2_mshr": 64,
+       "llc_mshr": 32
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.482086828567986,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.7187724661296478,
+        "LLC_mpki": 10.522798947720105
+       },
+       "merced_0000": {
+        "ipc": 0.5240068747599066,
+        "LLC_mpki": 7.301299269870073
+       },
+       "tahoe_0000": {
+        "ipc": 0.29747288185422444,
+        "LLC_mpki": 21.741197825880217
+       }
+      }
+     },
+     {
+      "index": 8,
+      "round": 5,
+      "name": "C_server_l1d_prefetcher-no_l1d_sets-32_l1d_ways-8_l2_mshr-64_l2_prefetcher-next_line_l2_replacement-lru_l2_sets-256_l2_ways-16_llc_mshr-32_llc_prefetcher-no_llc_replacement-drrip_llc_sets-8192_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 32,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "no",
+       "l2_sets": 256,
+       "l2_ways": 16,
+       "l2_prefetcher": "next_line",
+       "l2_replacement": "lru",
+       "llc_sets": 8192,
+       "llc_ways": 8,
+       "llc_prefetcher": "no",
+       "llc_replacement": "drrip",
+       "l2_mshr": 64,
+       "llc_mshr": 32
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.44627686883941214,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.6208859407298675,
+        "LLC_mpki": 10.567697886460422
+       },
+       "merced_0000": {
+        "ipc": 0.48263790300071824,
+        "LLC_mpki": 7.345297796410661
+       },
+       "tahoe_0000": {
+        "ipc": 0.29660596497671177,
+        "LLC_mpki": 21.539897846010216
+       }
+      }
+     },
+     {
+      "index": 9,
+      "round": 6,
+      "name": "C_server_l1d_prefetcher-no_l1d_sets-128_l1d_ways-8_l2_mshr-64_l2_prefetcher-next_line_l2_replacement-lru_l2_sets-256_l2_ways-16_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-lru_llc_sets-8192_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 128,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "no",
+       "l2_sets": 256,
+       "l2_ways": 16,
+       "l2_prefetcher": "next_line",
+       "l2_replacement": "lru",
+       "llc_sets": 8192,
+       "llc_ways": 8,
+       "llc_prefetcher": "spp_dev",
+       "llc_replacement": "lru",
+       "l2_mshr": 64,
+       "llc_mshr": 128
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.4836364094087526,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.7186005715173494,
+        "LLC_mpki": 10.0450989954901
+       },
+       "merced_0000": {
+        "ipc": 0.5180907157065039,
+        "LLC_mpki": 7.543799245620075
+       },
+       "tahoe_0000": {
+        "ipc": 0.3038530476867836,
+        "LLC_mpki": 19.749498025050197
+       }
+      }
+     },
+     {
+      "index": 10,
+      "round": 7,
+      "name": "C_server_l1d_prefetcher-no_l1d_sets-128_l1d_ways-8_l2_mshr-64_l2_prefetcher-spp_dev_l2_replacement-lru_l2_sets-256_l2_ways-16_llc_mshr-32_llc_prefetcher-spp_dev_llc_replacement-lru_llc_sets-8192_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 128,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "no",
+       "l2_sets": 256,
+       "l2_ways": 16,
+       "l2_prefetcher": "spp_dev",
+       "l2_replacement": "lru",
+       "llc_sets": 8192,
+       "llc_ways": 8,
+       "llc_prefetcher": "spp_dev",
+       "llc_replacement": "lru",
+       "l2_mshr": 64,
+       "llc_mshr": 32
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.47392771636153364,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.7059003450934672,
+        "LLC_mpki": 10.630098936990107
+       },
+       "merced_0000": {
+        "ipc": 0.5115674587502778,
+        "LLC_mpki": 8.48549830290034
+       },
+       "tahoe_0000": {
+        "ipc": 0.2947745729365369,
+        "LLC_mpki": 22.643397735660226
+       }
+      }
+     },
+     {
+      "index": 11,
+      "round": 8,
+      "name": "C_server_l1d_prefetcher-no_l1d_sets-128_l1d_ways-8_l2_mshr-64_l2_prefetcher-next_line_l2_replacement-lru_l2_sets-256_l2_ways-16_llc_mshr-64_llc_prefetcher-spp_dev_llc_replacement-ship_llc_sets-8192_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 128,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "no",
+       "l2_sets": 256,
+       "l2_ways": 16,
+       "l2_prefetcher": "next_line",
+       "l2_replacement": "lru",
+       "llc_sets": 8192,
+       "llc_ways": 8,
+       "llc_prefetcher": "spp_dev",
+       "llc_replacement": "ship",
+       "l2_mshr": 64,
+       "llc_mshr": 64
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.4796225634230853,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.7032947247972577,
+        "LLC_mpki": 10.2896
+       },
+       "merced_0000": {
+        "ipc": 0.5209954909928746,
+        "LLC_mpki": 7.3474992652500735
+       },
+       "tahoe_0000": {
+        "ipc": 0.30111160456606795,
+        "LLC_mpki": 19.771098022890197
+       }
+      }
+     },
+     {
+      "index": 12,
+      "round": 9,
+      "name": "C_server_l1d_prefetcher-no_l1d_sets-128_l1d_ways-8_l2_mshr-64_l2_prefetcher-next_line_l2_replacement-drrip_l2_sets-256_l2_ways-16_llc_mshr-64_llc_prefetcher-spp_dev_llc_replacement-lru_llc_sets-8192_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 128,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "no",
+       "l2_sets": 256,
+       "l2_ways": 16,
+       "l2_prefetcher": "next_line",
+       "l2_replacement": "drrip",
+       "llc_sets": 8192,
+       "llc_ways": 8,
+       "llc_prefetcher": "spp_dev",
+       "llc_replacement": "lru",
+       "l2_mshr": 64,
+       "llc_mshr": 64
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.48260949962853,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.7156716327116295,
+        "LLC_mpki": 10.0482989951701
+       },
+       "merced_0000": {
+        "ipc": 0.517378725521325,
+        "LLC_mpki": 7.5609
+       },
+       "tahoe_0000": {
+        "ipc": 0.3035744583526394,
+        "LLC_mpki": 19.7746980225302
+       }
+      }
+     },
+     {
+      "index": 13,
+      "round": 10,
+      "name": "C_server_l1d_prefetcher-no_l1d_sets-128_l1d_ways-8_l2_mshr-64_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-256_l2_ways-16_llc_mshr-32_llc_prefetcher-spp_dev_llc_replacement-lru_llc_sets-8192_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 128,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "no",
+       "l2_sets": 256,
+       "l2_ways": 16,
+       "l2_prefetcher": "next_line",
+       "l2_replacement": "ship",
+       "llc_sets": 8192,
+       "llc_ways": 8,
+       "llc_prefetcher": "spp_dev",
+       "llc_replacement": "lru",
+       "l2_mshr": 64,
+       "llc_mshr": 32
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.48249969274391974,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.7163839720277877,
+        "LLC_mpki": 10.033498996650101
+       },
+       "merced_0000": {
+        "ipc": 0.5188546036719129,
+        "LLC_mpki": 7.559699244030075
+       },
+       "tahoe_0000": {
+        "ipc": 0.30220356847377633,
+        "LLC_mpki": 19.797698020230197
+       }
+      }
+     },
+     {
+      "index": 14,
+      "round": 11,
+      "name": "C_server_l1d_prefetcher-no_l1d_sets-128_l1d_ways-8_l2_mshr-64_l2_prefetcher-va_ampm_lite_l2_replacement-lru_l2_sets-256_l2_ways-16_llc_mshr-32_llc_prefetcher-spp_dev_llc_replacement-lru_llc_sets-8192_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 128,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "no",
+       "l2_sets": 256,
+       "l2_ways": 16,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "lru",
+       "llc_sets": 8192,
+       "llc_ways": 8,
+       "llc_prefetcher": "spp_dev",
+       "llc_replacement": "lru",
+       "l2_mshr": 64,
+       "llc_mshr": 32
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.46745011622911153,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.6931618756015778,
+        "LLC_mpki": 10.662698933730107
+       },
+       "merced_0000": {
+        "ipc": 0.503275011152572,
+        "LLC_mpki": 8.160498367900326
+       },
+       "tahoe_0000": {
+        "ipc": 0.2927964325686223,
+        "LLC_mpki": 22.621697737830225
+       }
+      }
+     },
+     {
+      "index": 15,
+      "round": 12,
+      "name": "C_server_l1d_prefetcher-va_ampm_lite_l1d_sets-128_l1d_ways-8_l2_mshr-64_l2_prefetcher-next_line_l2_replacement-lru_l2_sets-256_l2_ways-16_llc_mshr-64_llc_prefetcher-spp_dev_llc_replacement-lru_llc_sets-8192_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 128,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "va_ampm_lite",
+       "l2_sets": 256,
+       "l2_ways": 16,
+       "l2_prefetcher": "next_line",
+       "l2_replacement": "lru",
+       "llc_sets": 8192,
+       "llc_ways": 8,
+       "llc_prefetcher": "spp_dev",
+       "llc_replacement": "lru",
+       "l2_mshr": 64,
+       "llc_mshr": 64
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.48072293656609905,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.703378276626156,
+        "LLC_mpki": 10.3456
+       },
+       "merced_0000": {
+        "ipc": 0.5170040263748518,
+        "LLC_mpki": 6.99859860028028
+       },
+       "tahoe_0000": {
+        "ipc": 0.30549327566598444,
+        "LLC_mpki": 18.93849810615019
+       }
+      }
+     },
+     {
+      "index": 16,
+      "round": 13,
+      "name": "C_server_l1d_prefetcher-no_l1d_sets-128_l1d_ways-8_l2_mshr-64_l2_prefetcher-next_line_l2_replacement-lru_l2_sets-256_l2_ways-4_llc_mshr-64_llc_prefetcher-spp_dev_llc_replacement-lru_llc_sets-8192_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 128,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "no",
+       "l2_sets": 256,
+       "l2_ways": 4,
+       "l2_prefetcher": "next_line",
+       "l2_replacement": "lru",
+       "llc_sets": 8192,
+       "llc_ways": 8,
+       "llc_prefetcher": "spp_dev",
+       "llc_replacement": "lru",
+       "l2_mshr": 64,
+       "llc_mshr": 64
+      },
+      "source": "bo",
+      "hypothesis": null,
+      "ipc": 0.48491884236879895,
+      "per_workload": {
+       "sierra.a.4_0000": {
+        "ipc": 0.7212946053949081,
+        "LLC_mpki": 10.0340989965901
+       },
+       "merced_0000": {
+        "ipc": 0.5169308553804773,
+        "LLC_mpki": 7.5304
+       },
+       "tahoe_0000": {
+        "ipc": 0.3058172926572725,
+        "LLC_mpki": 19.750198024980197
+       }
+      }
+     }
+    ],
+    "rounds": []
+   }
   }
  },
  "failed": [
   {
-   "arm": "bo",
+   "arm": "bo_gp",
    "seed": 2,
    "error": "RayTaskError(JSONDecodeError)(JSONDecodeError('Expecting value: line 1 column 1 (char 0)'))"
   }
  ],
- "wall_seconds": 8993.105433702469
+ "wall_seconds": 8993.105433702469,
+ "note": "the `bo` arm of this run was the tuned Gaussian process; the random forest that replaced it runs as `bo` in the g1 report. Renamed here so summarizing both reports together cannot merge two different mechanisms under one name."
 }
