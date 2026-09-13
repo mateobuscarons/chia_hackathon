@@ -155,19 +155,31 @@ Two things fall out of the same table:
   unstable enough that a 16-point mean gap is a seed draw.** That is ArchGym's "all optimizers
   tie under tuned hyperparameters" arriving as noise rather than as a tie.
 
-**Open, and owed before any "N times fewer simulations" claim is published.** The natural next
-statement is a ratio — how many designs a memoryless search needs to reach what the memory arm
-reaches at D16. We cannot state it yet. Measuring it against the 100-design reference gives D42
-and D77 (a 4.8x ratio), but that reference is configured for a 100-design budget: a 10 %
-initial design and batch 6, so by D16 it has made only about six model-guided picks and its
-curve is flat at 79 % from D10 to D16. The arm's configuration — warm-up 3, batch 1 — climbs
-roughly twice as fast early, so the true ratio is likely nearer 2.5-3x.
+**The head start, measured — and why it decays.** The open question was how many designs a
+memoryless search needs to reach the levels the memory-started arms reach. Running the `bo`
+arm's *exact* configuration long (same warm-up, acquisition, per-seed candidate pool; only
+the budget changes; verified to reproduce the arm design-for-design on shared seeds), three
+seeds on `dc`, the mean curve built exactly as every published row:
 
-The measurement that would settle it: **run the `bo` arm's exact configuration long (about 100
-designs) on both cells, and read off where it crosses the memory arm's D16.** Same warm-up,
-same acquisition, same per-seed candidate pool; only the budget changes. Batch 1 would keep a
-machine mostly idle, so batch 3 is the practical compromise and should be reported as such.
-Until that exists, the matched-budget sentence above is the claim, and the ratio is not.
+| level | memory-started arms | memoryless search, mean over seeds |
+|---|---|---|
+| 90 % of the gap (the handover itself) | **D1** | **D27** |
+| 92-93 % (their D16) | D16 | ~D30 (still resolving) |
+
+**One simulation against twenty-seven for the opening.** But the advantage collapses to about
+2x by the sixteen-design budget, and that is the finding that matters: **the memory buys a
+27-design head start and the search that follows it does not compound it.** The memory-started
+arms gain only 2-3 points over their whole budget (90 -> 92/93 on `dc`, 93 -> 95/96 on `dc2`)
+because they cannot leave the handover's basin (section 5), so a memoryless search grinding
+upward catches most of the distance back within the budget.
+
+That bounds the contribution honestly: **what is bought is a head start, and it is worth only
+as much as the continuation search can exploit.** Today's continuation cannot exploit it. The
+open work is not a better memory - the handover is already at 90-93 % on suites it has never
+seen - but a search that, given a strong start, keeps going: escaping a basin whose optimum
+sits six knob changes away, rather than refining inside it. Until that exists, the defensible
+claims are the opening (one design against twenty-seven) and the matched-budget table above,
+not a ratio at D16.
 
 ---
 
