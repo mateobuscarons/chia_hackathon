@@ -95,7 +95,13 @@ def run_one(arm, cell_name, seed, rounds, tag_prefix):
     tag = "{}-{}-s{}".format(arm, tag_prefix, seed)
     memory_file = memory_path()
     if arm == "bo":
-        result = bo.run_bo(problem, rounds, PER_ROUND, seed, tag)
+        # One design per round, so every pick is made against measured outcomes:
+        # the baseline gets the most adaptive setting there is (a batch of two
+        # makes its second pick against the GP's guess at the first). The offline
+        # sweep says batch size costs nothing either way, so the baseline takes
+        # the version no reviewer can call a handicap - more adaptive decisions
+        # than the LLM arms get, on the same simulation budget.
+        result = bo.run_bo(problem, rounds * PER_ROUND, 1, seed, tag)
     elif arm in AGENT_SWITCHES:
         use_memory, use_gp = AGENT_SWITCHES[arm]
         result = agent.run_agent(problem, rounds, PER_ROUND, tag, memory_file, use_memory, use_gp, seed=seed)
