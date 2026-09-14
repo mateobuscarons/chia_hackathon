@@ -16,14 +16,19 @@ by an independent 100-design search that used no memory. The stock chip is 0.438
 **To get within 5 % of the best design — 95 % of the way from the stock chip to it — a search
 seeded from memory needs 11 simulations. The same search from scratch needs 37.**
 
-| how close to the best design | seeded from memory | from scratch | ratio |
-|---|---|---|---|
-| 90 % | **1** | 15 | 15x |
-| **95 %** | **11** | **37** | **3.4x** |
-| 96 % — the best it reaches inside a 16-design budget | 13 | 49 | 3.8x |
+| how close to the best design | seeded from memory | from scratch | ratio | LLM agent, no memory |
+|---|---|---|---|---|
+| 90 % | **1** | 15 | 15x | not inside 16 |
+| **95 %** | **11** | **37** | **3.4x** | not inside 16 |
+| 96 % — the best it reaches inside a 16-design budget | 13 | 49 | 3.8x | not inside 16 |
 
-Both columns are the same optimizer with the same settings, three seeds each, averaged. The only
-difference is where it starts: from the memory's design, or from the stock chip.
+The first two columns are the same optimizer with the same settings, three seeds each, averaged.
+The only difference is where it starts: from the memory's design, or from the stock chip.
+
+The last column is the LLM agent searching from the stock chip with no memory, five seeds. It
+reaches none of these levels: it tops out at **80 %** of the gap after all sixteen designs (77, 78,
+78, 78, 88 per seed). Unlike the optimizer it was not run past its budget, so "not inside 16" is
+where the measurement stops, not a bound.
 
 **What this says, plainly:**
 
