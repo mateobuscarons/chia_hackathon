@@ -74,7 +74,10 @@ mechanisms share an arm name across reports of one cell.
    about and search only the rest. Measure as designs-to-level, mean over seeds.
 3. **Never measure a ratio against the 100-design reference.** It runs warm-up 10 and batch 6, which
    flattens it at 79 % from D10 to D16 — exactly where a comparison lives. That produced a retracted
-   4.8x. Measure against the arm's own configuration run long (`rf_long.py`, scratchpad).
+   4.8x. Measure against the **arm's own configuration run long**, which is what the saving table
+   above uses: `results/rflong_<cell>_s<seed>.json` holds those curves (75 designs, 3 seeds a cell,
+   verified to reproduce the `bo` arm design-for-design). Regenerate one with
+   `forest.run(make_suite_problem(run.CELLS[cell]["test"]), 75, 1, seed, tag)`.
 4. **The memory arm's candidate filter is still a Gaussian process** (`agent.select_by_gp`) while
    every other search uses the forest. Test the swap for free first by replaying the ~43 logged
    rounds with a forest (the GP filter captures 55 % of each round's candidate spread against 45 %
@@ -86,6 +89,8 @@ mechanisms share an arm name across reports of one cell.
    checks first; spend designs only after.
 6. **An unseen chip**, then **a stronger model** (`ANALYST_MODEL=gemini-2.5-pro`; Pro bills thinking
    as output and CHIA forwards no thinking budget against a 16k default, `REPORT.md` §6c).
+
+**What is in `results/`:** `table_<trace>.json` the shared simulation cache (the dataset, ~1300 designs on the dc traces, ~950 on dc2); `profile_<trace>.json` one per workload in use; `memory_llm.json` the shelf every cell reads and `memory_bo.json` the optimiser-searched ablation, each with a `_record.json` naming every design's stage and proposer; `run_<cell>_<tag>.json` the reports (`f1` = bo_gp/llm_direct/memory, `g1` = bo/pooled_bo); `rflong_<cell>_s<seed>.json` the from-scratch curves behind the saving table. Nothing else is written.
 
 Small, known: the LLM re-proposes already-measured designs, 4 to 9 of 8 per round; listing measured
 designs in the task text would remove it. After the above: `gap2`, then the paper.
@@ -171,6 +176,8 @@ python -m loop.workloads admit                                    # the admissio
 python -m loop.workloads headroom <trace> <trace> <trace>         # headroom and share beyond one knob
 python -m loop.workloads probe <trace> ...                        # the 11-design probe for a new candidate (simulates)
 python -m loop.forest 100 10 <trace> <trace> <trace>              # the suite's independent ceiling (simulates)
+python -c "from loop import forest, run; from loop.champsim_problem import make_suite_problem; \
+  forest.run(make_suite_problem(run.CELLS['dc2']['test']), 75, 1, 0, 'long-s0')"   # the bo arm run long, for designs-to-level
 python -m loop.workloads uniform 300 <trace> <trace> <trace>      # the random-search null (simulates)
 python -m loop.workloads fetch <url> <out> 100                    # a 100 MB trace prefix
 python -m loop.trace_profile <trace>                              # one workload's profile (cached under results/)
