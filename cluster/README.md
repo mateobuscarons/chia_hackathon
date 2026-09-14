@@ -11,16 +11,16 @@ and `.venv` live on its disk; a stopped VM bills only the disk.
 P=project-c23a6080-f5d0-4871-9cb; Z=europe-west4-a; VM=champsim-1
 gcloud compute instances start $VM --project $P --zone $Z
 # code and data: the loop, the launcher, the tables and the cell's memory (traces are already there)
-gcloud compute scp --project $P --zone $Z --recurse loop cluster $VM:~/hackathon/
-gcloud compute scp --project $P --zone $Z results/table_*.json results/memory_*.json results/profile_*.json $VM:~/hackathon/results/
+gcloud compute scp --project $P --zone $Z --recurse loop cluster $VM:~/loop/
+gcloud compute scp --project $P --zone $Z results/table_*.json results/memory_*.json results/profile_*.json $VM:~/loop/results/
 # the gate: every arm, one round, flash model
-gcloud compute ssh $VM --project $P --zone $Z --command 'cd ~/hackathon && SEEDS=1 LOOP_DISPATCH=chia .venv/bin/python -m loop.run smoke s1 2>&1 | tail -20'
+gcloud compute ssh $VM --project $P --zone $Z --command 'cd ~/loop && SEEDS=1 LOOP_DISPATCH=chia .venv/bin/python -m loop.run smoke s1 2>&1 | tail -20'
 # the cell, detached (survives the Mac sleeping)
 gcloud compute ssh $VM --project $P --zone $Z --command \
-  'cd ~/hackathon && SEEDS=2 setsid nohup bash cluster/launch_cell.sh dc d1 > /dev/null 2>&1 < /dev/null & disown'
+  'cd ~/loop && SEEDS=2 setsid nohup bash cluster/launch_cell.sh dc d1 > /dev/null 2>&1 < /dev/null & disown'
 # watch, fetch, merge, stop
-gcloud compute ssh $VM --project $P --zone $Z --command 'cd ~/hackathon && .venv/bin/python -m loop.summarize progress results/dc_d1.log'
-gcloud compute scp --project $P --zone $Z --recurse $VM:~/hackathon/results ./results_vm && python -m loop.workloads merge results_vm
+gcloud compute ssh $VM --project $P --zone $Z --command 'cd ~/loop && .venv/bin/python -m loop.summarize progress results/dc_d1.log'
+gcloud compute scp --project $P --zone $Z --recurse $VM:~/loop/results ./results_vm && python -m loop.workloads merge results_vm
 gcloud compute instances stop $VM --project $P --zone $Z
 ```
 

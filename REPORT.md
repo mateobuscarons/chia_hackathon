@@ -1,4 +1,4 @@
-# Findings worth a paper
+# Findings
 
 Curated. A finding earns a place here only if it is **measured**, **reproducible by a
 command in this repo**, and **says something a reader did not already know**. Intermediate
@@ -6,59 +6,82 @@ checkpoints, ops detail and anything still pending live in `CLAUDE.md`, not here
 
 ---
 
-## 1. An LLM searching produces the evidence a memory needs. An optimiser searching does not.
+## 1. An LLM's search generalises. An optimiser's overfits the workloads it was given.
 
-**confirmed**
+**confirmed, and replicated six times**
 
 The memory-building procedure spends a declared budget searching each workload suite before it
-sweeps. Running that search stage twice at an identical budget — 41 designs per workload, same
-space, same stages either side of it — the searcher decides whether the result is usable at all:
+sweeps (`loop/memory_build.py`). Running that stage twice at an identical budget — 41 designs per
+workload, same space, same stages either side of it — and changing only the searcher produces two
+memories that differ in which designs they contain. The consequence shows up where it matters: in
+the single design each memory hands to a search on workloads it has never seen.
+
+| memory hands over | on the six workloads it searched | on unseen `dc` | on unseen `dc2` |
+|---|---|---|---|
+| optimiser-built | **91.0 %** | 84 % | 81 % |
+| agent-built | 89.8 % | **90 %** | **93 %** |
+
+Shares of each suite's stock-to-best-known gap. **The optimiser's design is the better fit to the
+data it was given and the worse predictor of data it was not.** The agent's gives up a point at
+home to gain six to twelve away.
+
+This is not an artefact of the two test suites. Hold out one remembered workload, pick the handover
+from the other five using only that searcher's own designs, and score it on the held-out one:
+
+| held out | agent-built pool | optimiser-built pool |
+|---|---|---|
+| mcf | 78 % | **81 %** |
+| omnetpp | **87 %** | 68 % |
+| lbm | **88 %** | 74 % |
+| bfs.urand | 64 % | 64 % |
+| pr.urand | **88 %** | 85 % |
+| bfs.kron | **99 %** | 96 % |
+| **mean** | **84 %** | **78 %** |
+
+Four wins to one, six replications of the same direction. Since the whole premise is a memory built
+on some workloads being useful on *different* ones, a searcher that overfits the workloads it was
+given is the wrong tool for filling it, however good its optimisation trace looks.
+
+**Why the agent's designs transfer better is open.** Two candidate explanations were tested against
+the cached tables and both fail. It is not the optimiser's missing LLC prefetcher: a prefetcher pays
++16 to +23 points on every suite, remembered and unseen alike, so it would cost the optimiser at home
+too. It is not that expected improvement picks cornered designs: the correlation between how extreme
+a design is and how much share it loses moving to unseen workloads flips sign across slices, +0.57 to
+−0.35 on samples of 27 to 57 designs.
+
+### The secondary result: controlled evidence
+
+The same difference shows up in what each search leaves behind, and here the reason *is* understood.
+Reading each memory as it stood immediately after the search stage, before any sweep:
 
 | stage-1 searcher | single-knob effects | **supported by ≥2 controlled pairs** |
 |---|---|---|
 | Gaussian process + expected improvement | 36 | **0** |
-| LLM agent | 63 | **36** |
+| LLM agent | 57 | **30** |
 
-Zero against thirty-six, for the same simulation spend. A transferable claim about a knob needs
-two controlled pairs — two designs differing in exactly that knob, measured twice — and the
-optimiser supplied none.
+Zero against thirty, for the same simulation spend. Expected improvement selects scattered points out
+of a 20 000-design sample, and two points drawn from a 13-dimensional space almost never differ in
+exactly one knob, so an optimiser's trace contains no controlled comparisons by construction. An LLM
+proposes around a theme, varying one or two knobs at a time, and manufactures controlled pairs as a
+side effect of how it reasons.
 
-The reason is structural rather than incidental. Expected improvement selects scattered points
-out of a 20 000-design sample, and two points drawn from a 13-dimensional space almost never
-differ in exactly one knob, so an optimiser's trace contains no controlled comparisons by
-construction. An LLM proposes around a theme, varying one or two knobs at a time, and so
-manufactures controlled pairs as a side effect of how it reasons.
+**This result currently buys nothing**, and the ablation in section 6 says why: the anchor stage hands
+both searchers their controlled pairs afterwards (336 against 306 in the completed memories), so the
+digest the agent reads comes out comparable either way. It is reported because the mechanism is real
+and general, not because the loop exploits it.
 
-This is what the LLM contributes to *building* a memory, as distinct from consuming one, and it
-is measurable rather than asserted: at equal cost the agent's search leaves behind evidence and
-the optimiser's leaves behind an optimisation trace.
+### What is owed
 
-**And the better evidence produces a better memory in use.** A memory's most consequential output
-is the single design it hands a search that has never seen the workloads — the design that decides
-the opening move. Simulating those handed-over designs on the two held-out datacenter suites, on
-one scale, with no search involved:
+The stage-1 search is **not reproducible** for the LLM: CHIA's Vertex layer forwards no generation
+config, so temperature is the model default rather than the 0.7 in `loop/agent.py`, and `MB_SEED`
+never reaches anything in that path. The optimiser build *is* bit-for-bit repeatable. Every number
+above therefore rests on one build of each. A second build of both is what would settle it.
 
-| memory hands over | designs per workload | `dc` | `dc2` (shaped nothing) |
-|---|---|---|---|
-| agent-built | 122 | **95 %** | **93 %** |
-| accumulated over the project | ~950 | 93 % | 80 % |
-| optimiser-built | 122 | 89 % | 81 % |
-
-Shares of each suite's stock-to-best-known gap. The agent-built memory wins on both, and by
-thirteen points on `dc2` — the suite that shaped neither memory, nor the designs they hand over,
-nor the choice of the first suite. It does so from one eighth of the simulations that the
-accumulated memory took.
-
-For scale: that single design, costing nothing at test time, reaches 0.4883 on `dc`, where the
-best *sixteen-design run* of a memoryless LLM agent reached 0.4879.
-
-**Owed before this is published as an arm result**: the memory arm must be re-run end to end on
-the agent-built memory, five seeds, both cells. What is measured here is the handed-over design in
-isolation; the arm's published opening of 81 % on `dc2` came from the accumulated memory's
-handover, and a 93 % handover should move it, but that is an expectation until the arm is run.
-
-Reproduce: `python -m loop.memory_build compare dc results/memory_bo.json results/memory_llm.json`
-for the evidence counts; the handover scores are rows in the cached test tables.
+Reproduce: the handover scores and the leave-one-out table are rows in the cached tables, keyed by the
+design in each memory's `pooled` field. For the evidence counts, rebuild each memory from the designs
+its build record marks `stage == "search"` in the program's own group
+(`results/memory_<searcher>_record.json`); reading the completed memories instead gives 306 and 336,
+after the sweeps.
 
 ---
 
@@ -66,8 +89,8 @@ for the evidence counts; the handover scores are rows in the cached test tables.
 
 **measured, and owed a re-run**: the raw-dump variant was removed from the code and its runs
 deleted, so the numbers below are recorded rather than reproducible by a command. Publishing
-them means re-adding the variant and re-running the cell — a cheap ablation, and one we should
-run precisely because the effect is large.
+them means re-adding the variant and re-running the cell — a cheap ablation, and the effect is
+large enough to be worth it.
 
 The first version handed the agent the memory as it is stored: one case per remembered workload,
 each with its descriptors, its best design and every measured single-knob effect. It is complete,
@@ -235,7 +258,51 @@ almost for free, and it cannot by itself buy the last ten percent.
 
 ---
 
-## 6. Contributions back to the frameworks
+## 6. Half the memory build buys four lines of text.
+
+**confirmed, and free to reproduce**
+
+`loop/memory_build.py` tags every design with the stage that asked for it, and the result tables
+hold every design. A stage can therefore be removed *after the fact* — rebuild the memory from a
+filtered set of design names and read what changes. No simulation is involved. Four variants of
+each memory, scored on `dc2`:
+
+| build | variant | simulations | effects with ≥2 pairs | digest "moves that paid" | "traps" | handover | `dc2` share |
+|---|---|---|---|---|---|---|---|
+| agent | full | 715 | 336 | 3 lines | 1 line | — | 93 % |
+| agent | no winner sweeps | 540 | 108 | **0** | **0** | unchanged | 93 % |
+| agent | no stock sweep | 535 | 85 | **0** | **0** | unchanged | 93 % |
+| agent | no anchor stage | 360 | 51 | **0** | **0** | unchanged | 93 % |
+| optimiser | full | 711 | 306 | 4 lines | 1 line | — | 81 % |
+| optimiser | no winner sweeps | 549 | 72 | 2 lines | 0 | unchanged | 81 % |
+| optimiser | no stock sweep | 525 | 78 | 1 line | 0 | unchanged | 81 % |
+| optimiser | no anchor stage | 363 | 6 | **0** | **0** | unchanged | 81 % |
+
+**The anchor stage is minimal, not redundant.** Removing either of its two sweeps empties the
+digest's conclusions. That is the design working as specified: `memory.digest` will not state an
+effect on fewer than two controlled pairs, and each sweep supplies roughly one pair per single-knob
+step, so the two are jointly necessary rather than alternatives.
+
+**And it does not touch the design the memory hands over.** In all eight variants the handover is
+identical — it comes from the confirm stage's pool, never from the sweeps. That design is what
+carries the result: `pooled_bo`, which reads no digest at all and only starts from it, matches or
+beats the `memory` arm that reads the whole digest (section 4).
+
+So the anchor stage costs **355 simulations, half the build**, changes the handover not at all, and
+everything it buys is four lines of digest text whose measured value at test time is about one
+point.
+
+This is a fact about the loop as it stands, not a verdict on the design. Traps and consensus would
+become load-bearing for a continuation search that used them to *exclude* regions rather than to
+suggest moves, which is open work. But a reader should know that today, the half of the memory
+build that manufactures evidence is not what produces the result.
+
+Reproduce: filter `results/memory_<searcher>_record.json` by `stage`, pass the surviving design
+names to `memory.build`, and read `pooled` and the digest off each variant.
+
+---
+
+## 7. Contributions back to the frameworks
 
 Five gaps hit while building the loop that belong in CHIA or ChampSim rather than in
 this repo. Both are shallow clones here, so each goes through a fork. Patches for the

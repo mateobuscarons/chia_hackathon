@@ -3,7 +3,7 @@
 #   POWER_OFF=1 setsid nohup bash cluster/launch_membuild.sh > /dev/null 2>&1 < /dev/null & disown
 # Budgets come from loop/memory_build.py (MB_SEARCH, MB_CONFIRM, MB_ANCHOR_KNOBS).
 # Log: results/membuild.log; the smoke's own log is results/membuild_smoke.log.
-cd ~/hackathon
+cd ~/loop
 export ANALYST_MODEL="${ANALYST_MODEL:-gemini-2.5-flash}"
 export RAY_DEDUP_LOGS=0
 export LOOP_DISPATCH=chia

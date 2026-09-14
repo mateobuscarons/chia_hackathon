@@ -5,7 +5,7 @@
 # SMOKE_FIRST=1 runs the smoke cell (one round, every arm) before the cell and stops if it fails.
 # POWER_OFF=1 powers the VM off when everything is done (a stopped VM bills only its disk).
 # Log: results/<cell>_<tag>.log (one line per design; read it with `python -m loop.summarize progress`).
-cd ~/hackathon
+cd ~/loop
 CELL="$1"; TAG="$2"; ARMS="${3:-}"
 export ANALYST_MODEL="${ANALYST_MODEL:-gemini-2.5-flash}"
 export RAY_DEDUP_LOGS=0          # every run prints its own rows; Ray would collapse identical lines

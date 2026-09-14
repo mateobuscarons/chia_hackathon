@@ -1,33 +1,30 @@
-# Upstream clones — not our code; see CLAUDE.md setup section
+# Upstream clones - not our code; see CLAUDE.md setup section
 champsim/
 chia/
 # Extra ChampSim trees for parallel builds (loop.simulate.tree_paths finds them)
 champsim_[0-9]*/
+# Compiled ChampSim binaries, one per design: a build cache, rebuilt on demand
+champsim_bin/
 
-# Environment and big/generated files
+# Environment, traces and generated inputs
 .venv/
 traces/
 configs/generated/
 loop/__pycache__/
 loop/llm_usage.json
-loop/playbook.json
+loop/llm_usage.json.lock
+
+# Run logs, locks and regenerated text
 results/*.log
 results/*.txt
-results/chia_profiles/
-loop/llm_usage.json.lock
 results/*.lock
-results/*.flag
+results/chia_profiles/
 
-# The review pack for outside readers: regenerated on demand, never in the repo
-REVIEW.md
-
-# Obsolete outputs (v2/v3 era) and build products: documented in CLAUDE.md, not versioned
-results/archive/
-champsim_bin/
-
-# Fetched copies of the VM's results, merged into results/ with loop.workloads merge
+# Result tables fetched from the VM before `loop.workloads merge` folds them in
 results_vm*/
-
-# Memory tables the rebuild superseded, and results fetched from the VM
+# Tables from before the memory rebuild, kept out of the current dataset
 results_archive/
-results_vm*/
+
+# Long-form explainers regenerated on demand, not part of the repo
+REVIEW.md
+memory.md

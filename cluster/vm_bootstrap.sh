@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # One-VM ChampSim worker on GCP (Debian 12 image). Run once on a fresh VM, from
-# the synced repo directory (~/hackathon):   bash cluster/vm_bootstrap.sh
+# the synced repo directory (~/loop):   bash cluster/vm_bootstrap.sh
 #
 # Installs build tools, builds ChampSim (vcpkg), makes TREES copies of the
 # ChampSim tree so that many designs compile at once (one build holds a tree),
