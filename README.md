@@ -1,111 +1,88 @@
-# LLM + memory + optimisation: few-shot cache tuning for workloads never seen before (a CHIA loop)
+# Few-shot cache tuning from a memory of earlier searches
 
-One search agent made of three parts, each covering what the others cannot: an **LLM**
-that reads the workloads and proposes designs, a **memory** of earlier searches on other
-workloads that tells it what paid, what hurt and where the open questions are, and a
-**surrogate** that picks among the LLM's proposals from the current run. The setting is
-few-shot: a ChampSim cache hierarchy, a workload suite the agent has never seen, and a
-budget of 16 simulated designs, of which only the first few matter for the claim.
+Tuning a ChampSim cache hierarchy takes simulations, and simulations are the expensive part.
+This loop keeps a **memory** of searches already run on other workloads — what paid, what hurt,
+and one design worth copying — and hands that to a search on workloads it has never seen.
 
-The memory is written by the code from result tables: one **case** per workload, holding
-its descriptors, its best design and every measured single-knob effect. The agent reads a
-**digest** of the closest remembered workloads: the moves that paid, the traps, where the
-best designs disagree, and one design to copy and adapt. The arms are an ablation of the
-parts under an identical budget. The headline cell remembers SPEC and graph searches and
-is tested on Google datacenter traces.
+The question is not how good a design you can eventually find. It is **how many simulations you
+have to buy to get close to it.**
 
-## Results
+## The result
 
-Two workload suites the loop has never seen, both Google datacenter traces, memory built
-from SPEC17 (mcf, omnetpp, lbm) and GAP graph searches (bfs.urand, pr.urand, bfs.kron).
-Gemini 2.5 Flash, 16 designs per run, 5 seeds per arm. The score is the share of the
-distance from the stock chip to the best design known, and that ceiling comes from an
-**independent** 100-design search carrying no memory and no LLM — scoring against a design
-one of the arms found would bound the metric at the best arm.
+Three Google datacenter traces (whiskey, bravo, delta) the loop has never seen. The memory was
+built from SPEC17 and GAP graph workloads only. "Best design known" is 0.5485 suite IPC, found
+by an independent 100-design search that used no memory. The stock chip is 0.4389.
 
-**`dc`** (sierra.a.4, merced, tahoe) — stock 0.3837, best known 0.4994, +30.1 %:
+**To get within 5 % of the best design — 95 % of the way from the stock chip to it — a search
+seeded from memory needs 11 simulations. The same search from scratch needs 37.**
 
-| arm | D1 | D2 | D4 | D8 | D12 | D16 | best design |
-|---|---|---|---|---|---|---|---|
-| optimisation from the stock chip | 22 % | 22 % | 42 % | 64 % | 82 % | 89 % | 0.4861 |
-| LLM alone | 49 % | 56 % | 72 % | 80 % | 82 % | 84 % | 0.4810 |
-| LLM + memory | **90 %** | 91 % | 91 % | 92 % | 93 % | 93 % | 0.4915 |
-| optimisation from the memory's design | **90 %** | 90 % | 90 % | 91 % | 91 % | 92 % | 0.4899 |
+| how close to the best design | seeded from memory | from scratch | simulations saved |
+|---|---|---|---|
+| 90 % of the way | **1** | 15 | 14 |
+| 93 % | 5 | 25 | 20 |
+| **95 % (within 5 %)** | **11** | **37** | **26** |
+| 96 % | 13 | 49 | 36 |
 
-**`dc2`** (whiskey, bravo, delta — the admitted traces the first suite did not take, so
-nothing about them shaped the memory or the design it hands over) — stock 0.4389, best
-known 0.5485, +25.0 %:
+Both columns are the same optimizer with the same settings, three seeds each, averaged. The only
+difference is where it starts: from the memory's design, or from the stock chip.
 
-| arm | D1 | D2 | D4 | D8 | D12 | D16 | best design |
-|---|---|---|---|---|---|---|---|
-| optimisation from the stock chip | 22 % | 26 % | 46 % | 72 % | 78 % | 84 % | 0.5315 |
-| LLM alone | 24 % | 47 % | 72 % | 77 % | 79 % | 80 % | 0.5263 |
-| LLM + memory | **93 %** | 93 % | 93 % | 93 % | 93 % | 95 % | 0.5433 |
-| optimisation from the memory's design | **93 %** | 93 % | 93 % | 95 % | 95 % | **96 %** | 0.5443 |
+**What this says, plainly:**
 
-The optimisation row is the **stronger of the two surrogates we ran** on each suite. Both a
-tuned Gaussian process and a random forest were run from the stock chip; they tie on `dc`
-(89 % against 88 %) and differ by 16 points on `dc2` (84 % against 68 %), which is inside the
-noise at these seed counts — individual cold-start runs land anywhere from 48 % to 96 %.
-Reporting the weaker one would inflate the margin through a seed draw, so the table takes the
-better one and both are in the reports.
+- The memory's *first* design is already at 92.5 % of the way. A search from scratch takes about
+  fifteen simulations to match one lookup.
+- The advantage shrinks as you push higher — 15x at 90 %, 3.4x at 95 % — because once the search
+  is near the top it has to work for the rest, and then the memory does not help much.
+- The best design known sits **six knob changes** away from the one the memory hands over, and
+  everything within five changes of it is capped around 95 %. So the memory gets you into a good
+  region quickly and cannot on its own get you out of it.
 
-- **One design from memory is worth twenty-five to twenty-seven designs of search.** Running
-  the same optimizer from the stock chip out to 75 designs, three seeds per suite, its mean
-  curve needs **D27** on `dc` and **D25** on `dc2` to reach the level the memory hands over at
-  **D1**. By the sixteen-design budget the advantage has decayed to 1.9x on `dc` and 2.3-3.1x
-  on `dc2` — the head start is real, and the search that follows it does not compound it.
-- **The memory removes the bad draw, not just the slow start.** Per seed, a memoryless search
-  reaches `dc2`'s handover level at D13, D34 and D69, and one seed never reaches 96 % inside 75
-  designs; on `dc` one seed opened *below the stock chip*. Every memory-started seed opened at
-  exactly 90 % / 93 %. For a fixed simulation budget that predictability is the thing a design
-  team buys.
-- **The memory is the effect, not the agent reading it.** Handing the memory's design to a
-  plain optimizer matches the LLM agent on `dc` (92 % against 93 %) and beats it on `dc2`
-  (96 % against 95 %) — with no digest, no prompt and no model call at test time. What the
-  LLM demonstrably contributes is at *build* time: at an equal budget its search leaves 36
-  single-knob effects supported by controlled pairs where an optimizer's search leaves 0.
-- **What transfers is a good region, not the optimum.** The best design known sits six knob
-  changes from the one the memory hands over, and everything within five of it is capped at
-  93–95 %. The memory buys the opening almost for free and cannot by itself buy the last ten
-  percent.
+**On the arms:** an LLM agent reading the memory's digest and a plain optimizer started from the
+memory's design finish at the same place (95 % and 96 %), so the tables use the optimizer. The two
+surrogates we tried for the search from scratch — a Gaussian process and a random forest — also
+finish about the same. The memory is what moves the number; the searcher on top of it does not.
 
-Every design, prompt and model answer is in `results/run_dc_f1.json`, `run_dc_g1.json`,
-`run_dc2_f1.json` and `run_dc2_g1.json`. The findings and how they were measured are in
-`REPORT.md`.
+**Pending:** a second suite (sierra.a.4, merced, tahoe) does not show the same saving — its memory
+arm tops out at 93 % while a search from scratch reaches it in 30 simulations, so the saving there
+is about 14 simulations rather than 26. That is unresolved, not hidden; see `CLAUDE.md`.
+
+Every design, prompt and model answer is in `results/run_dc2_f1.json` and `run_dc2_g1.json`.
+How each finding was measured is in `REPORT.md`.
+
+## How it works
+
+The memory holds one **case** per workload it has searched: the workload's descriptors, its best
+design, and every single-knob effect measured on it. For a new workload it writes a **digest** —
+the moves that paid, the traps, where remembered designs disagree, and one design to copy. That
+design is what seeds the search.
+
+The cases are generated by code from result tables, never written by a model. What the LLM decides
+is which designs get simulated while the memory is being *built*, and that turns out to matter: at
+an equal budget its search leaves 36 single-knob effects backed by controlled pairs, where an
+optimizer's search leaves none.
 
 ## Layout
 
 | file | role |
 |---|---|
-| `loop/agent.py` | the LLM agent, one code path for both LLM arms (memory digest on/off, surrogate selection on/off): the Gemini call (Vertex; under CHIA through `chia.models.vertex`) with its cost log, prompt from data sections, proposals, retry, deterministic fallback |
-| `loop/memory.py` | cases built from result tables, descriptor-distance retrieval, the digest the agent reads, the design it hands over, the offline sign-survival check |
-| `loop/memory_build.py` | the declared procedure that fills a memory: search, one-knob anchor sweeps, confirm — with every design's stage and proposer recorded |
-| `loop/forest.py` | the random-forest surrogate and the search that uses it: the optimisation baseline, the memory-started arm, and the independent reference |
-| `loop/bo.py` | the Gaussian process, kept for the memory arm's candidate filter and the optimiser-searched memory build |
-| `loop/champsim_problem.py` | ChampSim glue: traces -> the `problem` dict (suite objective = geomean IPC), descriptors, result-table cache |
-| `loop/configs.py` | the chip profile, the 13-knob space, area budget, latency-from-size, config generation |
-| `loop/simulate.py`, `loop/chia_nodes.py` | build and run ChampSim; the same as CHIA tasks (build from any config, simulate; the Vertex node) |
-| `loop/trace_profile.py` | workload profile from the trace alone (footprint theory miss-ratio curve) |
-| `loop/workloads.py` | the admission gate and the headroom screen (free); the 11-design probe (simulates); trace fetching; table merge |
-| `loop/run.py`, `loop/summarize.py` | cells and arms, the report, the CHIA entry (`LOOP_DISPATCH=chia`); the few-shot score table and the progress view |
-| `results/table_<trace>.json` | the shared simulation cache, one per workload (the paper's dataset) |
-| `results/profile_<trace>.json` | the profile of every workload in use |
-| `results/memory_llm.json`, `results/run_<cell>_<tag>.json` | the memory and a cell's report |
-| `cluster/` | the one-VM GCP recipe, the detached launcher, CHIA cluster configs |
-| `upstream/` | patches for PRs back to CHIA / ChampSim (described in `REPORT.md`) |
+| `loop/memory.py` | cases from result tables, retrieval by descriptor distance, the digest, the design handed over |
+| `loop/memory_build.py` | the procedure that fills a memory: search, one-knob anchor sweeps, confirm |
+| `loop/forest.py` | the random-forest search: the from-scratch baseline, the memory-seeded arm, and the independent reference |
+| `loop/agent.py` | the LLM agent (digest on/off, surrogate selection on/off) |
+| `loop/bo.py` | the Gaussian process, for the agent's candidate filter and the optimiser-built memory |
+| `loop/champsim_problem.py`, `loop/configs.py` | traces to a `problem` dict; the chip, the 13-knob space, the area budget |
+| `loop/simulate.py`, `loop/chia_nodes.py` | build and run ChampSim, and the same as CHIA tasks |
+| `loop/run.py`, `loop/summarize.py` | cells and arms, the report, the score table |
+| `results/table_<trace>.json` | the shared simulation cache, one per workload (the dataset) |
+| `cluster/`, `upstream/` | the one-VM GCP recipe; patches for CHIA and ChampSim |
 
 ## Run
 
 ```bash
 python -m loop.run memory dc                                          # build the memory (simulates)
-python -m loop.memory leave_one_out <memory traces> -- <test traces>  # free: do effects transfer?
 python -m loop.workloads admit                                        # which workloads are worth a search
-python -m loop.workloads headroom <trace> <trace> <trace>             # headroom and the share no single knob reaches
-SEEDS=1 LOOP_DISPATCH=chia python -m loop.run smoke s1                # every arm, one round, through CHIA
-SEEDS=5 BUDGET=16 LOOP_DISPATCH=chia python -m loop.run dc f1         # the headline cell
-python -m loop.forest 100 10 <trace> <trace> <trace>                  # the suite's independent ceiling
-python -m loop.summarize results/run_dc_f1.json
+SEEDS=1 LOOP_DISPATCH=chia python -m loop.run smoke s1                # every arm, one round
+SEEDS=5 BUDGET=16 LOOP_DISPATCH=chia python -m loop.run dc2 f1        # a cell
+python -m loop.forest 100 10 <trace> <trace> <trace>                  # the independent ceiling
+python -m loop.summarize results/run_dc2_f1.json results/run_dc2_g1.json
 ```
-Setup, cells, design and rules are in `CLAUDE.md`; the findings in `REPORT.md`; the VM
-recipe in `cluster/README.md`.
+Setup, design and operations are in `CLAUDE.md`; the findings in `REPORT.md`.

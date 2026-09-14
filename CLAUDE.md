@@ -8,60 +8,95 @@ A3 workshop hackathon (agentic-arch.org). Deliverable: 4-page paper + open-sourc
 
 ## Start here
 
-**Both cells are complete, all four arms, against independent ceilings** (`results/run_<cell>_f1.json` + `run_<cell>_g1.json`; reproduce with `python -m loop.summarize <both reports of a cell>`).
+**The claim: how many simulations are saved to get within 5 % of the best design known.** Both
+columns below are the same optimizer, same settings, three seeds each, averaged; only the starting
+point differs. `dc2` (whiskey, bravo, delta), stock 0.4389, best known 0.5485 from an independent
+100-design search:
 
 ```
-dc   stock 0.3837, ceiling 0.4994 (independent)      dc2  stock 0.4389, ceiling 0.5485 (independent)
-arm            D1    D4    D8   D12   D16   final     arm            D1    D4    D8   D12   D16   final
-bo_gp   (GP)  22%   42%   64%   82%   89%  0.4861     bo_gp   (GP)  22%   46%   72%   78%   84%  0.5315
-bo      (RF)  22%   61%   72%   75%   88%  0.4856     bo      (RF)  19%   45%   57%   61%   68%  0.5139
-llm_direct    49%   72%   80%   82%   84%  0.4810     llm_direct    24%   72%   77%   79%   80%  0.5263
-memory        90%   91%   92%   93%   93%  0.4915     memory        93%   93%   93%   93%   95%  0.5433
-pooled_bo     90%   90%   91%   91%   92%  0.4899     pooled_bo     93%   93%   95%   95%   96%  0.5443
+how close to the best design    seeded from memory    from scratch    saved
+90 % of the way                        D1                  D15          14
+93 %                                   D5                  D25          20
+95 %  (the claim)                      D11                 D37          26
+96 %                                   D13                 D49          36
 ```
 
-**Quote the STRONGER surrogate as the baseline** (GP on both suites: 89 % and 84 %). The two tie on `dc` and differ by 16 points on `dc2`, but per seed the forest lands at 48/62/72/91 and the process at 73/76/88/90/96 — t = 1.6, and all nine cold-start runs span 48-96 %. Taking the forest's 68 % would inflate the margin by a seed draw; the claim does not need it.
+The memory's first design is at 92.5 %, which a from-scratch search needs ~15 simulations to match.
+The ratio falls as the target rises (15x at 90 %, 3.4x at 95 %) because near the top the search has
+to work for the rest and the memory stops helping — it puts you in a good region and cannot get you
+out of it (the best design sits six knob changes from the handover, `REPORT.md` §5).
 
-**`bo` means different mechanisms in the two reports** — the GP in `f1`, the forest in `g1`. The `f1` arm has been renamed **`bo_gp`** in the stored reports, because `summarize` merges by arm name and seed and silently filled `g1`'s missing `dc2` seed 1 with the GP's, producing a contaminated row. Never let two mechanisms share an arm name across reports of one cell.
+**The four arms on `dc2`, 5 seeds, 16 designs, against the same ceiling** (`run_dc2_f1.json` + `run_dc2_g1.json`):
 
-**What this settles.** The memory's first design (90 % / 93 %) beats sixteen designs of the best memoryless optimizer (89 % / 84 %) on both suites. And `pooled_bo` — the same optimizer handed the memory's design, no LLM at test time — matches `memory` on `dc` and beats it on `dc2`. **The memory is the contribution; the agent reading it is worth about a point.** The LLM's measured value is at build time (`REPORT.md` §1). `REPORT.md` §4 is written on these tables.
+```
+arm            D1    D4    D8   D12   D16   final
+bo_gp   (GP)  22%   46%   72%   78%   84%  0.5315
+bo      (RF)  19%   45%   57%   61%   68%  0.5139
+llm_direct    24%   72%   77%   79%   80%  0.5263
+memory        93%   93%   93%   93%   95%  0.5433
+pooled_bo     93%   93%   95%   95%   96%  0.5443
+```
 
-**In flight (Mac, overnight):** the `bo` arm's exact configuration run to **75 designs**, 3 seeds on each cell, six processes under `caffeinate`, scratch code `rf_long.py` (not in the repo). It answers the open question in `REPORT.md` §4 — how many designs a memoryless forest search needs to reach the levels the memory-started arms reach at D16 — which the 100-design references cannot answer because they use warm-up 10 and batch 6. Curves land as `rflong_<cell>_s<seed>.json` in the session scratchpad; the simulations land in the shared tables either way.
+`pooled_bo` is the default arm to quote: it is the optimizer seeded from the memory, with no LLM at
+test time, and it matches or beats the LLM agent reading the digest. Quote the **stronger**
+from-scratch surrogate as the baseline (the GP, 84 %): the two differ by 16 points but t = 1.6 and
+all nine cold-start runs span 48-96 %, so taking the forest's 68 % would inflate the margin by a
+seed draw.
+
+**PENDING — `dc` does not show the same saving.** Its memory arm tops out at 93 % and a from-scratch
+search reaches that in 30 simulations, so the saving is ~14 rather than 26. The tables are complete
+and correct; what is unresolved is why the head start converts so much worse there. `dc`'s ceiling
+is 0.4994, stock 0.3837:
+
+```
+arm            D1    D4    D8   D12   D16   final      designs to reach, from scratch (mean of 3 seeds)
+bo_gp   (GP)  22%   42%   64%   82%   89%  0.4861      90 % -> D27   92 % -> D30   93 % -> D30
+bo      (RF)  22%   61%   72%   75%   88%  0.4856
+llm_direct    49%   72%   80%   82%   84%  0.4810
+memory        90%   91%   92%   93%   93%  0.4915
+pooled_bo     90%   90%   91%   91%   92%  0.4899
+```
+
+**`bo` means different mechanisms in the two reports** — the GP in `f1`, the forest in `g1`. The
+`f1` arm is stored as **`bo_gp`**, because `summarize` merges by arm name and seed and silently
+filled `g1`'s missing `dc2` seed with the GP's, producing a contaminated row. Never let two
+mechanisms share an arm name across reports of one cell.
 
 **Next, in this order.**
 
-1. **The head start is measured on both cells, and it decays — that is the open problem.** The `bo` arm's exact configuration run to 75 designs, 3 seeds per cell (`rf_long.py` in the session scratchpad; curves as `rflong_<cell>_s<seed>.json`). Mean over seeds, built exactly as every published row:
+1. **Resolve `dc`.** Same head start (90 % at D1), a third of the saving. Worth knowing whether it
+   is the suite's smaller headroom above the handover, or the basin being tighter there.
+2. **A continuation search that exploits a strong start** — the priority, because the head start
+   decays on both suites. The handover already opens at 92-93 % on unseen suites; everything within
+   five knob changes is capped at 93-95 % and the optimum sits six away. Candidates, none costed: a
+   trust region that restarts globally when it stalls; using the memory's traps to *exclude* regions
+   so the same budget covers a far smaller space; letting the digest fix the knobs it is confident
+   about and search only the rest. Measure as designs-to-level, mean over seeds.
+3. **Never measure a ratio against the 100-design reference.** It runs warm-up 10 and batch 6, which
+   flattens it at 79 % from D10 to D16 — exactly where a comparison lives. That produced a retracted
+   4.8x. Measure against the arm's own configuration run long (`rf_long.py`, scratchpad).
+4. **The memory arm's candidate filter is still a Gaussian process** (`agent.select_by_gp`) while
+   every other search uses the forest. Test the swap for free first by replaying the ~43 logged
+   rounds with a forest (the GP filter captures 55 % of each round's candidate spread against 45 %
+   for taking the LLM's own order). Changing it makes the `f1` memory rows incomparable.
+5. **Evaluate retrieval and the digest** — the run-time half nobody has measured: 3 nearest cases by
+   standardized descriptor distance, consensus and traps from the closest case only, the handover
+   over every case. One measurement already argues against the distance filter: effect signs survive
+   on a new workload about two thirds of the time and **flat in descriptor distance**. Free offline
+   checks first; spend designs only after.
+6. **An unseen chip**, then **a stronger model** (`ANALYST_MODEL=gemini-2.5-pro`; Pro bills thinking
+   as output and CHIA forwards no thinking budget against a 16k default, `REPORT.md` §6c).
 
-   ```
-   level the memory-started arms reach   they   memoryless mean   per seed
-   dc  90 % (the handover)                D1         D27          14, 25, 30
-   dc  92 % (pooled_bo at D16)            D16        D30          19, 30, 34
-   dc  93 % (memory at D16)               D16        D30          21, 30, 39
-   dc2 93 % (the handover)                D1         D25          13, 34, 69
-   dc2 95 % (memory at D16)               D16        D37          21, 49, 73
-   dc2 96 % (pooled_bo at D16)            D16        D49          21, 49, >75
-   ```
+Small, known: the LLM re-proposes already-measured designs, 4 to 9 of 8 per round; listing measured
+designs in the task text would remove it. After the above: `gap2`, then the paper.
 
-   **One design against 25-27 for the opening, on both suites. By D16 it is only 1.9x on `dc` and 2.3-3.1x on `dc2`**, because the memory-started arms gain 2-3 points across their whole budget and a memoryless search recovers the rest. They stall in the handover's basin (`REPORT.md` §5).
-
-   **So the priority is a continuation search that exploits a strong start**, not a better memory: the handover already opens at 90-93 % on unseen suites, everything within five knob changes of it is capped at 93-95 %, and the optimum sits six away. Candidates, none costed: a trust region around the handover that restarts globally when it stalls; using the memory's traps to *exclude* regions so the same budget covers a far smaller space; letting the digest fix the knobs it is confident about and search only the rest. Measure any of them as designs-to-level, mean over seeds — the number that survives the ceiling moving.
-
-   **Do not round 1.9x to 2x.** It rests on three seeds crossing at D21, D30 and D39; the opening figure is the robust one, and the spread is a result in its own right (on `dc2` a memoryless search reaches the handover's level at D13, D34 and D69, and one seed never reaches `pooled_bo`'s D16 level in 75 designs, while every memory-started seed opened at exactly 90 % / 93 %).
-
-2. **The retracted 4.8x** came from crossing the 100-design reference's curve; that reference runs warm-up 10 and batch 6, which flattens it at 79 % from D10 to D16 — exactly where the comparison lives. Never measure a ratio against the reference; measure it against the arm's own configuration run long.
-
-3. **The memory arm's candidate filter is still a Gaussian process** (`agent.select_by_gp`) while every other search uses the forest. Test the swap for free first by replaying the ~43 logged rounds in the reports with a forest (the GP filter captures 55 % of each round's candidate spread against 45 % for taking the LLM's own order). Only then change it — changing it makes the `f1` memory rows incomparable.
-4. **Evaluate retrieval and the digest** — the run-time half nobody has measured. Today: the 3 nearest cases per test workload by standardized descriptor distance, consensus and traps from each workload's closest case only, the wider circle for workload-dependent moves, the handover computed over every case. One measurement already argues against the distance filter: effect signs survive on a new workload about two thirds of the time and **flat in descriptor distance**. Free offline checks first: the digest with every case instead of the nearest 3; with another distance, or none; which digest sections the agent actually uses (every prompt and pick is in the reports). Spend designs only after those.
-5. **An unseen chip.** The same question one level up: a memory of searches on chip C, a search on a *different* chip. `loop/configs.py` holds one chip (`CHIP = "C_server"`), so a second profile has to come back. The memory workloads are **not** re-simulated — only the new chip's test suite needs a stock design, the arms' designs and a reference. Settle the mechanism question first: the digest anchors everything on "moves from the stock chip", and two chips have different stock designs, so decide whether the *move* or the *resulting design* is what transfers.
-6. **A stronger model, as an ablation.** Same arms, seeds and cells with `ANALYST_MODEL=gemini-2.5-pro`, everything else fixed. Pro bills thinking as output and CHIA forwards no thinking budget against a 16k default (`REPORT.md` §6c), so that fix probably has to land first. Decide whether Pro runs on every arm or only the memory arm.
-
-Small, known: the LLM re-proposes already-measured designs, 4 to 9 of 8 per round; the retry recovers most, and listing measured designs in the task text would remove it. After the above: `gap2` with the same arms, then the paper.
-
-**Free checks, no VM:** `python -m loop.memory leave_one_out <6 memory traces> -- <3 test traces>` (sign survival) and `python -m loop.workloads headroom`. **Check `gcloud compute instances list` before anything else: the VM must be stopped whenever nothing runs on it.**
+**Free checks, no VM:** `python -m loop.memory leave_one_out <6 memory traces> -- <3 test traces>`
+and `python -m loop.workloads headroom`. **Check `gcloud compute instances list` before anything
+else: the VM must be stopped whenever nothing runs on it.**
 
 ## The design
 
-**The question.** Given a stock chip, a workload suite the loop has never seen and a budget of 16 simulated designs, how much of the best known design does each search reach after 1, 2, 4, 8 designs? Memory is a few-shot claim: its value is in the first designs, not the last.
+**The question.** Given a stock chip and a workload suite the loop has never seen: **how many simulations does it take to get within 5 % of the best design known**, with and without a memory of earlier searches on other workloads? Designs-to-level, not level-at-N — the second moves whenever the ceiling moves, and it has moved twice.
 
 **Arms, same start (the stock chip), same budget, same seeds, same fidelity** (`loop/run.py`, ARMS):
 - `bo`: random forest + expected improvement from the stock chip (`loop/forest.py`), one design per round so every pick is made against measured outcomes.
