@@ -50,10 +50,16 @@ noise at these seed counts — individual cold-start runs land anywhere from 48 
 Reporting the weaker one would inflate the margin through a seed draw, so the table takes the
 better one and both are in the reports.
 
-- **One design from memory beats sixteen designs of search.** The memory-started arms open
-  at 90 % and 93 %; the best memoryless optimizer reaches 89 % and 84 % after sixteen, and
-  never reaches the opening on either suite. Nothing differs between those rows but where the
-  search begins.
+- **One design from memory is worth twenty-five to twenty-seven designs of search.** Running
+  the same optimizer from the stock chip out to 75 designs, three seeds per suite, its mean
+  curve needs **D27** on `dc` and **D25** on `dc2` to reach the level the memory hands over at
+  **D1**. By the sixteen-design budget the advantage has decayed to 1.9x on `dc` and 2.3-3.1x
+  on `dc2` — the head start is real, and the search that follows it does not compound it.
+- **The memory removes the bad draw, not just the slow start.** Per seed, a memoryless search
+  reaches `dc2`'s handover level at D13, D34 and D69, and one seed never reaches 96 % inside 75
+  designs; on `dc` one seed opened *below the stock chip*. Every memory-started seed opened at
+  exactly 90 % / 93 %. For a fixed simulation budget that predictability is the thing a design
+  team buys.
 - **The memory is the effect, not the agent reading it.** Handing the memory's design to a
   plain optimizer matches the LLM agent on `dc` (92 % against 93 %) and beats it on `dc2`
   (96 % against 95 %) — with no digest, no prompt and no model call at test time. What the

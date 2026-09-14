@@ -155,31 +155,44 @@ Two things fall out of the same table:
   unstable enough that a 16-point mean gap is a seed draw.** That is ArchGym's "all optimizers
   tie under tuned hyperparameters" arriving as noise rather than as a tie.
 
-**The head start, measured — and why it decays.** The open question was how many designs a
-memoryless search needs to reach the levels the memory-started arms reach. Running the `bo`
-arm's *exact* configuration long (same warm-up, acquisition, per-seed candidate pool; only
+**The head start, measured on both suites — and why it decays.** How many designs does a
+memoryless search need to reach the levels the memory-started arms reach? Running the `bo`
+arm's *exact* configuration long (same warm-up, acquisition and per-seed candidate pool; only
 the budget changes; verified to reproduce the arm design-for-design on shared seeds), three
-seeds on `dc`, the mean curve built exactly as every published row:
+seeds per cell to 75 designs, the mean curve built exactly as every published row:
 
-| level | memory-started arms | memoryless search, mean over seeds |
-|---|---|---|
-| 90 % of the gap (the handover itself) | **D1** | **D27** |
-| 92-93 % (their D16) | D16 | ~D30 (still resolving) |
+| level the memory-started arms reach | they reach it at | memoryless search, mean over seeds | per seed |
+|---|---|---|---|
+| `dc` 90 % — the handover itself | **D1** | **D27** | D14, D25, D30 |
+| `dc` 92 % — `pooled_bo` at D16 | D16 | D30 | D19, D30, D34 |
+| `dc` 93 % — `memory` at D16 | D16 | D30 | D21, D30, D39 |
+| `dc2` 93 % — the handover itself | **D1** | **D25** | D13, D34, D69 |
+| `dc2` 95 % — `memory` at D16 | D16 | D37 | D21, D49, D73 |
+| `dc2` 96 % — `pooled_bo` at D16 | D16 | D49 | D21, D49, >75 |
 
-**One simulation against twenty-seven for the opening.** But the advantage collapses to about
-2x by the sixteen-design budget, and that is the finding that matters: **the memory buys a
-27-design head start and the search that follows it does not compound it.** The memory-started
-arms gain only 2-3 points over their whole budget (90 -> 92/93 on `dc`, 93 -> 95/96 on `dc2`)
-because they cannot leave the handover's basin (section 5), so a memoryless search grinding
-upward catches most of the distance back within the budget.
+**One simulation against twenty-five to twenty-seven for the opening, on both suites.** That
+is the claim the memory supports, and it is stable across two independent workload sets.
 
-That bounds the contribution honestly: **what is bought is a head start, and it is worth only
-as much as the continuation search can exploit.** Today's continuation cannot exploit it. The
-open work is not a better memory - the handover is already at 90-93 % on suites it has never
-seen - but a search that, given a strong start, keeps going: escaping a basin whose optimum
-sits six knob changes away, rather than refining inside it. Until that exists, the defensible
-claims are the opening (one design against twenty-seven) and the matched-budget table above,
-not a ratio at D16.
+**By the sixteen-design budget the advantage has decayed to 1.9x on `dc` (D30 against D16) and
+2.3-3.1x on `dc2`.** A 27-design head start becomes a factor of two, because the
+memory-started arms gain only 2-3 points across their whole budget (90 -> 92/93 on `dc`,
+93 -> 95/96 on `dc2`) while a memoryless search grinding upward recovers most of the distance.
+They stall because they cannot leave the handover's basin (section 5): everything within five
+knob changes of it is capped at 93-95 %, and the optimum sits six away.
+
+So the contribution has an honest shape: **what is bought is a head start, and it is worth only
+as much as the continuation search can exploit. Today's continuation cannot exploit it.** The
+open work is not a better memory — the handover already opens at 90-93 % on suites it has never
+seen — but a search that, given a strong start, keeps going.
+
+**The spread is a second result, and on `dc2` a larger one than the mean.** Per seed, a
+memoryless search reaches the `dc2` handover's level at D13, D34 and D69, and one seed never
+reaches `pooled_bo`'s D16 level inside 75 designs. On `dc` one seed opened *below the stock
+chip* (-16 % of the gap) and sat at 82 % for sixteen designs. Every memory-started seed opened
+at exactly 90 % or 93 %. **The memory does not only start higher, it removes the bad draw** —
+which is what a fixed simulation budget actually buys a design team.
+
+Reproduce: `loop/forest.py` is the searcher; the long runs are the `bo` arm at `budget=75`.
 
 ---
 

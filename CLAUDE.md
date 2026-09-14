@@ -30,11 +30,25 @@ pooled_bo     90%   90%   91%   91%   92%  0.4899     pooled_bo     93%   93%   
 
 **Next, in this order.**
 
-1. **The head start is measured; the problem is that it decays.** On `dc`, the mean over 3 seeds of the `bo` arm's exact configuration run long crosses 90 % - the handover's own level - at **D27**. The memory gets there at **D1**. But by D16 the memory-started arms are only at 92-93 % and the memoryless search reaches that around D30, so a 27-design lead has become roughly 2x. **The memory buys a head start that the continuation search does not compound** (`REPORT.md` §4), because it cannot leave the handover's basin (§5).
+1. **The head start is measured on both cells, and it decays — that is the open problem.** The `bo` arm's exact configuration run to 75 designs, 3 seeds per cell (`rf_long.py` in the session scratchpad; curves as `rflong_<cell>_s<seed>.json`). Mean over seeds, built exactly as every published row:
 
-   **So the priority is a continuation search that exploits a strong start**, not a better memory: the handover is already at 90-93 % on suites it has never seen, and everything within five knob changes of it is capped at 93-95 % while the optimum sits six away. Candidates, none costed: a trust region around the handover that restarts globally when it stalls; using the memory's traps to *exclude* regions so a search covers a much smaller space at the same budget; letting the digest fix the knobs it is confident about and search only the rest. Measure any of them the same way - designs to reach a level, mean over seeds - because that is the number that survives the ceiling moving.
+   ```
+   level the memory-started arms reach   they   memoryless mean   per seed
+   dc  90 % (the handover)                D1         D27          14, 25, 30
+   dc  92 % (pooled_bo at D16)            D16        D30          19, 30, 34
+   dc  93 % (memory at D16)               D16        D30          21, 30, 39
+   dc2 93 % (the handover)                D1         D25          13, 34, 69
+   dc2 95 % (memory at D16)               D16        D37          21, 49, 73
+   dc2 96 % (pooled_bo at D16)            D16        D49          21, 49, >75
+   ```
 
-2. **Quoting the ratio.** It is defensible at the opening (one design against twenty-seven, mean over seeds) and NOT at D16, where it is about 2x and turns on a single point of a noisy mean. The earlier 4.8x is retracted: it came from crossing the 100-design reference's curve, and that reference runs warm-up 10 and batch 6, which flattens it at 79 % from D10 to D16 - exactly where the comparison lives. Old text kept below for the reasoning.
+   **One design against 25-27 for the opening, on both suites. By D16 it is only 1.9x on `dc` and 2.3-3.1x on `dc2`**, because the memory-started arms gain 2-3 points across their whole budget and a memoryless search recovers the rest. They stall in the handover's basin (`REPORT.md` §5).
+
+   **So the priority is a continuation search that exploits a strong start**, not a better memory: the handover already opens at 90-93 % on unseen suites, everything within five knob changes of it is capped at 93-95 %, and the optimum sits six away. Candidates, none costed: a trust region around the handover that restarts globally when it stalls; using the memory's traps to *exclude* regions so the same budget covers a far smaller space; letting the digest fix the knobs it is confident about and search only the rest. Measure any of them as designs-to-level, mean over seeds — the number that survives the ceiling moving.
+
+   **Do not round 1.9x to 2x.** It rests on three seeds crossing at D21, D30 and D39; the opening figure is the robust one, and the spread is a result in its own right (on `dc2` a memoryless search reaches the handover's level at D13, D34 and D69, and one seed never reaches `pooled_bo`'s D16 level in 75 designs, while every memory-started seed opened at exactly 90 % / 93 %).
+
+2. **The retracted 4.8x** came from crossing the 100-design reference's curve; that reference runs warm-up 10 and batch 6, which flattens it at 79 % from D10 to D16 — exactly where the comparison lives. Never measure a ratio against the reference; measure it against the arm's own configuration run long.
 
 3. **The memory arm's candidate filter is still a Gaussian process** (`agent.select_by_gp`) while every other search uses the forest. Test the swap for free first by replaying the ~43 logged rounds in the reports with a forest (the GP filter captures 55 % of each round's candidate spread against 45 % for taking the LLM's own order). Only then change it — changing it makes the `f1` memory rows incomparable.
 4. **Evaluate retrieval and the digest** — the run-time half nobody has measured. Today: the 3 nearest cases per test workload by standardized descriptor distance, consensus and traps from each workload's closest case only, the wider circle for workload-dependent moves, the handover computed over every case. One measurement already argues against the distance filter: effect signs survive on a new workload about two thirds of the time and **flat in descriptor distance**. Free offline checks first: the digest with every case instead of the nearest 3; with another distance, or none; which digest sections the agent actually uses (every prompt and pick is in the reports). Spend designs only after those.
