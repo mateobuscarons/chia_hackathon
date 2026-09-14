@@ -20,9 +20,9 @@ Simulations needed to get there, for each of the four searches:
 
 | how close to the best design | LLM + memory | optimizer + memory | LLM alone | optimizer alone |
 |---|---|---|---|---|
-| 90 % | **1** | **1** | not inside 16 | 15 |
-| **95 %** | 15 | **11** | not inside 16 | **37** |
-| 96 % | not inside 16 | 13 | not inside 16 | 49 |
+| 90 % | **1** (15x) | **1** (15x) | not inside 16 | 15 |
+| **95 %** | 15 (2.5x) | **11** (3.4x) | not inside 16 | **37** |
+| 96 % | not inside 16 | 13 (3.8x) | not inside 16 | 49 |
 
 The two optimizer columns are the same random forest with expected improvement, differing only in
 where they start — from the design the memory hands over, or from the stock chip. The two LLM
