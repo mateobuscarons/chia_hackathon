@@ -255,64 +255,6 @@ def reference(traces, how_many, batch):
     return best
 
 
-# ---------------------------------------------------------------- the search ----
-
-def reference(traces, how_many, batch):
-    problem = champsim_problem.make_suite_problem(traces, allow_simulation=True)
-    objective = problem["objective"]
-    started = time.time()
-
-    stock_metrics = problem["evaluate"](problem["stock"])
-    stock = stock_metrics[objective]
-    measured_knobs = [problem["stock"]]
-    measured_values = [stock]
-    best = stock
-    best_knobs = problem["stock"]
-
-    candidates = starting_pool(problem)
-    warm_up = max(1, int(how_many * WARM_UP_SHARE))
-    print("reference: {} designs, batches of {}, {} random to start | {} | stock {:.4f}".format(
-        how_many, batch, warm_up, "+".join(problem["workloads"]), stock), flush=True)
-
-    bought = 0
-    while bought < how_many:
-        wanted = min(batch, how_many - bought)
-        if bought < warm_up:
-            wanted = min(wanted, warm_up - bought)
-            chosen = []
-            for name in candidates:
-                if len(chosen) == wanted:
-                    break
-                chosen.append(name)
-            source = "random"
-        else:
-            for name, knobs in neighbours(best_knobs, problem).items():
-                if name not in candidates:
-                    candidates[name] = knobs
-            chosen = choose(candidates, measured_knobs, measured_values, best, wanted)
-            source = "forest"
-
-        knobs_list = []
-        for name in chosen:
-            knobs_list.append(candidates[name])
-        metrics_list = problem["evaluate_many"](knobs_list)
-        for name, knobs, metrics in zip(chosen, knobs_list, metrics_list):
-            candidates.pop(name, None)
-            measured_knobs.append(knobs)
-            measured_values.append(metrics[objective])
-            bought += 1
-            if metrics[objective] > best:
-                best = metrics[objective]
-                best_knobs = knobs
-            print("[reference] D{} | {}={:.4f} | best {:.4f} | {} | {:.0f} min".format(
-                bought, objective, metrics[objective], best, source, (time.time() - started) / 60), flush=True)
-
-    print("reference: best {:.4f} (+{:.1f}% on the stock chip) over {} designs in {:.0f} min".format(
-        best, 100.0 * (best / stock - 1.0), how_many, (time.time() - started) / 60), flush=True)
-    print("reference: best design " + problem["name_of"](best_knobs), flush=True)
-    return best
-
-
 def choose(candidates, measured_knobs, measured_values, best_so_far, wanted):
     """`wanted` designs by expected improvement. Within one batch a pick joins the
     training set at its own predicted value, so the next pick of the same batch
