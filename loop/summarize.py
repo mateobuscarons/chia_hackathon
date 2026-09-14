@@ -18,11 +18,24 @@ from loop.champsim_problem import make_suite_problem, measured_designs
 
 
 def load_reports(paths):
-    """Several reports of the same cell (more seeds added later) read as one."""
+    """Several reports of the same cell (more seeds added later) read as one.
+
+    Two reports may not both carry the same (arm, seed). They once did, under the
+    same arm name but with different searchers behind it, and the merge silently
+    filled a missing seed from the wrong mechanism - the resulting row was published
+    and had to be retracted. Give an arm a distinct name per mechanism instead."""
     merged = None
+    came_from = {}
     for path in paths:
         with open(path) as report_file:
             report = json.load(report_file)
+        for arm in report.get("runs", {}):
+            for seed in report["runs"][arm]:
+                key = (arm, seed)
+                if key in came_from:
+                    raise SystemExit("{} seed {} appears in both {} and {}: rename one arm".format(
+                        arm, seed, came_from[key], path))
+                came_from[key] = path
         if merged is None:
             merged = report
             continue

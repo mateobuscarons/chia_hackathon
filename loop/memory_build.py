@@ -239,40 +239,6 @@ def write_outputs(record, all_traces, output_path, searcher, groups, started, af
         print("[membuild]   {:<24s} {}".format(key, counts[key]), flush=True)
 
 
-def combine(output_path, record_paths):
-    """One memory from the designs several builds asked for, together. The builds
-    share stages 2 and 3 by construction and differ only in who searched, so the
-    union is the same procedure with more than one searcher in stage 1 — at the
-    sum of their budgets, which `built_by` states."""
-    from loop import run
-    trace_of = {}
-    for trace_path in run.TRACE.values():
-        trace_of[trace_short_name(trace_path)] = trace_path
-    names = set()
-    searchers = []
-    workloads = []
-    requested = 0
-    for record_path in record_paths:
-        with open(record_path) as record_file:
-            record = json.load(record_file)
-        names.update(record["origins"].keys())
-        searchers.append(record["built_by"]["searcher"])
-        requested += record["built_by"]["designs_requested"]
-        for group in record["built_by"]["groups"]:
-            for workload in group:
-                if workload not in workloads:
-                    workloads.append(workload)
-    traces = []
-    for workload in workloads:
-        traces.append(trace_of[workload])
-    built = memory.build(traces, output_path, names)
-    built["built_by"] = {"searcher": "+".join(searchers), "combined_from": record_paths,
-                         "designs_requested": len(names), "designs_requested_separately": requested}
-    memory.save(built, output_path)
-    print("[combine] {} designs from {} builds ({} before removing the designs they share) -> {}".format(
-        len(names), len(record_paths), requested, output_path), flush=True)
-
-
 def compare(cell_name, memory_paths):
     """Read two or more memories side by side, with no simulation: what each one
     hands over, how much evidence it holds, and how well its remembered effects
@@ -338,9 +304,6 @@ def count_solid(effects):
 if __name__ == "__main__":
     if sys.argv[1] == "compare":
         compare(sys.argv[2], sys.argv[3:])
-        raise SystemExit(0)
-    if sys.argv[1] == "combine":
-        combine(sys.argv[2], sys.argv[3:])
         raise SystemExit(0)
     if os.environ.get("LOOP_DISPATCH", "local") == "chia":
         from loop import run

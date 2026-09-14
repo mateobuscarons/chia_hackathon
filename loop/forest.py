@@ -1,12 +1,13 @@
-"""The random-forest optimizer: one surrogate, used everywhere it is needed.
+"""The random-forest optimizer: one surrogate and one search, used everywhere.
 
   python -m loop.forest <designs> <batch> <trace> [trace ...]   # the reference search
 
-`run()` is the same search at an arm's budget, with an optional design to start
-from; `loop/run.py` uses it for the `bo` arm (from the stock chip) and the
-`pooled_bo` arm (from the design the memory hands over). `reference()` is the long
-search that sets the ceiling a cell is scored against. The same surrogate in all
-three so that no comparison rests on one of them having a better model.
+`run()` is that search. `loop/run.py` calls it for the `bo` arm (from the stock chip)
+and for the `pooled_bo` arm (from the design the memory hands over); `reference()`
+calls it long to set the ceiling a cell is scored against. Budget, batch and warm-up
+are arguments, so the settings an arm and the reference disagree on are visible at
+the call site rather than living in a second copy of the loop - comparing two curves
+grown under different warm-ups is how a wrong ratio gets published.
 
 The surrogate is a RANDOM FOREST, not a Gaussian process. Replaying both offline
 against the cached tables, on the 300-design uniform sample (the only pool that
@@ -40,13 +41,12 @@ from sklearn.ensemble import RandomForestRegressor
 
 from loop import champsim_problem
 from loop.champsim_problem import candidate_pool
-from loop.configs import SEARCH_SPACE, random_feasible_designs, typed_knobs
+from loop.configs import SEARCH_SPACE, typed_knobs
 
 # The initial design, before the forest chooses anything. At a 16-design budget
 # the sweep found any warm-up beats none and the size barely matters; at 100
 # designs nothing was measured, so this is the conventional ten percent.
 WARM_UP_SHARE = 0.10
-CANDIDATE_POOL = 20000
 TREES = 100
 
 
@@ -126,35 +126,33 @@ def neighbours(knobs, problem):
     return found
 
 
-def starting_pool(problem):
-    pool = {}
-    for knobs in random_feasible_designs(CANDIDATE_POOL, seed=0):
-        if problem["is_candidate"](knobs):
-            pool[problem["name_of"](knobs)] = knobs
-    pool.pop(problem["name_of"](problem["stock"]), None)
-    return pool
-
-
-# ---------------------------------------------------------------- an arm ----
+# ---------------------------------------------------------------- the search ----
 
 WARM_UP_DESIGNS = 3       # the initial design at an arm's budget, as the sweep set it
 
 
-def run(problem, rounds, per_round, seed, tag, start_design=None):
-    """One arm's search, `rounds * per_round` designs bought.
+def run(problem, budget, batch, seed, tag, start_design=None, warm_up=WARM_UP_DESIGNS):
+    """`budget` designs bought in batches of `batch`. Every forest search in the
+    project goes through here, so the settings an arm and the reference disagree on
+    are arguments rather than two copies of one loop.
 
-    start_design: a design to buy before anything else. `pooled_bo` passes the
-    design the memory hands over, so the only difference from `bo` is where the
-    search begins; everything after that - the surrogate, the warm-up, the
-    candidate pool - is identical, and the arms differ in one thing only.
+    start_design: bought before anything else. `pooled_bo` passes the design the
+    memory hands over, so the only difference from `bo` is where the search begins;
+    the surrogate, the warm-up and the candidate pool are identical.
 
-    The candidate pool is drawn with the run's own seed and keeps the whole space
-    in view, not only the incumbent's neighbours: on this chip the best design
-    measured sits SIX knobs from the memory's handover, and everything within five
-    of it is capped well below the ceiling, so a search that only walks one knob at
-    a time cannot get there from a good start."""
+    warm_up: designs taken from the pool before the forest chooses anything. The
+    arms use WARM_UP_DESIGNS; a long reference search passes a share of its own
+    budget. State a search's warm-up and batch whenever its curve is compared with
+    another's - they decide where the curve bends, and a comparison across two
+    different settings is not a comparison.
+
+    The candidate pool is drawn with the run's own seed and keeps the whole space in
+    view, not only the incumbent's neighbours: on this chip the best design measured
+    sits SIX knobs from the memory's handover, and everything within five of it is
+    capped well below the ceiling, so a search that only walks one knob at a time
+    cannot get there from a good start."""
     objective = problem["objective"]
-    budget = rounds * per_round
+    started = time.time()
     candidates = candidate_pool(problem, seed)
     candidates.pop(problem["name_of"](problem["stock"]), None)
     broken = set()          # designs the simulator could not measure; never offered again
@@ -166,6 +164,8 @@ def run(problem, rounds, per_round, seed, tag, start_design=None):
     measured_values = [stock_metrics[objective]]
     best = stock_metrics[objective]
     best_knobs = problem["stock"]
+    print("[{}] {} designs, batches of {}, {} to warm up | {} | stock {:.4f}".format(
+        tag, budget, batch, warm_up, "+".join(problem["workloads"]), best), flush=True)
 
     def one_at_a_time(knobs_list):
         kept = []
@@ -205,19 +205,20 @@ def run(problem, rounds, per_round, seed, tag, start_design=None):
             if metrics[objective] > best:
                 best = metrics[objective]
                 best_knobs = knobs
-            print("[{}] round {} | D{} | {}={:.4f} | {}".format(
-                tag, round_number, entry["index"], objective, metrics[objective], source), flush=True)
+            print("[{}] round {} | D{} | {}={:.4f} | best {:.4f} | {} | {:.0f} min".format(
+                tag, round_number, entry["index"], objective, metrics[objective], best, source,
+                (time.time() - started) / 60), flush=True)
 
     if start_design is not None:
         buy([typed_knobs(start_design)], "memory", 0)
 
-    warm_up = []
+    opening = []
     for name in candidates:
-        if len(warm_up) == min(WARM_UP_DESIGNS, budget - (len(history) - 1)):
+        if len(opening) == min(warm_up, budget - (len(history) - 1)):
             break
-        warm_up.append(candidates[name])
-    if len(warm_up) > 0:
-        buy(warm_up, "warm-up", 0)
+        opening.append(candidates[name])
+    if len(opening) > 0:
+        buy(opening, "warm-up", 0)
 
     round_number = 0
     while len(history) - 1 < budget:
@@ -225,13 +226,33 @@ def run(problem, rounds, per_round, seed, tag, start_design=None):
         for name, knobs in neighbours(best_knobs, problem).items():
             if name not in candidates and name not in broken:
                 candidates[name] = knobs
-        wanted = min(per_round, budget - (len(history) - 1))
+        wanted = min(batch, budget - (len(history) - 1))
         chosen = choose(candidates, measured_knobs, measured_values, best, wanted)
         knobs_list = []
         for name in chosen:
             knobs_list.append(candidates[name])
         buy(knobs_list, "forest", round_number)
     return {"designs": history, "rounds": []}
+
+
+def reference(traces, how_many, batch):
+    """The ceiling a cell is scored against. Same search, run long, and it must stay
+    a mechanism separate from the arms: scoring against a design an arm found bounds
+    the metric at that arm, which has happened once and cost every arm five points."""
+    problem = champsim_problem.make_suite_problem(traces, allow_simulation=True)
+    objective = problem["objective"]
+    result = run(problem, how_many, batch, 0, "reference", warm_up=max(1, int(how_many * WARM_UP_SHARE)))
+    stock = result["designs"][0]["metrics"][objective]
+    best = stock
+    best_knobs = result["designs"][0]["knobs"]
+    for entry in result["designs"]:
+        if entry["metrics"][objective] > best:
+            best = entry["metrics"][objective]
+            best_knobs = entry["knobs"]
+    print("reference: best {:.4f} (+{:.1f}% on the stock chip) over {} designs".format(
+        best, 100.0 * (best / stock - 1.0), how_many), flush=True)
+    print("reference: best design " + problem["name_of"](best_knobs), flush=True)
+    return best
 
 
 # ---------------------------------------------------------------- the search ----

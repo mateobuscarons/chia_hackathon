@@ -207,22 +207,6 @@ def predict_many(model, knobs_list):
     return means, stds
 
 
-def predict(model, knobs):
-    means, stds = predict_many(model, [knobs])
-    return float(means[0]), float(stds[0])
-
-
-def probability_at_least(model, knobs, threshold):
-    mean, std = predict(model, knobs)
-    return normal_tail(mean, std, threshold)
-
-
-def normal_tail(mean, std, threshold):
-    """P(X >= threshold) for X ~ Normal(mean, std)."""
-    z = (threshold - mean) / std
-    return 1.0 - 0.5 * (1.0 + math.erf(z / math.sqrt(2.0)))
-
-
 # ---------------------------------------------------------------- the search ----
 
 
