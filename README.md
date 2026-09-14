@@ -21,7 +21,6 @@ Simulations needed to get there, for each of the four searches:
 | how close to the best design | LLM + memory | optimizer + memory | LLM alone | optimizer alone |
 |---|---|---|---|---|
 | 90 % | **1** | **1** | not inside 16 | 15 |
-| 93 % | 11 | 5 | not inside 16 | 26 |
 | **95 %** | 15 | **11** | not inside 16 | **37** |
 | 96 % | not inside 16 | 13 | not inside 16 | 49 |
 
