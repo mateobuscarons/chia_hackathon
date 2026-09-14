@@ -56,7 +56,8 @@ is 27x at the opening and gone by the budget's end, instead of holding at 3.4x. 
 hidden; see `CLAUDE.md`.
 
 Every design, prompt and model answer is in `results/run_dc2_f1.json` and `run_dc2_g1.json`.
-How each finding was measured is in `REPORT.md`.
+Every run's prompts, model answers and per-design results are in those files; the cached
+simulation tables under `results/` are the dataset behind every number here.
 
 ## How it works
 
@@ -106,4 +107,4 @@ SEEDS=5 BUDGET=16 LOOP_DISPATCH=chia python -m loop.run dc2 f1        # a cell
 python -m loop.forest 100 10 <trace> <trace> <trace>                  # the independent ceiling
 python -m loop.summarize results/run_dc2_f1.json results/run_dc2_g1.json
 ```
-Setup, design and operations are in `CLAUDE.md`; the findings in `REPORT.md`.
+Setup, design and operations are in `CLAUDE.md`.

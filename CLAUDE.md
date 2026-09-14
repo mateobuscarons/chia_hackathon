@@ -6,6 +6,8 @@ Cache-hierarchy design-space exploration on ChampSim, built as a CHIA loop. What
 
 **Findings live in `REPORT.md`**, not here. This file is state, design and operations.
 
+`REPORT.md`, `memory.md` and `chia_contribution.md` are **local working documents, not in the repo** (gitignored). Anything in them that a reader of the repository needs belongs in `README.md` or here.
+
 ## Start here
 
 **The claim: how many simulations are saved to get within 5 % of the best design known.** Both
@@ -145,7 +147,7 @@ mechanisms share an arm name across reports of one cell.
    while there: the best single-knob design already sits in the tables and belongs in the score tables as
    a baseline row.
 8. **An unseen chip**, then **a stronger model** (`ANALYST_MODEL=gemini-2.5-pro`; Pro bills thinking
-   as output and CHIA forwards no thinking budget against a 16k default, `REPORT.md` §7c).
+   as output and CHIA forwards no thinking budget against a 16k default, `chia_contribution.md` item 2).
 
 **What is in `results/`:** `table_<trace>.json` the shared simulation cache (the dataset, ~1300 designs on the dc traces, ~950 on dc2); `profile_<trace>.json` one per workload in use; `memory_llm.json` the shelf every cell reads and `memory_bo.json` the optimiser-searched ablation, each with a `_record.json` naming every design's stage and proposer; `run_<cell>_<tag>.json` the reports (`f1` = bo_gp/llm_direct/memory, `g1` = bo/pooled_bo); `rflong_<cell>_s<seed>.json` the from-scratch curves behind the saving table. Nothing else is written.
 
@@ -217,7 +219,7 @@ One code path for the LLM arms: `agent.run_agent(..., use_memory, use_gp)`; with
 
 ## Upstream: contributions to CHIA and ChampSim
 
-`upstream/` holds the patches. **Every contribution is described in `REPORT.md` §7** (the `gs://` trace resolver, the config-space build node, the Vertex generation-config passthrough and its measured cost, the simulator-agnostic case memory, the two spp_dev bugs). Do not restate them here.
+`upstream/` holds the patches. **Every contribution is described in `chia_contribution.md`** (the `gs://` trace resolver, the config-space build node, the Vertex generation-config passthrough and its measured cost, the simulator-agnostic case memory, the two spp_dev bugs). Do not restate them here.
 
 ## Rules of engagement
 
