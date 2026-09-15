@@ -1,0 +1,55 @@
+{
+ "chip": "C_server",
+ "handover": {
+  "l1d_sets": 128,
+  "l1d_ways": 8,
+  "l1d_prefetcher": "va_ampm_lite",
+  "l2_sets": 512,
+  "l2_ways": 16,
+  "l2_prefetcher": "next_line",
+  "l2_replacement": "ship",
+  "llc_sets": 4096,
+  "llc_ways": 16,
+  "llc_prefetcher": "next_line",
+  "llc_replacement": "ship",
+  "l2_mshr": 64,
+  "llc_mshr": 128
+ },
+ "chosen_from": {
+  "designs": 163,
+  "measured_on": 6,
+  "mean_gap_share": 0.898,
+  "per_workload": {
+   "605.mcf_s-665B": {
+    "stock": 0.3067,
+    "best": 0.5228,
+    "share": 0.885
+   },
+   "620.omnetpp_s-874B": {
+    "stock": 0.4496,
+    "best": 0.4997,
+    "share": 0.899
+   },
+   "619.lbm_s-2676B": {
+    "stock": 0.7545,
+    "best": 1.0655,
+    "share": 0.878
+   },
+   "bfs.urand-36B": {
+    "stock": 0.1228,
+    "best": 0.2173,
+    "share": 0.853
+   },
+   "pr.urand-129B": {
+    "stock": 0.5968,
+    "best": 1.918,
+    "share": 0.883
+   },
+   "bfs.kron-128B": {
+    "stock": 0.248,
+    "best": 0.6802,
+    "share": 0.993
+   }
+  }
+ }
+}

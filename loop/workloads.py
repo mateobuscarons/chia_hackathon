@@ -1,33 +1,27 @@
-"""Workloads: screen them for free, probe them, sample them, fetch their traces.
+"""Bringing a workload into the project: fetch it, measure it, judge it, merge it.
 
-  python -m loop.workloads admit
-      The admission gate over every cached profile (results/profile_*.json), no
-      simulator. CAPACITY channel: `movable`, the misses per kilo-instruction a
-      bigger cache can remove between the smallest and the largest LLC the space
-      can buy (validated against measured variance shares on this chip). POLICY
-      channel: a miss floor, enough misses for a prefetcher or a replacement
-      policy to matter, WITHOUT claiming which. `unfixable` is the compulsory
-      MPKI: first touches, which no design removes. Stride regularity is
-      reported, not used: mcf is 0.157 and its L2 prefetcher still owns 0.46 of
-      its variance, because SPP learns repeated irregular paths.
-  python -m loop.workloads headroom <trace> [trace ...]
-      From the cached tables (after `probe`): per workload, and for every
-      3-subset, the headroom over the stock chip and the share of it that no
-      single-knob design reaches. A set where one knob takes the headroom ties
-      every optimizer; the share beyond one knob is what a search can show.
-  python -m loop.workloads probe <trace> [trace ...]
-      The 11-design headroom probe for a candidate test workload: the stock chip,
-      the four L2 prefetchers, srrip and ship at the LLC, the LLC doubled, the L2
-      doubled, and the two best composites the graph searches found.
-  python -m loop.workloads uniform <how_many> <trace> [trace ...]
-      A uniform random sample of the feasible designs (seed 0): the random-search null.
+A candidate workload is judged by simulation, not by anything read off its trace:
+`fetch` it, `probe` eleven designs on it, read the `headroom` those reveal. A
+workload where one knob takes all the headroom ties every optimizer and is not
+worth a cell. `merge` is the other job here: folding tables simulated on the VM
+back into results/tables/.
+
   python -m loop.workloads fetch <url> <out_path> [prefix_mb]
       Download a trace, or only its first prefix_mb megabytes (an HTTP range): a
-      100 MB prefix holds ~88M instructions, enough to profile and to simulate.
+      100 MB prefix holds ~88M instructions, enough to simulate.
   python -m loop.workloads fetch_gap <zip_url> <member> <out_dir>
-      One GAP trace out of a 10 GB Zenodo zip without downloading the zip.
+      One GAP trace out of a 10 GB Zenodo zip without downloading the zip. Three
+      of the six memory workloads come this way, so a fresh machine needs it.
+  python -m loop.workloads probe <trace> [trace ...]
+      The 11-design headroom probe for a candidate workload (simulates): the stock
+      chip, the four L2 prefetchers, srrip and ship at the LLC, the LLC doubled,
+      the L2 doubled, and the two best composites the graph searches found.
+  python -m loop.workloads headroom <trace> [trace ...]
+      Reads what `probe` measured: per workload, and for every 3-subset, the
+      headroom over the stock chip and the share of it that no single-knob design
+      reaches. The share beyond one knob is what a search can show.
   python -m loop.workloads merge <other_results_dir>
-      Union tables simulated on another machine into results/, by design name.
+      Union tables simulated on another machine into results/tables/, by design name.
 
 Env: PARALLEL_TRACES (traces at once, default 3), SIM_THREADS per trace,
 LOOP_WARMUP / LOOP_SIM (instructions; default 5M / 10M).
@@ -36,7 +30,6 @@ LOOP_WARMUP / LOOP_SIM (instructions; default 5M / 10M).
 import fcntl
 import glob
 import itertools
-import json
 import math
 import os
 import struct
@@ -46,8 +39,8 @@ import urllib.request
 import zlib
 from concurrent.futures import ThreadPoolExecutor
 
-from loop import champsim_problem, trace_profile
-from loop.configs import knobs_changed, random_feasible_designs
+from loop import suite
+from loop.space import config_name, knobs_changed
 
 PROBE_COMPOSITE_A = {"l1d_prefetcher": "next_line", "l2_sets": 512, "l2_ways": 16, "l2_prefetcher": "va_ampm_lite",
                      "llc_sets": 4096, "llc_replacement": "ship", "llc_mshr": 64}
@@ -56,7 +49,7 @@ PROBE_COMPOSITE_B = {"l1d_sets": 128, "l1d_ways": 8, "l1d_prefetcher": "next_lin
 
 
 def probe_designs():
-    stock = champsim_problem.stock_design()
+    stock = suite.stock_design()
     designs = [dict(stock)]
     for prefetcher in ["spp_dev", "ip_stride", "next_line", "va_ampm_lite"]:
         design = dict(stock)
@@ -80,10 +73,10 @@ def probe_designs():
 
 
 def collect_trace(trace_path, designs):
-    holder = champsim_problem.ChampSimProblem(trace_path, allow_simulation=True, dispatch="local")
+    holder = suite.ChampSimProblem(trace_path, allow_simulation=True)
     missing = 0
     for knobs in designs:
-        if champsim_problem.config_name(knobs) not in holder.sweep_table:
+        if config_name(knobs) not in holder.sweep_table:
             missing += 1
     started = time.time()
     print("{}: {} designs, {} to simulate -> {}".format(holder.trace_name, len(designs), missing, holder.table_path), flush=True)
@@ -101,21 +94,22 @@ def collect(trace_paths, designs):
 
 
 def merge(other_results_dir):
-    """Union every table found in `other_results_dir` into results/. Holds the
-    table's lock while it reads and rewrites, so a collection running at the same
-    time cannot have its rows dropped."""
-    for other_path in sorted(glob.glob(os.path.join(other_results_dir, "table_*.json"))):
-        own_path = os.path.join("results", os.path.basename(other_path))
-        other = champsim_problem.load_table(other_path)
+    """Union every table found in `other_results_dir` into results/tables/. Holds
+    the table's lock while it reads and rewrites, so a collection running at the
+    same time cannot have its rows dropped."""
+    os.makedirs(suite.TABLE_DIR, exist_ok=True)
+    for other_path in sorted(glob.glob(os.path.join(other_results_dir, "tables", "*.json"))):
+        own_path = os.path.join(suite.TABLE_DIR, os.path.basename(other_path))
+        other = suite.load_table(other_path)
         with open(own_path + ".lock", "w") as lock_file:
             fcntl.flock(lock_file, fcntl.LOCK_EX)
-            own = champsim_problem.load_table(own_path)
+            own = suite.load_table(own_path)
             added = 0
             for name in other:
                 if name not in own and other[name]["metrics"] is not None:
                     own[name] = other[name]
                     added += 1
-            champsim_problem.save_table(own, own_path)
+            suite.save_table(own, own_path)
             fcntl.flock(lock_file, fcntl.LOCK_UN)
         print("{}: +{} rows -> {}".format(os.path.basename(other_path), added, len(own)), flush=True)
 
@@ -211,58 +205,14 @@ def fetch_gap(zip_url, member_name, out_dir):
     raise RuntimeError("member not found: " + member_name)
 
 
-# ---------------------------------------------------------------- the free screens ----
-
-BUYABLE_LLC_SMALLEST_KB = 256 * 4 * 64 / 1024.0 + 1024 * 8 * 64 / 1024.0
-BUYABLE_LLC_LARGEST_KB = 4608.0
-MOVABLE_MPKI_FLOOR = 1.0
-POLICY_MPKI_FLOOR = 5.0
-# Measured variance shares on this chip (dense 81-design sweeps): the ground truth the capacity channel was validated on.
-CAPACITY_VARIANCE = {"605.mcf_s-665B": 0.46, "619.lbm_s-2676B": 0.01, "620.omnetpp_s-874B": 0.86}
-PREFETCHER_VARIANCE = {"605.mcf_s-665B": 0.46, "619.lbm_s-2676B": 0.96, "620.omnetpp_s-874B": 0.00}
-
-
-def admit():
-    print("== admission gate: the chip can buy an LLC read at {:.0f}-{:.0f} KB".format(BUYABLE_LLC_SMALLEST_KB, BUYABLE_LLC_LARGEST_KB))
-    print("  {:<40s} {:>9s} {:>8s} {:>8s} {:>9s} {:>7s} {:>7s} {:>7s}  {}".format(
-        "trace", "footprint", "MPKI", "movable", "unfixable", "stride", "cap.var", "pf.var", "admit as"))
-    for path in sorted(glob.glob("results/profile_*.json")):
-        with open(path) as profile_file:
-            profile = json.load(profile_file)
-        name = os.path.basename(path).replace("profile_", "").replace(".json", "")
-        accesses = profile["mem_accesses_per_kinstr"]
-        smallest = trace_profile.predicted_miss_ratio(profile, BUYABLE_LLC_SMALLEST_KB)
-        largest = trace_profile.predicted_miss_ratio(profile, BUYABLE_LLC_LARGEST_KB)
-        movable = accesses * (smallest - largest)
-        curve = profile["miss_ratio_curve"]
-        floor = min(curve[size] for size in curve)
-        channels = []
-        if movable >= MOVABLE_MPKI_FLOOR:
-            channels.append("capacity")
-        if accesses * smallest >= POLICY_MPKI_FLOOR:
-            channels.append("policy")
-        verdict = " + ".join(channels)
-        if len(channels) == 0:
-            verdict = "REJECT (nothing any knob can fix)"
-        print("  {:<40s} {:7.0f}KB {:8.1f} {:8.2f} {:9.1f} {:7.3f} {:>7s} {:>7s}  {}".format(
-            name[:40], profile["footprint_kb"], accesses * smallest, movable, accesses * floor,
-            profile["stride_regular_fraction"], known(CAPACITY_VARIANCE, name), known(PREFETCHER_VARIANCE, name), verdict))
-
-
-def known(table, name):
-    if name in table:
-        return "{:.2f}".format(table[name])
-    return "-"
-
-
 def headroom(traces):
-    stock = champsim_problem.stock_design()
+    stock = suite.stock_design()
     rows_by_trace = {}
     for trace in traces:
-        name = trace_profile.short_name(trace)
-        table = champsim_problem.load_table(champsim_problem.table_path(name))
+        name = suite.short_name(trace)
+        table = suite.load_table(suite.table_path(name))
         rows = {}
-        for row in champsim_problem.measured_rows(table):
+        for row in suite.measured_rows(table):
             rows[row["name"]] = (row["ipc"], len(knobs_changed(row["knobs"], stock)))
         rows_by_trace[name] = rows
     names = list(rows_by_trace.keys())
@@ -323,10 +273,6 @@ def main():
         fetch_gap(sys.argv[2], sys.argv[3], sys.argv[4])
     elif mode == "probe":
         collect(sys.argv[2:], probe_designs())
-    elif mode == "uniform":
-        collect(sys.argv[3:], random_feasible_designs(int(sys.argv[2]), seed=0))
-    elif mode == "admit":
-        admit()
     elif mode == "headroom":
         headroom(sys.argv[2:])
     else:

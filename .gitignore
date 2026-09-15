@@ -1,4 +1,5 @@
-# Upstream clones - not our code; see CLAUDE.md setup section
+# Upstream clones - not our code. ChampSim is a setup step (see the README); the
+# chia clone is kept for the block work in CHIA_BLOCKS.md and the loop does not use it.
 champsim/
 chia/
 # Extra ChampSim trees for parallel builds (loop.simulate.tree_paths finds them)
@@ -11,22 +12,18 @@ champsim_bin/
 traces/
 configs/generated/
 loop/__pycache__/
-loop/llm_usage.json
-loop/llm_usage.json.lock
+# Per-machine cost accounting: the Mac's and the VM's would conflict on every merge
+results/llm_usage.json
 
-# Run logs, locks and regenerated text
+# Run logs, pids and table locks
 results/*.log
-results/*.txt
-results/*.lock
-results/chia_profiles/
+results/*.pid
+results/**/*.lock
 
 # Result tables fetched from the VM before `loop.workloads merge` folds them in
 results_vm*/
 # Tables from before the memory rebuild, kept out of the current dataset
 results_archive/
 
-# Long-form working documents, kept local rather than in the repo
+# Scratch review notes, kept local rather than in the repo
 REVIEW.md
-memory.md
-REPORT.md
-chia_contribution.md

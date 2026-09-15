@@ -1,8 +1,8 @@
 # Few-shot cache tuning from a memory of earlier searches
 
 Tuning a ChampSim cache hierarchy takes simulations, and simulations are the expensive part.
-This loop keeps a **memory** of searches already run on other workloads — what paid, what hurt,
-and one design worth copying — and hands that to a search on workloads it has never seen.
+This loop keeps a **memory** of searches already run on other workloads, boiled down to one
+design worth copying, and starts a new search from there.
 
 The question is not how good a design you can eventually find. It is **how many simulations you
 have to buy to get close to it.**
@@ -10,101 +10,147 @@ have to buy to get close to it.**
 ## The result
 
 Three Google datacenter traces (whiskey, bravo, delta) the loop has never seen. The memory was
-built from SPEC17 and GAP graph workloads only. "Best design known" is 0.5485 suite IPC, found
-by an independent 100-design search that used no memory. The stock chip is 0.4389.
+built from SPEC17 and GAP graph workloads only. "Best design known" is 0.5485 suite IPC, found by
+an independent 100-design search that used no memory. The stock chip is 0.4389.
 
-**To get within 5 % of the best design — 95 % of the way from the stock chip to it — a search
-seeded from memory needs 11 simulations. The same search from scratch needs 37.**
+Share of the stock-to-best gap reached after N simulated designs, mean over seeds:
 
-Simulations needed to get there, for each of the four searches:
-
-| how close to the best design | LLM + memory | optimizer + memory | LLM alone | optimizer alone |
+| | D1 | D4 | D8 | D16 |
 |---|---|---|---|---|
-| 90 % | **1** (15x) | **1** (15x) | not inside 16 | 15 |
-| **95 %** | 15 (2.5x) | **11** (3.4x) | not inside 16 | **37** |
-| 96 % | not inside 16 | 13 (3.8x) | not inside 16 | 49 |
+| random forest from the stock chip | 19 % | 46 % | 57 % | 68 % |
+| the same forest, from the memory's design | **93 %** | 93 % | 95 % | **96 %** |
 
-The two optimizer columns are the same random forest with expected improvement, differing only in
-where they start — from the design the memory hands over, or from the stock chip. The two LLM
-columns are the same Gemini agent, differing only in whether the memory's digest is in its prompt.
-Each cell is the first design at which the mean curve over seeds crosses that level.
+**The memory's first design is already at 93 %. The same search from scratch needs 26 simulations
+to match it, and 37 to reach 95 %.** The two rows are the identical optimizer; only the starting
+point differs.
 
-**Only the memoryless optimizer was run past a 16-design budget** (75 designs, three seeds). The
-two LLM arms stop at sixteen, so "not inside 16" is where the measurement ends, not a ceiling — the
-memoryless LLM agent is at **80 %** of the gap after all sixteen designs (77, 78, 78, 78, 88 per
-seed), and the LLM reading the memory's digest is at 95 %.
+It holds on a second suite (sierra.a.4, merced, tahoe): the opening is 90 %, which a from-scratch
+search needs 27 simulations to reach.
 
-**What this says, plainly:**
-
-- The memory's *first* design is already at 92.5 % of the way. A search from scratch takes about
-  fifteen simulations to match one lookup.
-- The advantage shrinks as you push higher — 15x at 90 %, 3.4x at 95 % — because once the search
-  is near the top it has to work for the rest, and then the memory does not help much.
-- The best design known sits **six knob changes** away from the one the memory hands over, and
-  everything within five changes of it is capped around 95 %. So the memory gets you into a good
-  region quickly and cannot on its own get you out of it.
-
-**On the arms:** an LLM agent reading the memory's digest and a plain optimizer started from the
-memory's design finish at the same place (95 % and 96 %), so the tables use the optimizer. The two
-surrogates we tried for the search from scratch — a Gaussian process and a random forest — also
-finish about the same. The memory is what moves the number; the searcher on top of it does not.
-
-**Pending:** a second suite (sierra.a.4, merced, tahoe) does not get as far. The head start is the
-same — its first design is at 90 %, which a search from scratch needs 27 simulations to match — but
-it only climbs to 92 % in sixteen designs, and from scratch that takes 30. So the advantage there
-is 27x at the opening and gone by the budget's end, instead of holding at 3.4x. Unresolved, not
-hidden; see `CLAUDE.md`.
-
-Every design, prompt and model answer is in `results/run_dc2_f1.json` and `run_dc2_g1.json`.
-Every run's prompts, model answers and per-design results are in those files; the cached
-simulation tables under `results/` are the dataset behind every number here.
+`REPORT.md` has the full tables, the limits, and what we removed along the way.
 
 ## How it works
 
-**Nothing about the test workloads enters the memory.** The memory is built by searching a
-separate set of workloads — here SPEC17 and GAP graph workloads — and it holds one **case** per
-workload it searched: that workload's descriptors, its best design, and every single-knob effect
-measured on it. whiskey, bravo and delta are never simulated during that build, have no case, and
-play no part in choosing the design that gets handed over. That design is picked from the searched
-workloads alone and frozen when the memory is built.
+**Nothing about the test workloads enters the memory.** A memory is built by searching a separate
+set of workloads — here SPEC17 and GAP — and what it stores is one design:
 
-When a new workload arrives, the only thing read from it is a **profile of its trace** — footprint,
-access rates, how regular its address stream is — which needs no simulator. That profile is used
-purely to decide *which remembered workloads are worth showing*: the closest ones by descriptor
-distance. Their evidence is then written into a **digest** — the moves that paid on them, the
-traps, where their best designs disagree, and the one design to copy. So everything in the digest
-is a statement about the workloads the memory searched, selected for relevance to the new one.
+```json
+{"chip": "C_server",
+ "handover": {13 knobs},
+ "chosen_from": {"designs": 163, "measured_on": 6, "mean_gap_share": 0.90,
+                 "per_workload": {"605.mcf_s-665B": {"stock": 0.3067, "best": 0.5228, "share": 0.885}, ...}}}
+```
 
-The cases are generated by code from result tables, never written by a model. What the LLM decides
-is which designs get simulated while the memory is being *built*, and that matters because **its
-search generalizes where an optimizer's overfits**: at an equal budget the optimizer's handover is
-the better design on the six workloads it searched (91 % against 90 % of their gap) and the worse
-one on the three it never saw (81 % against 93 %), and the same holds when each remembered workload
-is held out in turn (78 % against 84 %).
+The design is the one with the best mean share of the stock-to-best gap across every remembered
+workload, counting only designs measured on all but one of them. whiskey, bravo and delta are
+never simulated during that build and play no part in choosing it.
+
+Three searches are compared at the same budget, the same seeds and the same fidelity:
+
+- `bo` — random forest with expected improvement, from the stock chip
+- `pooled_bo` — the identical search, from the design the memory hands over
+- `llm_alone` — a Gemini agent proposing designs from the results table
 
 ## Layout
 
 | file | role |
 |---|---|
-| `loop/memory.py` | cases from result tables, retrieval by descriptor distance, the digest, the design handed over |
-| `loop/memory_build.py` | the procedure that fills a memory: search, one-knob anchor sweeps, confirm |
-| `loop/forest.py` | the random-forest search: the from-scratch baseline, the memory-seeded arm, and the independent reference |
-| `loop/agent.py` | the LLM agent (digest on/off, surrogate selection on/off) |
-| `loop/bo.py` | the Gaussian process, for the agent's candidate filter and the optimiser-built memory |
-| `loop/champsim_problem.py`, `loop/configs.py` | traces to a `problem` dict; the chip, the 13-knob space, the area budget |
-| `loop/simulate.py`, `loop/chia_nodes.py` | build and run ChampSim, and the same as CHIA tasks |
-| `loop/run.py`, `loop/summarize.py` | cells and arms, the report, the score table |
-| `results/table_<trace>.json` | the shared simulation cache, one per workload (the dataset) |
+| `loop/space.py` | what a design is: 13 knobs, the area budget |
+| `loop/simulate.py` | a design to numbers: ChampSim's config, the build, the run |
+| `loop/suite.py` | the objective, and the result tables that cache it |
+| `loop/search.py` | the three arms, the driver, the score table |
+| `loop/analyst.py` | the LLM: the call, the prompt, the proposals |
+| `loop/memory.py` | filling a memory, and the design it hands over |
+| `loop/workloads.py` | fetching, probing and judging a candidate workload |
+| `results/tables/` | the shared simulation cache, one per workload — the dataset |
 | `cluster/`, `upstream/` | the one-VM GCP recipe; patches for CHIA and ChampSim |
+
+## Setup
+
+Everything the project measured is in this repo: `results/tables/` holds all 7980 simulation
+results, so **every published number can be reproduced without a simulator and without a single
+trace.** Simulating new designs needs more.
+
+### To read the results (a few minutes)
+
+```bash
+git clone https://github.com/mateobuscarons/chia_hackathon.git && cd chia_hackathon
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt   # Python 3.10+
+
+# the stock chip's knob values are read from ChampSim's own config, so the clone is
+# needed even for read-only work — but it does not need to be built
+git clone --depth 1 https://github.com/ChampSim/ChampSim.git champsim
+
+.venv/bin/python -m loop.search score results/runs/dc2_g1.json
+```
+
+### To simulate new designs (a few hours, mostly downloads and one build)
+
+```bash
+# 1. ChampSim, pinned to the commit the tables were produced with, with the SPP fix applied
+cd champsim
+git fetch --unshallow && git checkout 51588e1 && git submodule update --init
+git apply ../upstream/0002-champsim-spp-dev-ghr-victim.patch   # without it, spp_dev designs crash
+./vcpkg/bootstrap-vcpkg.sh && ./vcpkg/vcpkg install
+./config.sh champsim_config.json && make -j8 && cd ..
+
+# 2. copies of the tree, so several designs compile at once (one build holds a whole tree)
+for i in $(seq 1 7); do cp -r champsim champsim_$i; done
+
+# 3. traces (~3.9 GB, gitignored). Twelve workloads, from three sources.
+mkdir -p traces && cd traces
+for t in 605.mcf_s-665B 619.lbm_s-2676B 620.omnetpp_s-874B; do          # SPEC17
+  curl -sSLO "https://dpc3.compas.cs.stonybrook.edu/champsim-traces/speccpu/${t}.champsimtrace.xz"
+done
+cd ..
+```
+
+**GAP** — `bfs.urand-36B`, `pr.urand-129B`, `bfs.kron-128B` — live inside a ~10 GB zip on Zenodo
+record [20043527](https://zenodo.org/records/20043527). `fetch_gap` pulls one member out of it over
+HTTP ranges without downloading the archive; take the archive's file URL from the record page:
+
+```bash
+.venv/bin/python -m loop.workloads fetch_gap <zip url> bfs.urand-36B.champsimtrace.xz traces
+```
+
+Cite *Characterizing the impact of last-level cache replacement policies on big-data workloads*,
+IISWC 2020, if you use them.
+
+**Datacenter** — `sierra.a.4`, `merced`, `tahoe`, `whiskey`, `bravo.a`, `delta` — come from the DPC4
+bucket as 100 MB prefixes, which hold ~88M instructions each, enough to simulate. The exact object
+path per trace is in the manifest:
+
+```bash
+curl -s https://pub-c31f67d79d1b4cd28ff320612b1a9f84.r2.dev/manifest.txt | grep sierra.a.4
+.venv/bin/python -m loop.workloads fetch <object url> traces/sierra.a.4_0000.champsim.gz 100
+```
+
+The filename must match what `loop/search.py`'s `TRACE` table expects, since that name keys the
+result tables.
+
+```bash
+# 4. only for the LLM arm and the memory build: credentials for Gemini on Vertex
+gcloud auth application-default login
+```
+
+Verify the setup with the gate — every arm, one round, two workloads:
+
+```bash
+SEEDS=1 .venv/bin/python -m loop.search smoke s1
+```
 
 ## Run
 
 ```bash
-python -m loop.run memory dc                                          # build the memory (simulates)
-python -m loop.workloads admit                                        # which workloads are worth a search
-SEEDS=1 LOOP_DISPATCH=chia python -m loop.run smoke s1                # every arm, one round
-SEEDS=5 BUDGET=16 LOOP_DISPATCH=chia python -m loop.run dc2 f1        # a cell
-python -m loop.forest 100 10 <trace> <trace> <trace>                  # the independent ceiling
-python -m loop.summarize results/run_dc2_f1.json results/run_dc2_g1.json
+python -m loop.memory build results/memory.json <spec traces> -- <gap traces>   # fill a memory
+SEEDS=5 BUDGET=16 python -m loop.search dc2 h1                                  # run a cell
+python -m loop.search score results/runs/dc2_h1.json                            # read it
+python -m loop.search ceiling 100 10 <trace> <trace> <trace>                    # the independent ceiling
 ```
-Setup, design and operations are in `CLAUDE.md`.
+
+A design is simulated once, ever: results are cached in `results/tables/<workload>.json`, keyed by
+the design's name, and every run reads that cache before simulating. Designs the simulator cannot
+measure are cached too, so a bad design costs one failed attempt rather than one per run.
+
+Design, operations and open work are in `CLAUDE.md`. Findings are in `REPORT.md`. Contributions
+back to CHIA and ChampSim are in `CHIA_BLOCKS.md`.

@@ -1,8 +1,15 @@
-"""Node [1] of the loop: run one ChampSim simulation, return clean metrics.
+"""One design, all the way to numbers: ChampSim's config, a binary, a run.
 
-This is the only file that touches the simulator. The analyst agent and
-the surrogate model only ever see the flat dict that run_simulation()
-returns — so swapping simulators or moving to GCP touches this file only.
+Three steps, and this file is the only place any of them lives:
+  make_config   a design (loop.space) plus the chip's overrides -> ChampSim's own
+                configuration JSON
+  build_binary  that JSON -> a compiled binary, cached under champsim_bin/ and
+                built in whichever ChampSim tree is free
+  run_simulation  that binary on a trace -> a flat metrics dict (ipc, misses, mpki)
+
+The chip itself is here too, as PROFILE: the handful of fields this project
+overrides on ChampSim's stock core and memory. Fields that are search knobs are
+not chip parameters and are not in it.
 """
 
 import fcntl
@@ -10,12 +17,111 @@ import json
 import math
 import shutil
 import subprocess
+import threading
 import time
 import tempfile
 import os
 
+from loop.space import AREA_BUDGET_KB, CHIP, config_name
+
 # The cache levels our loop tunes and reports on.
-CACHE_LEVELS = ["L1D", "L2C", "LLC"]
+# The levels whose hit and miss counts are kept. Only the LLC's are read anywhere
+# downstream - the objective is IPC, and the results table the agent reads shows LLC
+# misses and hit ratio - so counting the other two would fill the result tables with
+# columns nothing looks at.
+CACHE_LEVELS = ["LLC"]
+
+
+# ---------------------------------------------------------------- the chip ----
+
+PROFILE = {
+    "ooo_cpu": {"rob_size": 512, "lq_size": 192, "sq_size": 114, "scheduler_size": 192},
+    "L1D": {"mshr_size": 32},
+    "L2C": {"mshr_size": 64},
+    "LLC": {"ways": 16, "mshr_size": 128},
+    "physical_memory": {"data_rate": 3200, "channels": 2},
+}
+
+# Caches whose fixed latency is dropped so ChampSim derives it from size: a bigger
+# cache is then slower, and capacity is never free.
+LATENCY_CACHES = ["L1D", "L2C", "LLC"]
+
+# Where each knob lives in the ChampSim config JSON: (section, field).
+KNOB_LOCATION = {
+    "l1d_sets": ("L1D", "sets"), "l1d_ways": ("L1D", "ways"), "l1d_prefetcher": ("L1D", "prefetcher"),
+    "l2_sets": ("L2C", "sets"), "l2_ways": ("L2C", "ways"), "l2_prefetcher": ("L2C", "prefetcher"),
+    "l2_replacement": ("L2C", "replacement"),
+    "llc_sets": ("LLC", "sets"), "llc_ways": ("LLC", "ways"), "llc_prefetcher": ("LLC", "prefetcher"),
+    "llc_replacement": ("LLC", "replacement"),
+    "l2_mshr": ("L2C", "mshr_size"), "llc_mshr": ("LLC", "mshr_size"),
+}
+
+_base_config_cache = {}
+
+
+def describe():
+    """The chip in one line for the agent's prompt: its overrides over the stock
+    ChampSim core and memory, and its area budget."""
+    knob_fields = ["sets", "ways", "prefetcher", "replacement", "mshr_size"]
+    parts = []
+    for section_name in sorted(PROFILE):
+        fields = []
+        for field_name in sorted(PROFILE[section_name]):
+            if section_name in ["L1D", "L2C", "LLC"] and field_name in knob_fields:
+                continue
+            fields.append("{} {}".format(field_name, PROFILE[section_name][field_name]))
+        if len(fields) > 0:
+            parts.append("{}: {}".format(section_name, ", ".join(fields)))
+    return "Chip {} (one core; area budget {} KB for L2 + LLC): {}".format(CHIP, AREA_BUDGET_KB, "; ".join(parts))
+
+
+def apply_profile(config):
+    """Overwrite the stock config's fields with the chip's overrides."""
+    for section_name in PROFILE:
+        if section_name == "ooo_cpu":
+            # ChampSim stores cores as a list; the first entry is the template.
+            target = config["ooo_cpu"][0]
+        else:
+            target = config[section_name]
+        for field_name in PROFILE[section_name]:
+            target[field_name] = PROFILE[section_name][field_name]
+    return config
+
+
+def build_config(knobs, base_config_path):
+    """The full ChampSim config dict for one design (nothing written)."""
+    if base_config_path not in _base_config_cache:
+        with open(base_config_path) as base_file:
+            _base_config_cache[base_config_path] = json.load(base_file)
+    config = json.loads(json.dumps(_base_config_cache[base_config_path]))   # deep copy
+    config = apply_profile(config)
+    config["executable_name"] = config_name(knobs)
+    for knob in knobs:
+        section, field = KNOB_LOCATION[knob]
+        config[section][field] = knobs[knob]
+    # Drop the fixed latencies: ChampSim then uses round((sets*ways)^0.343 * 0.416).
+    for cache_name in LATENCY_CACHES:
+        if "latency" in config[cache_name]:
+            del config[cache_name]["latency"]
+    return config
+
+
+def make_config(knobs, base_config_path, output_dir):
+    """Write the ChampSim config JSON for one design; return its path."""
+    config = build_config(knobs, base_config_path)
+    name = config["executable_name"]
+    os.makedirs(output_dir, exist_ok=True)
+    output_path = os.path.join(output_dir, name + ".json")
+    # A suite evaluates one design on several workloads at once, so two threads
+    # may write this file together: write a private temp file and rename it.
+    temp_path = "{}.{}.{}.tmp".format(output_path, os.getpid(), threading.get_ident())
+    with open(temp_path, "w") as output_file:
+        json.dump(config, output_file, indent=2)
+    os.replace(temp_path, output_path)
+    return output_path
+
+
+# ---------------------------------------------------------------- the run ----
 
 
 def run_simulation(binary_path, trace_paths, warmup_instructions, simulation_instructions):

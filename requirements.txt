@@ -1,0 +1,6 @@
+# The whole dependency set. numpy and scikit-learn are the forest surrogate;
+# google-genai is the LLM arm and the memory build, and is not needed to read
+# results or to run the forest arms.
+numpy==2.2.6
+scikit-learn==1.7.2
+google-genai==2.8.0
