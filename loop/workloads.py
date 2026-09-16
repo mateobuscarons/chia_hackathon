@@ -106,9 +106,16 @@ def merge(other_results_dir):
             own = suite.load_table(own_path)
             added = 0
             for name in other:
-                if name not in own and other[name]["metrics"] is not None:
-                    own[name] = other[name]
-                    added += 1
+                if other[name]["metrics"] is None:
+                    continue
+                # Take a row we do not have, and take one that carries the current
+                # metrics version over a row of ours that does not. Never downgrade.
+                fresher = suite.complete(other[name]["metrics"]) and not suite.complete(
+                    own.get(name, {}).get("metrics"))
+                if name in own and not fresher:
+                    continue
+                own[name] = other[name]
+                added += 1
             suite.save_table(own, own_path)
             fcntl.flock(lock_file, fcntl.LOCK_UN)
         print("{}: +{} rows -> {}".format(os.path.basename(other_path), added, len(own)), flush=True)

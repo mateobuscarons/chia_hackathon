@@ -17,7 +17,6 @@ import json
 import math
 import shutil
 import subprocess
-import threading
 import time
 import tempfile
 import os
@@ -29,7 +28,20 @@ from loop.space import AREA_BUDGET_KB, CHIP, config_name
 # downstream - the objective is IPC, and the results table the agent reads shows LLC
 # misses and hit ratio - so counting the other two would fill the result tables with
 # columns nothing looks at.
-CACHE_LEVELS = ["LLC"]
+# Every cache ChampSim reports, not only the three the design space touches: a
+# simulation is expensive and a counter is free, so a later ablation over the
+# instruction side or the TLBs does not have to re-run anything.
+ALL_CACHES = ["L1I", "L1D", "L2C", "LLC", "ITLB", "DTLB", "STLB"]
+# How each kind of traffic is counted: demand requests are the design's real work
+# and carry no prefix; prefetch and translation traffic are kept apart from it.
+TRAFFIC = {"LOAD": "", "RFO": "", "WRITE": "", "PREFETCH": "pf_", "TRANSLATION": "translation_"}
+PREFETCH_STATS = {"pf_requested": "prefetch requested", "pf_issued": "prefetch issued",
+                  "pf_useful": "useful prefetch", "pf_useless": "useless prefetch"}
+
+# Bumped whenever this file changes what it records. A row written under an older
+# version is a cache miss and is re-simulated, so a design never serves a report
+# with holes in it.
+METRICS_VERSION = 2
 
 
 # ---------------------------------------------------------------- the chip ----
@@ -45,6 +57,12 @@ PROFILE = {
 # Caches whose fixed latency is dropped so ChampSim derives it from size: a bigger
 # cache is then slower, and capacity is never free.
 LATENCY_CACHES = ["L1D", "L2C", "LLC"]
+
+
+def derived_latency(sets, ways):
+    """The hit latency ChampSim derives for a cache of this shape, in cycles
+    (cache_builder.h: the formula the deleted `latency` fields fall through to)."""
+    return max(2, round((int(sets) * int(ways)) ** 0.343 * 0.416))
 
 # Where each knob lives in the ChampSim config JSON: (section, field).
 KNOB_LOCATION = {
@@ -112,10 +130,13 @@ def make_config(knobs, base_config_path, output_dir):
     name = config["executable_name"]
     os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir, name + ".json")
-    # A suite evaluates one design on several workloads at once, so two threads
-    # may write this file together: write a private temp file and rename it.
-    temp_path = "{}.{}.{}.tmp".format(output_path, os.getpid(), threading.get_ident())
-    with open(temp_path, "w") as output_file:
+    # A suite evaluates one design on several workloads at once, so two threads may
+    # write this file together: write a private temp file and rename it. The temp
+    # name comes from mkstemp rather than the design's, because a design name is
+    # already ~226 bytes and a pid-and-thread suffix pushed the longest ones past
+    # the 255-byte limit on a filename - which failed the design, not the write.
+    handle, temp_path = tempfile.mkstemp(dir=output_dir, suffix=".tmp")
+    with os.fdopen(handle, "w") as output_file:
         json.dump(config, output_file, indent=2)
     os.replace(temp_path, output_path)
     return output_path
@@ -176,19 +197,49 @@ def run_simulation(binary_path, trace_paths, warmup_instructions, simulation_ins
             metrics["core{}:ipc".format(index)] = core_ipc
     metrics["ipc"] = math.exp(log_ipc_sum / len(stats["cores"]))
 
-    for cache_name in CACHE_LEVELS:
-        hits = 0
-        misses = 0
-        # Private caches exist once per core (cpu0_L2C, cpu1_L2C, ...); the LLC once.
-        for cache in _find_caches(stats, cache_name):
-            # Demand traffic only (real requests, not prefetches).
-            for access_type in ["LOAD", "RFO", "WRITE"]:
-                hits += sum(cache[access_type]["hit"])
-                misses += sum(cache[access_type]["miss"])
-        metrics[cache_name + "_hits"] = hits
-        metrics[cache_name + "_misses"] = misses
-        metrics[cache_name + "_mpki"] = misses * 1000.0 / total_instructions
+    metrics["instructions"] = total_instructions
+    metrics["cycles"] = sum(core["cycles"] for core in stats["cores"])
+    metrics["mispredict"] = sum(sum(core["mispredict"].values()) for core in stats["cores"])
+    metrics["rob_occupancy_at_mispredict"] = sum(
+        core["Avg ROB occupancy at mispredict"] for core in stats["cores"]) / len(stats["cores"])
 
+    for cache_name in ALL_CACHES:
+        try:
+            found = _find_caches(stats, cache_name)
+        except KeyError:
+            continue        # a chip need not have every cache
+        counts = dict.fromkeys(
+            [prefix + field for prefix in set(TRAFFIC.values()) for field in ["hits", "misses"]]
+            + ["merges"] + list(PREFETCH_STATS), 0)
+        miss_latency = 0.0
+        # Private caches exist once per core (cpu0_L2C, cpu1_L2C, ...); the LLC once.
+        for cache in found:
+            for access_type, prefix in TRAFFIC.items():
+                counts[prefix + "hits"] += sum(cache[access_type]["hit"])
+                counts[prefix + "misses"] += sum(cache[access_type]["miss"])
+                counts["merges"] += sum(cache[access_type]["miss_merge"])
+            for key, field in PREFETCH_STATS.items():
+                counts[key] += cache[field]
+            # A cache with no misses reports its miss latency as null; treat it as none.
+            if cache["miss latency"] is not None:
+                miss_latency = max(miss_latency, cache["miss latency"])
+        for key in counts:
+            metrics["{}_{}".format(cache_name, key)] = counts[key]
+        metrics[cache_name + "_mpki"] = counts["misses"] * 1000.0 / total_instructions
+        metrics[cache_name + "_miss_latency"] = miss_latency
+
+    channels = stats.get("DRAM", [])
+    for channel in channels:
+        for field in channel:
+            key = "dram_" + field.lower().replace(" ", "_")
+            # Counts add across channels; a field the simulator already averaged
+            # has to be averaged again, not summed.
+            share = len(channels) if field.lower().startswith("avg") else 1
+            if channel[field] is None:
+                continue
+            metrics[key] = metrics.get(key, 0.0) + channel[field] / share
+
+    metrics["metrics_version"] = METRICS_VERSION
     return metrics
 
 

@@ -23,8 +23,8 @@ import os
 import time
 from concurrent.futures import ThreadPoolExecutor
 
-from loop.simulate import (CACHE_LEVELS, KNOB_LOCATION, build_binary, build_config, describe, make_config,
-                           run_simulation)
+from loop.simulate import (ALL_CACHES, KNOB_LOCATION, METRICS_VERSION, build_binary, build_config,
+                           describe, make_config, run_simulation)
 from loop.space import AREA_BUDGET_KB, SEARCH_SPACE, config_name, in_space, typed_knobs, within_budget
 
 CHAMPSIM_ROOT = "champsim"
@@ -110,20 +110,32 @@ def measured_rows(table):
 
 # ---------------------------------------------------------------- measuring one workload ----
 
+def complete(metrics):
+    """A row is usable only if the current simulator wrote it. An older row is a
+    cache miss, not a hit: it is re-simulated and overwritten, so no design ever
+    serves a report with holes in it - the handover included."""
+    return metrics is not None and metrics.get("metrics_version") == METRICS_VERSION
+
+
 def enrich_metrics(metrics):
-    """Hit ratios per level, derived from the simulator's hit and miss counts."""
+    """Per level, what the raw counts imply: the hit ratio, and how well the
+    prefetcher did - accuracy (useful prefetches over issued) and coverage (the
+    share of the level's misses it removed). Derived here so every reader agrees."""
     if metrics is None:
         return None
-    for level in CACHE_LEVELS:
+    for level in ALL_CACHES:
         hits = metrics.get(level + "_hits")
         misses = metrics.get(level + "_misses")
         if hits is None or misses is None:
             continue
         total = hits + misses
-        if total > 0:
-            metrics[level + "_hit_ratio"] = hits / total
-        else:
-            metrics[level + "_hit_ratio"] = 0.0
+        metrics[level + "_hit_ratio"] = hits / total if total > 0 else 0.0
+        issued = metrics.get(level + "_pf_issued")
+        useful = metrics.get(level + "_pf_useful")
+        if issued is None or useful is None:
+            continue
+        metrics[level + "_pf_accuracy"] = useful / issued if issued > 0 else 0.0
+        metrics[level + "_pf_coverage"] = useful / (useful + misses) if useful + misses > 0 else 0.0
     return metrics
 
 
@@ -156,8 +168,9 @@ class ChampSimProblem:
             if name in self.sweep_table:
                 if self.sweep_table[name]["metrics"] is None:
                     raise RuntimeError("design crashed earlier on this workload: " + name)
-                waiters.append(self.ready(enrich_metrics(dict(self.sweep_table[name]["metrics"]))))
-                continue
+                if complete(self.sweep_table[name]["metrics"]):
+                    waiters.append(self.ready(enrich_metrics(dict(self.sweep_table[name]["metrics"]))))
+                    continue
             if not self.allow_simulation:
                 raise KeyError("not in the table and simulation disabled: " + name)
             waiters.append(self.wait_local(knobs, self.local_pool.submit(self.simulate_here, knobs)))

@@ -1,4 +1,4 @@
-"""The loop: three searches over one chip, same budget, same seeds, same fidelity.
+"""The loop: the searches over one chip, same budget, same seeds, same fidelity.
 
   python -m loop.search <cell> <tag> [arm,arm]           # run the arms -> results/runs/<cell>_<tag>.json
   python -m loop.search score results/runs/<cell>_<tag>.json
@@ -9,6 +9,8 @@ Arms, each buying BUDGET designs from the stock chip (design D0):
               pick is made against measured outcomes
   pooled_bo   the identical search, started from the design the memory hands over
               (loop.memory). One variable differs from `bo`, and it is the memory.
+  council     four specialists, one per concern, one concern moving per round,
+              started from the same handover (loop.council)
   llm_alone   the agent, PER_ROUND designs a round, reading the chip, the knobs
               and every design measured so far (loop.analyst)
 
@@ -60,7 +62,7 @@ CELLS = {
     # The gate before any launch: every arm, one round, two workloads.
     "smoke": [TRACE["mcf"], TRACE["lbm"]],
 }
-ARMS = ["bo", "pooled_bo", "llm_alone"]
+ARMS = ["bo", "pooled_bo", "council", "llm_alone"]
 
 BUDGET = int(os.environ.get("BUDGET", "16"))
 PER_ROUND = 2             # the LLM's designs per round; the forest buys one at a time
@@ -379,6 +381,10 @@ def run_one(arm, cell_name, seed, budget, tag_prefix):
                                start_design=memory.handover(memory_path()))
     elif arm == "llm_alone":
         result = llm_search(problem, budget, PER_ROUND, tag)
+    elif arm == "council":
+        from loop import council
+        result = council.search(problem, budget, seed, tag,
+                                start_design=memory.handover(memory_path()))
     else:
         raise ValueError("unknown arm " + arm)
     result["designs"] = compact(result["designs"], problem)
@@ -425,7 +431,7 @@ def run_cell(cell_name, tag, arms=None):
     # Seed-major: the first wave already covers every arm on seed 0.
     for seed in range(first_seed, first_seed + seeds):
         for arm in arms:
-            handles.append((arm, seed, pool.submit(run_one, arm, cell_name, seed, budget, cell_name)))
+            handles.append((arm, seed, pool.submit(run_one, arm, cell_name, seed, budget, tag)))
     for arm, seed, handle in handles:
         try:
             result = handle.result()

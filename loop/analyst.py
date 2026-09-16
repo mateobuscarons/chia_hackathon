@@ -20,15 +20,18 @@ from google import genai
 from loop.space import KNOB_PRIORITY, SEARCH_SPACE, knobs_changed, typed_knobs
 
 GCP_PROJECT = "project-c23a6080-f5d0-4871-9cb"
-# gemini-2.5-flash is the strongest flash this project can call (Gemini 3 is not enabled on it);
-# ANALYST_MODEL=gemini-2.5-pro is the only Pro.
-MODEL = os.environ.get("ANALYST_MODEL", "gemini-2.5-flash")
+# ANALYST_MODEL picks the model, ANALYST_LOCATION the Vertex endpoint serving it. The
+# 2.5 models serve from us-central1; every Gemini 3.x model 404s there and serves from
+# "global" only, so a 3.x model needs ANALYST_LOCATION=global.
+MODEL = os.environ.get("ANALYST_MODEL", "gemini-3.1-pro-preview")
+LOCATION = os.environ.get("ANALYST_LOCATION", "global")
 USAGE_LOG = "results/llm_usage.json"
 
 # USD per 1M tokens (input, output), prompts under 200k tokens. Thinking bills as output.
 PRICES = {"gemini-2.5-flash": (0.30, 2.50),
           "gemini-2.5-flash-lite": (0.10, 0.40),
-          "gemini-2.5-pro": (1.25, 10.00)}
+          "gemini-2.5-pro": (1.25, 10.00),
+          "gemini-3.1-pro-preview": (2.00, 12.00)}
 
 TEMPERATURE = 0.7
 THINKING_BUDGET = 4096
@@ -47,7 +50,7 @@ def client():
     global _client
     if _client is None:
         # 120 s timeout per call: a hung request must fail loudly, not stall the loop.
-        _client = genai.Client(vertexai=True, project=GCP_PROJECT, location="us-central1",
+        _client = genai.Client(vertexai=True, project=GCP_PROJECT, location=LOCATION,
                                http_options={"timeout": 120_000})
     return _client
 
@@ -57,7 +60,11 @@ def ask(prompt_text):
     for attempt in range(5):
         started = time.time()
         response = generate_with_backoff(prompt_text)
-        log_cost(response.usage_metadata.prompt_token_count, response.usage_metadata.candidates_token_count)
+        # Thinking bills at the output rate but is reported apart from the answer, so
+        # counting `candidates` alone understated every thinking model's cost.
+        usage = response.usage_metadata
+        log_cost(usage.prompt_token_count or 0,
+                 (usage.candidates_token_count or 0) + (usage.thoughts_token_count or 0))
         print("  [gemini] {:.1f}s".format(time.time() - started), flush=True)
         try:
             return json.loads(response.text)

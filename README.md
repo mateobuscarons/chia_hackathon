@@ -15,14 +15,27 @@ an independent 100-design search that used no memory. The stock chip is 0.4389.
 
 Share of the stock-to-best gap reached after N simulated designs, mean over seeds:
 
-| | D1 | D4 | D8 | D16 |
+| | D1 | D4 | D8 | D12 |
 |---|---|---|---|---|
-| random forest from the stock chip | 19 % | 46 % | 57 % | 68 % |
-| the same forest, from the memory's design | **93 %** | 93 % | 95 % | **96 %** |
+| random forest from the stock chip | 19 % | 46 % | 57 % | 61 % |
+| the same forest, from the memory's design | **93 %** | 93 % | 95 % | 95 % |
+| four LLM specialists, from the memory's design | **93 %** | 94 % | 95 % | **99 %** |
+
+Designs a search has to buy to reach a level, read off the mean curve:
+
+| | 95 % | 98 % |
+|---|---|---|
+| random forest from the stock chip | D37 | D73 |
+| the same forest, from the memory's design | D11 | not within 16 |
+| four LLM specialists, from the memory's design | D9 | D11 |
 
 **The memory's first design is already at 93 %. The same search from scratch needs 26 simulations
-to match it, and 37 to reach 95 %.** The two rows are the identical optimizer; only the starting
-point differs.
+to match it, and 37 to reach 95 %.** The two forest rows are the identical optimizer; only the
+starting point differs. The specialists start from the same design and reach 99 % in 11: in both
+seeds they shrank the L2 to an eighth of its size, a two-knob move the forest never took.
+
+Seeds: 4 for the forest from scratch (3 runs of 75 designs for the levels), 5 from the memory,
+2 for the specialists.
 
 It holds on a second suite (sierra.a.4, merced, tahoe): the opening is 90 %, which a from-scratch
 search needs 27 simulations to reach.
@@ -45,10 +58,12 @@ The design is the one with the best mean share of the stock-to-best gap across e
 workload, counting only designs measured on all but one of them. whiskey, bravo and delta are
 never simulated during that build and play no part in choosing it.
 
-Three searches are compared at the same budget, the same seeds and the same fidelity:
+Four searches are compared at the same budget, the same seeds and the same fidelity:
 
 - `bo` — random forest with expected improvement, from the stock chip
 - `pooled_bo` — the identical search, from the design the memory hands over
+- `council` — four Gemini specialists, one per concern (prefetch, geometry, replacement,
+  concurrency); one concern moves per round, from the design the memory hands over
 - `llm_alone` — a Gemini agent proposing designs from the results table
 
 ## Layout
@@ -58,7 +73,8 @@ Three searches are compared at the same budget, the same seeds and the same fide
 | `loop/space.py` | what a design is: 13 knobs, the area budget |
 | `loop/simulate.py` | a design to numbers: ChampSim's config, the build, the run |
 | `loop/suite.py` | the objective, and the result tables that cache it |
-| `loop/search.py` | the three arms, the driver, the score table |
+| `loop/search.py` | the arms, the driver, the score table |
+| `loop/council.py` | the four specialists: their principles, the per-level report, one move a round |
 | `loop/analyst.py` | the LLM: the call, the prompt, the proposals |
 | `loop/memory.py` | filling a memory, and the design it hands over |
 | `loop/workloads.py` | fetching, probing and judging a candidate workload |
@@ -67,7 +83,7 @@ Three searches are compared at the same budget, the same seeds and the same fide
 
 ## Setup
 
-Everything the project measured is in this repo: `results/tables/` holds all 7980 simulation
+Everything the project measured is in this repo: `results/tables/` holds all 8107 simulation
 results, so **every published number can be reproduced without a simulator and without a single
 trace.** Simulating new designs needs more.
 
@@ -81,7 +97,8 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt   # Python 3.
 # needed even for read-only work — but it does not need to be built
 git clone --depth 1 https://github.com/ChampSim/ChampSim.git champsim
 
-.venv/bin/python -m loop.search score results/runs/dc2_g1.json
+.venv/bin/python -m loop.search score results/runs/dc2_g1.json   # the forest arms
+.venv/bin/python -m loop.search score results/runs/dc2_c4.json   # the specialists
 ```
 
 ### To simulate new designs (a few hours, mostly downloads and one build)
@@ -129,7 +146,7 @@ The filename must match what `loop/search.py`'s `TRACE` table expects, since tha
 result tables.
 
 ```bash
-# 4. only for the LLM arm and the memory build: credentials for Gemini on Vertex
+# 4. only for the LLM arms and the memory build: credentials for Gemini on Vertex
 gcloud auth application-default login
 ```
 
@@ -143,7 +160,8 @@ SEEDS=1 .venv/bin/python -m loop.search smoke s1
 
 ```bash
 python -m loop.memory build results/memory.json <spec traces> -- <gap traces>   # fill a memory
-SEEDS=5 BUDGET=16 python -m loop.search dc2 h1                                  # run a cell
+SEEDS=5 BUDGET=16 python -m loop.search dc2 h1                                  # run a cell, every arm
+SEEDS=2 BUDGET=12 python -m loop.search dc2 c5 council                          # one arm
 python -m loop.search score results/runs/dc2_h1.json                            # read it
 python -m loop.search ceiling 100 10 <trace> <trace> <trace>                    # the independent ceiling
 ```
