@@ -4,8 +4,8 @@ Tuning a ChampSim cache hierarchy takes simulations, and simulations are the exp
 This loop keeps a **memory** of searches already run on other workloads, boiled down to one
 design worth copying, and starts a new search from there.
 
-The question is not how good a design you can eventually find. It is **how many simulations you
-have to buy to get close to it.**
+The question is not how good a design you can eventually find. It is **how many designs you
+have to measure to get close to it.**
 
 ## The result
 
@@ -18,27 +18,31 @@ Share of the stock-to-best gap reached after N simulated designs, mean over seed
 | | D1 | D4 | D8 | D12 |
 |---|---|---|---|---|
 | random forest from the stock chip | 19 % | 46 % | 57 % | 61 % |
+| four LLM specialists, from the stock chip | 21 % | 52 % | 63 % | 87 % |
 | the same forest, from the memory's design | **93 %** | 93 % | 95 % | 95 % |
-| four LLM specialists, from the memory's design | **93 %** | 94 % | 95 % | **99 %** |
+| four LLM specialists, from the memory's design | **93 %** | 95 % | 96 % | 97 % |
 
-Designs a search has to buy to reach a level, read off the mean curve:
+Designs a search has to measure to reach a level, read off the mean curve:
 
 | | 95 % | 98 % |
 |---|---|---|
 | random forest from the stock chip | D37 | D73 |
+| four LLM specialists, from the stock chip | not within 16 | not within 16 |
 | the same forest, from the memory's design | D11 | not within 16 |
-| four LLM specialists, from the memory's design | D9 | D11 |
+| four LLM specialists, from the memory's design | D4 | not within 16 |
 
 **The memory's first design is already at 93 %. The same search from scratch needs 26 simulations
 to match it, and 37 to reach 95 %.** The two forest rows are the identical optimizer; only the
-starting point differs. The specialists start from the same design and reach 99 % in 11: in both
-seeds they shrank the L2 to an eighth of its size, a two-knob move the forest never took.
+starting point differs, and the same holds for the two specialist rows. Without a memory the
+specialists and the forest are on par. From the memory the specialists reach 97 % at D12 over three
+seeds (95 to 99): the seed that reached 99 % shrank the L2 to an eighth of its size in two
+consecutive moves, a two-knob move the forest never took.
 
 Seeds: 4 for the forest from scratch (3 runs of 75 designs for the levels), 5 from the memory,
-2 for the specialists.
+3 for each specialist row.
 
 It holds on a second suite (sierra.a.4, merced, tahoe): the opening is 90 %, which a from-scratch
-search needs 27 simulations to reach.
+search needs 27 simulations to reach; from there the specialists reach 93 % at D8 and stay there.
 
 `REPORT.md` has the full tables, the limits, and what we removed along the way.
 
@@ -64,7 +68,7 @@ Four searches are compared at the same budget, the same seeds and the same fidel
 - `pooled_bo` — the identical search, from the design the memory hands over
 - `council` — four Gemini specialists, one per concern (prefetch, geometry, replacement,
   concurrency); one concern moves per round, from the design the memory hands over
-- `llm_alone` — a Gemini agent proposing designs from the results table
+- `council_stock` — the identical council, from the stock chip
 
 ## Layout
 
@@ -83,7 +87,7 @@ Four searches are compared at the same budget, the same seeds and the same fidel
 
 ## Setup
 
-Everything the project measured is in this repo: `results/tables/` holds all 8107 simulation
+Everything the project measured is in this repo: `results/tables/` holds all 8585 simulation
 results, so **every published number can be reproduced without a simulator and without a single
 trace.** Simulating new designs needs more.
 
@@ -98,7 +102,7 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt   # Python 3.
 git clone --depth 1 https://github.com/ChampSim/ChampSim.git champsim
 
 .venv/bin/python -m loop.search score results/runs/dc2_g1.json   # the forest arms
-.venv/bin/python -m loop.search score results/runs/dc2_c4.json   # the specialists
+.venv/bin/python -m loop.search score results/runs/dc2_c5b.json  # the specialists
 ```
 
 ### To simulate new designs (a few hours, mostly downloads and one build)

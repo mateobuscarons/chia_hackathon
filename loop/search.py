@@ -4,15 +4,16 @@
   python -m loop.search score results/runs/<cell>_<tag>.json
   python -m loop.search ceiling <designs> <batch> <trace> [trace ...]
 
-Arms, each buying BUDGET designs from the stock chip (design D0):
+Arms, each measuring BUDGET designs from the stock chip (design D0):
   bo          random forest + expected improvement, one design per round, so every
               pick is made against measured outcomes
   pooled_bo   the identical search, started from the design the memory hands over
               (loop.memory). One variable differs from `bo`, and it is the memory.
   council     four specialists, one per concern, one concern moving per round,
-              started from the same handover (loop.council)
-  llm_alone   the agent, PER_ROUND designs a round, reading the chip, the knobs
-              and every design measured so far (loop.analyst)
+              started from the design the memory hands over (loop.council)
+  council_stock
+              the identical council, started from the stock chip. One variable
+              differs from `council`, and it is the memory.
 
 The question is designs-to-level, not level-at-N: how many simulations each arm
 needs to get within some share of the best design known. Shares are read by
@@ -50,7 +51,12 @@ TRACE = {"mcf": "traces/605.mcf_s-665B.champsimtrace.xz",
          "tahoe": "traces/tahoe_0000.champsim.gz",
          "whiskey": "traces/whiskey_0000.champsim.gz",
          "bravo": "traces/bravo.a_0000.champsim.gz",
-         "delta": "traces/delta_0000.champsim.gz"}
+         "delta": "traces/delta_0000.champsim.gz",
+         "llama2": "traces/llama2.c-llama2_7b.1.champsimtrace.gz",
+         "sd": "traces/stable-diffusion.cpp-v1-5-pruned-emaonly.1.champsimtrace.gz",
+         "whisper": "traces/whisper_trace_1.champsimtrace.gz",
+         "clip": "traces/clip_trace_1.champsimtrace.gz",
+         "bellmanford": "traces/ligra_BellmanFord.com-lj.ungraph.gcc_6.3.0_O3.drop_22250M.length_250M.champsimtrace.xz"}
 
 # The suite each cell tests. None of them is in the memory: the memory remembers
 # mcf, omnetpp, lbm, bfs.urand, pr.urand and bfs.kron, and nothing else.
@@ -59,13 +65,17 @@ CELLS = {
     "dc": [TRACE["sierra.a.4"], TRACE["merced"], TRACE["tahoe"]],
     # The confirmation: the three datacenter traces the first suite did not take.
     "dc2": [TRACE["whiskey"], TRACE["bravo"], TRACE["delta"]],
+    # Out of regime: ML inference (DPC4 ai-ml, 200 MB prefixes), never seen.
+    "aiml": [TRACE["llama2"], TRACE["sd"], TRACE["clip"]],
+    # Three domains in one suite: ML inference, a Ligra graph kernel, a datacenter trace.
+    "mixed": [TRACE["whisper"], TRACE["bellmanford"], TRACE["tahoe"]],
     # The gate before any launch: every arm, one round, two workloads.
     "smoke": [TRACE["mcf"], TRACE["lbm"]],
 }
-ARMS = ["bo", "pooled_bo", "council", "llm_alone"]
+ARMS = ["bo", "pooled_bo", "council", "council_stock"]
 
 BUDGET = int(os.environ.get("BUDGET", "16"))
-PER_ROUND = 2             # the LLM's designs per round; the forest buys one at a time
+SMOKE_BUDGET = 2          # the gate measures this many designs per arm, whatever BUDGET says
 WARM_UP_DESIGNS = 3       # taken from the pool before the forest chooses anything
 TREES = 100
 # The forest scores a fixed random sample of the feasible designs (the space holds
@@ -310,14 +320,15 @@ def forest_search(problem, budget, batch, seed, tag, start_design=None, warm_up=
     return {"designs": history, "rounds": []}
 
 
-# ---------------------------------------------------------------- the LLM arm ----
+# ---------------------------------------------------------------- the memory build's searcher ----
 
 def llm_search(problem, budget, per_round, tag):
-    """The agent buys `per_round` designs a round. The designs of one round are
+    """Stage 1 of a memory build (`loop.memory.search`), and nothing else reaches it:
+    the agent measures `per_round` designs a round. The designs of one round are
     chosen together from the same information, so they are one decision, not two.
 
     Like the forest arm, the budget counts designs that produced a measurement, so
-    a crashed design buys another round. Two guards bound that: a round that can
+    a crashed design costs another round. Two guards bound that: a round that can
     name no new design at all ends the run, and no run takes more rounds than its
     budget in designs."""
     objective = problem["objective"]
@@ -379,12 +390,13 @@ def run_one(arm, cell_name, seed, budget, tag_prefix):
     elif arm == "pooled_bo":
         result = forest_search(problem, budget, 1, seed, tag,
                                start_design=memory.handover(memory_path()))
-    elif arm == "llm_alone":
-        result = llm_search(problem, budget, PER_ROUND, tag)
     elif arm == "council":
         from loop import council
         result = council.search(problem, budget, seed, tag,
                                 start_design=memory.handover(memory_path()))
+    elif arm == "council_stock":
+        from loop import council
+        result = council.search(problem, budget, seed, tag)
     else:
         raise ValueError("unknown arm " + arm)
     result["designs"] = compact(result["designs"], problem)
@@ -413,13 +425,13 @@ def run_cell(cell_name, tag, arms=None):
     first_seed = int(os.environ.get("FIRST_SEED", "0"))
     budget = BUDGET
     if cell_name == "smoke":
-        budget = PER_ROUND
+        budget = SMOKE_BUDGET
     workloads = []
     for trace_path in CELLS[cell_name]:
         workloads.append(short_name(trace_path))
     output_path = report_path(cell_name, tag)
     report = {"cell": cell_name, "tag": tag, "workloads": workloads, "arms": arms, "seeds": seeds,
-              "first_seed": first_seed, "budget": budget, "per_round": PER_ROUND,
+              "first_seed": first_seed, "budget": budget,
               "memory_path": memory_path(), "model": analyst.MODEL, "runs": {}, "failed": []}
     for arm in arms:
         report["runs"][arm] = {}

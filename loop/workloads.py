@@ -123,7 +123,7 @@ def merge(other_results_dir):
 
 def fetch(url, out_path, prefix_mb=None):
     """Download a file, or only its first prefix_mb megabytes with an HTTP range."""
-    request = urllib.request.Request(url)
+    request = urllib.request.Request(url, headers={"User-Agent": "curl/8"})
     if prefix_mb is not None:
         request.add_header("Range", "bytes=0-{}".format(prefix_mb * 1024 * 1024 - 1))
     with urllib.request.urlopen(request) as response, open(out_path, "wb") as out_file:
@@ -139,7 +139,8 @@ def fetch_gap(zip_url, member_name, out_dir):
     """Read the zip64 central directory from the archive's tail, find the member,
     then byte-range just that member and inflate it."""
     def fetch_range(start, end):
-        request = urllib.request.Request(zip_url, headers={"Range": "bytes={}-{}".format(start, end)})
+        request = urllib.request.Request(zip_url, headers={"Range": "bytes={}-{}".format(start, end),
+                                                            "User-Agent": "curl/8"})
         with urllib.request.urlopen(request) as response:
             return response.read()
 

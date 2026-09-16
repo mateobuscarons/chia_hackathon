@@ -7,7 +7,7 @@
 # Log: results/<cell>_<tag>.log, one line per design.
 cd ~/loop
 CELL="$1"; TAG="$2"; ARMS="${3:-}"
-export ANALYST_MODEL="${ANALYST_MODEL:-gemini-2.5-flash}"
+export ANALYST_MODEL="${ANALYST_MODEL:-gemini-3.1-pro-preview}"
 LOG=results/${CELL}_${TAG}.log
 echo $$ > results/${CELL}_${TAG}.pid
 if [ "${SMOKE_FIRST:-0}" = "1" ]; then

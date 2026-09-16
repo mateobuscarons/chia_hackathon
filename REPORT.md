@@ -167,8 +167,11 @@ picks across both suites it read a small positive `movable_llc_mpki` as "capacit
 the single-knob LLC doubling, worth 15 % of the gap on `dc2` and 35 % on `dc`. The four picks that
 instead combined prefetchers, policy and capacity were worth 41-76 %. The block gave no scale, so
 "positive" read as "large", and the descriptor that predicted best pointed at a knob the model did not
-reach for. Removed entirely: the agent now sees the chip, the knobs and its own measurements, which
-makes `llm_alone` a baseline with no information the optimizer lacks.
+reach for. Removed entirely: the agent now sees the chip, the knobs and its own measurements, and nothing
+the optimizer lacks. The single-agent arm that read them is gone as well — the memoryless LLM
+baseline is `council_stock`, the same council started from the stock chip, which isolates the
+memory the way `bo` does against `pooled_bo`. The prompt itself survives as the memory build's
+stage-1 searcher, which is the only thing that still calls it.
 
 ---
 

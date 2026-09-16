@@ -4,7 +4,7 @@
 # Budgets come from loop/memory.py (MB_SEARCH, MB_CONFIRM).
 # Log: results/membuild.log; the smoke's own log is results/membuild_smoke.log.
 cd ~/loop
-export ANALYST_MODEL="${ANALYST_MODEL:-gemini-2.5-flash}"
+export ANALYST_MODEL="${ANALYST_MODEL:-gemini-3.1-pro-preview}"
 SPEC="traces/605.mcf_s-665B.champsimtrace.xz traces/620.omnetpp_s-874B.champsimtrace.xz traces/619.lbm_s-2676B.champsimtrace.xz"
 GAP="traces/bfs.urand-36B.champsimtrace.xz traces/pr.urand-129B.champsimtrace.xz traces/bfs.kron-128B.champsimtrace.xz"
 LOG=results/membuild.log

@@ -1,9 +1,9 @@
 """The model: Gemini on Vertex, JSON in and JSON out, and the prompt it reads.
 
-One call serves the LLM arm: `designs_for_round` returns the designs to simulate
-next. Everything the model can get wrong is handled here and nowhere else - rate
+One call serves the memory build's searcher (`loop.search.llm_search`):
+`designs_for_round` returns the designs to simulate next. Everything the model can get wrong is handled here and nowhere else - rate
 limits, malformed answers, designs that are not real, designs already measured -
-so the search itself never has to know that one of its arms is a language model.
+so a search reading this module never has to know that it is talking to a language model.
 
 A proposal must be a real, in-budget, unmeasured design. If it is not, the model
 gets one retry with the rejected designs listed; a slot still empty is filled by a

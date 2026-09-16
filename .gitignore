@@ -13,7 +13,10 @@ traces/
 configs/generated/
 loop/__pycache__/
 # Per-machine cost accounting: the Mac's and the VM's would conflict on every merge
-results/llm_usage.json
+results/llm_usage*.json
+
+# Smoke-gate reports: a gate artifact, not a result
+results/runs/smoke_*.json
 
 # Run logs, pids and table locks
 results/*.log

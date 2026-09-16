@@ -178,11 +178,18 @@ def latency_ladder(levels):
     return "\n".join(lines)
 
 
+def labels_for(workloads):
+    """Workloads are shown by position (W1, W2, ...), never by name: a trace's file
+    name can say what the program is, and the specialist is not told."""
+    return {workload: "W{}".format(index + 1) for index, workload in enumerate(workloads)}
+
+
 def level_report(entry, levels, workloads):
     """One design's per-level report, for the levels a concern can read: the shape,
     which is what fixes the hit latency paid on every access that reaches the level,
     then what each workload measured there. The levels are listed top down, so a
     level's misses are read against the line below it."""
+    labels = labels_for(workloads)
     lines = []
     for level in levels:
         sets_knob, ways_knob = SHAPE_OF[level]
@@ -194,7 +201,7 @@ def level_report(entry, levels, workloads):
                 return entry["metrics"].get("{}:{}_{}".format(workload, level, metric))
             if got("mpki") is None:
                 continue
-            cell = "{} mpki {:.2f}, hit {:.2f}".format(workload, got("mpki"), got("hit_ratio") or 0.0)
+            cell = "{} mpki {:.2f}, hit {:.2f}".format(labels[workload], got("mpki"), got("hit_ratio") or 0.0)
             if got("pf_coverage") is not None:
                 cell += ", prefetch cov {:.2f} acc {:.2f}".format(
                     got("pf_coverage"), got("pf_accuracy") or 0.0)
@@ -272,7 +279,7 @@ def specialist(problem, name, history, incumbent, incumbent_entry, tag):
     parts += ["",
               "## Chip", problem["chip_text"],
               "Objective: maximise {}, the geometric mean of IPC over {}.".format(
-                  objective, " + ".join(problem["workloads"])),
+                  objective, " + ".join(labels_for(problem["workloads"]).values())),
               "",
               "## Your knobs and their allowed values"]
     if name == "prefetch":

@@ -251,7 +251,7 @@ def first_item(pair):
 
 
 def search(problem, tag):
-    """Stage 1: the loop's own LLM arm, searching one group from the stock chip,
+    """Stage 1: an LLM search over one group from the stock chip,
     PER_ROUND designs a round, every proposal measured. It starts from nothing - a
     memory is what this build produces, not something it reads."""
     # Imported here rather than at the top: loop.search reads the handover from here.
