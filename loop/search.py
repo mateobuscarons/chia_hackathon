@@ -54,9 +54,7 @@ TRACE = {"mcf": "traces/605.mcf_s-665B.champsimtrace.xz",
          "delta": "traces/delta_0000.champsim.gz",
          "llama2": "traces/llama2.c-llama2_7b.1.champsimtrace.gz",
          "sd": "traces/stable-diffusion.cpp-v1-5-pruned-emaonly.1.champsimtrace.gz",
-         "whisper": "traces/whisper_trace_1.champsimtrace.gz",
-         "clip": "traces/clip_trace_1.champsimtrace.gz",
-         "bellmanford": "traces/ligra_BellmanFord.com-lj.ungraph.gcc_6.3.0_O3.drop_22250M.length_250M.champsimtrace.xz"}
+         "clip": "traces/clip_trace_1.champsimtrace.gz"}
 
 # The suite each cell tests. None of them is in the memory: the memory remembers
 # mcf, omnetpp, lbm, bfs.urand, pr.urand and bfs.kron, and nothing else.
@@ -67,8 +65,6 @@ CELLS = {
     "dc2": [TRACE["whiskey"], TRACE["bravo"], TRACE["delta"]],
     # Out of regime: ML inference (DPC4 ai-ml, 200 MB prefixes), never seen.
     "aiml": [TRACE["llama2"], TRACE["sd"], TRACE["clip"]],
-    # Three domains in one suite: ML inference, a Ligra graph kernel, a datacenter trace.
-    "mixed": [TRACE["whisper"], TRACE["bellmanford"], TRACE["tahoe"]],
     # The gate before any launch: every arm, one round, two workloads.
     "smoke": [TRACE["mcf"], TRACE["lbm"]],
 }

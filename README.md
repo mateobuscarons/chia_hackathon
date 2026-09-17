@@ -9,40 +9,45 @@ have to measure to get close to it.**
 
 ## The result
 
-Three Google datacenter traces (whiskey, bravo, delta) the loop has never seen. The memory was
-built from SPEC17 and GAP graph workloads only. "Best design known" is 0.5485 suite IPC, found by
-an independent 100-design search that used no memory. The stock chip is 0.4389.
+Three ML-inference traces (llama2_7b, stable-diffusion, clip) the loop has never seen. The memory
+was built from SPEC17 and GAP graph workloads only. "Best design known" is 2.0162 suite IPC, found
+by an independent 100-design search that used no memory. The stock chip is 1.2755.
 
-Share of the stock-to-best gap reached after N simulated designs, mean over seeds:
+Share of the stock-to-best gap reached after N simulated designs, mean over 2 seeds:
 
-| | D1 | D4 | D8 | D12 |
-|---|---|---|---|---|
-| random forest from the stock chip | 19 % | 46 % | 57 % | 61 % |
-| four LLM specialists, from the stock chip | 21 % | 52 % | 63 % | 87 % |
-| the same forest, from the memory's design | **93 %** | 93 % | 95 % | 95 % |
-| four LLM specialists, from the memory's design | **93 %** | 95 % | 96 % | 97 % |
+| | D1 | D4 | D8 | D12 | D16 |
+|---|---|---|---|---|---|
+| random forest from the stock chip | 32 % | 85 % | 90 % | 91 % | 91 % |
+| four LLM specialists, from the stock chip | 44 % | 89 % | 89 % | 89 % | 90 % |
+| the same forest, from the memory's design | 80 % | 85 % | 85 % | 87 % | 91 % |
+| four LLM specialists, from the memory's design | 80 % | 87 % | **95 %** | 95 % | **98 %** |
 
-Designs a search has to measure to reach a level, read off the mean curve:
+Designs a search has to measure to reach a level, read off the mean curve. The reference is the
+memoryless forest run to 100 designs (warm-up 10, batch 10), the search that found the best design:
 
-| | 95 % | 98 % |
-|---|---|---|
-| random forest from the stock chip | D37 | D73 |
-| four LLM specialists, from the stock chip | not within 16 | not within 16 |
-| the same forest, from the memory's design | D11 | not within 16 |
-| four LLM specialists, from the memory's design | D4 | not within 16 |
+| | 90 % | 95 % | the specialists' 16-design result (1.9988) |
+|---|---|---|---|
+| reference run, 100 designs | D13 | D47 | D65 |
+| random forest from the stock chip | D12 | not within 16 | not within 16 |
+| four LLM specialists, from the stock chip | D16 | not within 16 | not within 16 |
+| the same forest, from the memory's design | D15 | not within 16 | not within 16 |
+| four LLM specialists, from the memory's design | **D5** | **D10** | **D16** |
 
-**The memory's first design is already at 93 %. The same search from scratch needs 26 simulations
-to match it, and 37 to reach 95 %.** The two forest rows are the identical optimizer; only the
-starting point differs, and the same holds for the two specialist rows. Without a memory the
-specialists and the forest are on par. From the memory the specialists reach 97 % at D12 over three
-seeds (95 to 99): the seed that reached 99 % shrank the L2 to an eighth of its size in two
-consecutive moves, a two-knob move the forest never took.
+**The specialists from the memory reach in 16 designs what the reference search reaches in 65, and
+95 % in 10 against 47.** Both seeds ended on the same design. Every other arm sits at 90 to 91 %
+after 16 designs, the level the reference run has at D13. The two forest rows are the identical
+optimizer and so are the two specialist rows; only the starting point differs. Neither piece does
+it alone: without the memory the specialists stall at 90 %, and from the memory the forest stalls
+at 91 %.
 
-Seeds: 4 for the forest from scratch (3 runs of 75 designs for the levels), 5 from the memory,
-3 for each specialist row.
+**The datacenter suites** (whiskey, bravo, delta; and sierra.a.4, merced, tahoe), also never seen,
+show the other half. There the memory's first design is at 93 % and 90 % of the gap, which the same
+forest from scratch needs 26 and 27 designs to match, and 37 to reach 95 % on the first suite. From
+that opening no arm adds much: after 16 designs the specialists are at 97 % (95 to 99 over three
+seeds) and 93 %, the forest at 96 % and 92 %.
 
-It holds on a second suite (sierra.a.4, merced, tahoe): the opening is 90 %, which a from-scratch
-search needs 27 simulations to reach; from there the specialists reach 93 % at D8 and stay there.
+Seeds: 2 an arm on the ML suite; on the datacenter suites 4 for the forest from scratch (3 runs of
+75 designs for the levels), 5 from the memory, 3 for each specialist row.
 
 `REPORT.md` has the full tables, the limits, and what we removed along the way.
 
@@ -70,6 +75,9 @@ Four searches are compared at the same budget, the same seeds and the same fidel
   concurrency); one concern moves per round, from the design the memory hands over
 - `council_stock` — the identical council, from the stock chip
 
+The reference for a suite is the same forest run to 100 designs from the stock chip with no memory
+(`search ceiling`); its best design is the denominator every share divides by.
+
 ## Layout
 
 | file | role |
@@ -87,7 +95,7 @@ Four searches are compared at the same budget, the same seeds and the same fidel
 
 ## Setup
 
-Everything the project measured is in this repo: `results/tables/` holds all 8585 simulation
+Everything the project measured is in this repo: `results/tables/` holds all 9278 simulation
 results, so **every published number can be reproduced without a simulator and without a single
 trace.** Simulating new designs needs more.
 
@@ -101,8 +109,8 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt   # Python 3.
 # needed even for read-only work — but it does not need to be built
 git clone --depth 1 https://github.com/ChampSim/ChampSim.git champsim
 
-.venv/bin/python -m loop.search score results/runs/dc2_g1.json   # the forest arms
-.venv/bin/python -m loop.search score results/runs/dc2_c5b.json  # the specialists
+.venv/bin/python -m loop.search score results/runs/aiml_n1.json  # the ML-inference suite, every arm
+.venv/bin/python -m loop.search score results/runs/dc2_c5b.json  # the datacenter councils
 ```
 
 ### To simulate new designs (a few hours, mostly downloads and one build)

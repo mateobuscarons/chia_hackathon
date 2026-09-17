@@ -15,6 +15,28 @@ This file is state, design and operations.
 
 ## The claim
 
+`aiml` (llama2_7b, stable-diffusion, clip), stock 1.2755, best known 2.0162 from the 100-design
+reference run. Share of the stock-to-best-known gap after N designs, mean over seeds, and the design
+at which the mean curve reaches a level; the reference row is the ceiling run itself (the forest
+from the stock chip, warm-up 10, batch 10, no memory):
+
+```
+                            D1    D4    D8   D12   D16      90%    95%   1.9988   seeds
+reference (100 designs)      -     -     -     -   92%      D13    D47    D65     1
+bo            (stock)      32%   85%   90%   91%   91%      D12     -      -      2
+council_stock (stock)      44%   89%   89%   89%   90%      D16     -      -      2
+pooled_bo     (memory)     80%   85%   85%   87%   91%      D15     -      -      2
+council       (memory)     80%   87%   95%   95%   98%       D5    D10    D16     2 (both end on 1.9988)
+```
+
+The handover opens at 80 % (71 % on llama2, 93 % on stable-diffusion, 85 % on clip) and any design
+with a prefetcher at L2 is at about 85 %, so the head start is worth about one design here. The
+council is the only arm that climbs, and only from the memory: its wins were prefetch moves
+(ip_stride at L2 with spp_dev at LLC, then va_ampm_lite at L2) and an LLC shrink to 512 KB, the
+moves that lost on the datacenter suites. The best design known has va_ampm_lite at L1D and L2,
+spp_dev at LLC, L2 256x4 and a 1 MB LLC: a different basin from the datacenter one. Report
+`results/runs/aiml_n1.json`, transcripts `results/council*-n1-s*.log`.
+
 `dc2` (whiskey, bravo, delta), stock 0.4389, best known 0.5485 from an independent 100-design
 search. Share of the stock-to-best-known gap after N designs, mean over seeds, and the design at
 which the mean curve reaches a level:
@@ -75,7 +97,8 @@ scored 0.0001 lower. Prefetch made 39 moves over the six c5 seeds and won two, b
 0.001 IPC: it places spp_dev or ip_stride in nearly every proposal, changes two or three levels at
 once, and never proposed the transpose (next_line at L1D, va_ampm_lite at L2), which is the last
 1.2 points on `dc2` and, together with the shrink, most of the remaining 7 on `dc`. Two recurring
-losing geometry moves: L1D to 32x12 and LLC halved, one design each in nearly every seed. A
+losing geometry moves: L1D to 32x12 and LLC halved, one design each in nearly every seed. On
+`aiml` the sign flips: prefetch moves and the LLC shrink are what won. A
 diagnosis variant that chose the leader by reading the whole report was worse (97 % mean), because
 it named prefetch every other round; it was removed.
 
@@ -96,21 +119,23 @@ mean over seeds with min..max below. Best known = the best design measured on ev
 suite in the cached tables, so it moves as searches land.
 
 **The ceiling must stay an independent mechanism.** `search ceiling` is the same forest run long
-from the stock chip. Never measure a ratio against the ceiling run (warm-up 10, batch 6); measure
+from the stock chip (warm-up 10, batch 10). On `dc` and `dc2` designs-to-level ratios are measured
 against the arm's own configuration run long — `results/baseline/<cell>_s<seed>.json`, 75 designs,
-3 seeds a cell.
+3 seeds a cell — never against the ceiling run. On `aiml` that baseline has not been run, so the
+reference there is the ceiling run itself, and the docs say so where they use it.
 
 ## Cells and workloads
 
 | cell | test | role |
 |---|---|---|
-| `dc` | sierra.a.4, merced, tahoe (Google datacenter, DPC4 `gtrace_v2`) | the headline |
-| `dc2` | whiskey, bravo, delta | the confirmation, on traces that shaped nothing |
+| `aiml` | llama2_7b, stable-diffusion, clip (ML inference, DPC4 `ai-ml`, 200 MB prefixes) | the headline: out of regime |
+| `dc` | sierra.a.4, merced, tahoe (Google datacenter, DPC4 `gtrace_v2`) | the datacenter suite |
+| `dc2` | whiskey, bravo, delta | its confirmation, on traces that shaped nothing |
 | `smoke` | mcf, lbm, one round | the gate before any launch |
 
-The memory remembers mcf, omnetpp, lbm, bfs.urand, pr.urand, bfs.kron and nothing else. All six
-datacenter traces are held out from the memory in the same way; `dc2` is the three we did not pick
-to headline, so it is the control for **our** selection. On every datacenter trace a replacement
+The memory remembers mcf, omnetpp, lbm, bfs.urand, pr.urand, bfs.kron and nothing else. The three
+ML-inference traces and all six datacenter traces are held out from the memory in the same way;
+`dc2` is the three we did not pick to headline, so it is the control for **our** selection. On every datacenter trace a replacement
 policy alone hurts or does nothing while the best designs contain one: the policy pays only after a
 prefetcher and a bigger LLC. **Do not merge the six into one suite**: a merged ceiling would rest on
 the few designs measured on all six and every share would inflate.
@@ -120,7 +145,7 @@ the few designs measured on all six and every share would inflate.
 ```
 memory.json                    the handover and its receipt
 tables/<trace>.json            the simulation cache — the dataset, and the denominator `score` uses
-runs/<cell>_<tag>.json         a cell's report: every design; dc2_g1, dc_g1 (the forests), dc2_c5b, dc_c5 (the councils)
+runs/<cell>_<tag>.json         a cell's report: every design; aiml_n1 (every arm), dc2_g1, dc_g1 (the forests), dc2_c5b, dc_c5 (the councils)
 baseline/<cell>_s<seed>.json   the `bo` arm run to 75 designs, behind the designs-to-level numbers
 *.log                          transcripts, gitignored; the council's are one file per (arm, seed)
 llm_usage.json                 running token cost (gitignored: per machine)
@@ -128,7 +153,7 @@ llm_usage.json                 running token cost (gitignored: per machine)
 
 **The simulation cache.** One table per workload, keyed by `space.config_name(knobs)`. Every batch
 reads the table before simulating and appends under a file lock with an atomic rename, so parallel
-runs share one cache and `workloads merge` folds in another machine's. 2464 designs and 8585
+runs share one cache and `workloads merge` folds in another machine's. 2755 designs and 9278
 measurements. A row carries `metrics_version`; a row from an older simulator is a cache miss and is
 re-simulated, so no report has holes. A design the simulator cannot measure is cached as
 `"metrics": null` and excluded; to retry one, delete its row. `champsim_bin/` is the same idea one
@@ -136,7 +161,9 @@ level down: compiled binaries under the same names.
 
 ## Next, in this order
 
-1. **The prefetch specialist.** The one place points remain: it reaches for the most aggressive
+1. **The `bo` baseline on `aiml`**: the arm's own configuration to 75 designs, 3 seeds, so the aiml
+   ratios rest on the same reference as the datacenter ones and not on the ceiling run.
+2. **The prefetch specialist.** The one place points remain: it reaches for the most aggressive
    mechanism and never proposes moving a mechanism down a level. **Principle wording is not the
    lever.** Asked 100 times about frozen designs from the tables (the handover and the shrunk
    design, on both suites) under five wordings - coverage-versus-accuracy reading, an attribution
@@ -149,10 +176,10 @@ level down: compiled binaries under the same names.
    the access-time weighing). What is left is mechanical, not verbal: temperature, several candidates
    a round, or accepting the plateau. The probe builds the specialist's prompt from
    `suite.measured_designs` entries and scores each proposal against the tables; no simulation.
-2. **Rebuild the memory under the two-stage procedure.** `results/memory.json` came from a build that
+3. **Rebuild the memory under the two-stage procedure.** `results/memory.json` came from a build that
    also ran an anchor stage (`"designs": 163`); the handover is identical, but artifact and code
    should agree.
-3. **Push the test workloads further out**, then **an unseen chip**.
+4. **Push the test workloads further out**, then **an unseen chip**.
 
 ## How to run
 
@@ -175,7 +202,9 @@ Env: `SEEDS`, `FIRST_SEED`, `BUDGET` (designs, default 16), `PARALLEL_RUNS`, `SI
 Cost of a run: **~110 designs simulated per hour on the VM**, 58 on the Mac. Estimate a launch as
 (cells x arms x seeds x budget) / rate, minus the ~20 % of designs already in the cache. c5 and c5b
 (2 cells side by side, 2 council arms, 3 seeds, 16 designs) took 2.7 h on the VM and 238 Gemini
-calls, 3.44 USD.
+calls, 3.44 USD. The ML-inference traces are heavier: on the Mac a clip simulation is ~26 CPU-min
+against ~2.5 for a datacenter trace, so an `aiml` design is ~35 min there; the `aiml` cell (4 arms,
+2 seeds, 16 designs) took 7.6 h on the Mac and its 100-design ceiling 4.8 h on the VM.
 
 **Check `gcloud compute instances list` before anything else: the VM must be stopped whenever
 nothing runs on it.** A long run goes on the VM as a detached chain that ends in `shutdown -h now`.

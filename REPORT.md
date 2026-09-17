@@ -175,4 +175,38 @@ stage-1 searcher, which is the only thing that still calls it.
 
 ---
 
+## 4. Out of regime: ML inference, where the opening is cheap and the council is the arm that climbs
+
+`aiml`: llama2_7b, stable-diffusion and clip from the DPC4 `ai-ml` set, 200 MB prefixes, never
+seen; the memory built from SPEC17 and GAP as before. Stock 1.2755, best known 2.0162 from the
+100-design ceiling run. Two seeds an arm.
+
+| arm | D1 | D4 | D8 | D16 | to 90 % | to 95 % | to the council's D16 result |
+|---|---|---|---|---|---|---|---|
+| reference run (forest from stock, warm-up 10, batch 10, 100 designs) | | | | 92 % | D13 | D47 | D65 |
+| `bo` | 32 % | 85 % | 90 % | 91 % | D12 | - | - |
+| `council_stock` | 44 % | 89 % | 89 % | 90 % | D16 | - | - |
+| `pooled_bo` | 80 % | 85 % | 85 % | 91 % | D15 | - | - |
+| `council` | 80 % | 87 % | 95 % | 98 % | **D5** | **D10** | **D16** |
+
+Three things differ from the datacenter suites.
+
+1. **The opening is cheap.** The handover is at 80 % (71 % on llama2, 93 % on stable-diffusion,
+   85 % on clip), but any design with a prefetcher at L2 is at about 85 %, which is where a random
+   warm-up design puts `bo` at D2. The head start is worth about one design here.
+2. **The council climbs and nothing else does.** The three other arms sit at 90-91 % after 16
+   designs, the level the reference run has at D13. The council from the memory reaches 95 % at D10
+   and 1.9988 (97.6 %) at D16 in both seeds, on the same design; the reference run needs 47 and 65
+   designs for those levels. Its winning moves were prefetch moves — ip_stride at L2 with spp_dev
+   at LLC, then va_ampm_lite at L2 — and an LLC shrink to 512 KB; on the datacenter suites the same
+   moves lost. Without the memory the council stalls at 90 %, so neither piece does it alone.
+3. **The basin is a different one.** The best design known has va_ampm_lite at L1D and L2, spp_dev
+   at LLC, the L2 at 256x4 and the LLC at 2048x8 — 1 MB where the datacenter best has 4 MB. One
+   remembered design cannot serve both regimes.
+
+The reference here is the ceiling run itself, not the `bo` arm's configuration run long as on the
+datacenter suites; that baseline has not been run on `aiml`.
+
+---
+
 Contributions back to CHIA and ChampSim are in `CHIA_BLOCKS.md`.
