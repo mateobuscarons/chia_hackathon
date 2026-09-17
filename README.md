@@ -40,14 +40,7 @@ optimizer and so are the two specialist rows; only the starting point differs. N
 it alone: without the memory the specialists stall at 90 %, and from the memory the forest stalls
 at 91 %.
 
-**The datacenter suites** (whiskey, bravo, delta; and sierra.a.4, merced, tahoe), also never seen,
-show the other half. There the memory's first design is at 93 % and 90 % of the gap, which the same
-forest from scratch needs 26 and 27 designs to match, and 37 to reach 95 % on the first suite. From
-that opening no arm adds much: after 16 designs the specialists are at 97 % (95 to 99 over three
-seeds) and 93 %, the forest at 96 % and 92 %.
-
-Seeds: 2 an arm on the ML suite; on the datacenter suites 4 for the forest from scratch (3 runs of
-75 designs for the levels), 5 from the memory, 3 for each specialist row.
+Seeds: 2 an arm.
 
 `REPORT.md` has the full tables, the limits, and what we removed along the way.
 
@@ -64,8 +57,8 @@ set of workloads — here SPEC17 and GAP — and what it stores is one design:
 ```
 
 The design is the one with the best mean share of the stock-to-best gap across every remembered
-workload, counting only designs measured on all but one of them. whiskey, bravo and delta are
-never simulated during that build and play no part in choosing it.
+workload, counting only designs measured on all but one of them. llama2_7b, stable-diffusion and
+clip are never simulated during that build and play no part in choosing it.
 
 Four searches are compared at the same budget, the same seeds and the same fidelity:
 
@@ -109,8 +102,7 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt   # Python 3.
 # needed even for read-only work — but it does not need to be built
 git clone --depth 1 https://github.com/ChampSim/ChampSim.git champsim
 
-.venv/bin/python -m loop.search score results/runs/aiml_n1.json  # the ML-inference suite, every arm
-.venv/bin/python -m loop.search score results/runs/dc2_c5b.json  # the datacenter councils
+.venv/bin/python -m loop.search score results/runs/aiml_n1.json  # every arm on the ML-inference suite
 ```
 
 ### To simulate new designs (a few hours, mostly downloads and one build)
@@ -145,13 +137,13 @@ HTTP ranges without downloading the archive; take the archive's file URL from th
 Cite *Characterizing the impact of last-level cache replacement policies on big-data workloads*,
 IISWC 2020, if you use them.
 
-**Datacenter** — `sierra.a.4`, `merced`, `tahoe`, `whiskey`, `bravo.a`, `delta` — come from the DPC4
-bucket as 100 MB prefixes, which hold ~88M instructions each, enough to simulate. The exact object
-path per trace is in the manifest:
+**ML inference** — `llama2.c-llama2_7b.1`, `stable-diffusion.cpp-v1-5-pruned-emaonly.1`,
+`clip_trace_1` — come from the DPC4 bucket's `ai-ml` set as 200 MB prefixes, which hold 100M
+instructions or more each, enough to simulate. The exact object path per trace is in the manifest:
 
 ```bash
-curl -s https://pub-c31f67d79d1b4cd28ff320612b1a9f84.r2.dev/manifest.txt | grep sierra.a.4
-.venv/bin/python -m loop.workloads fetch <object url> traces/sierra.a.4_0000.champsim.gz 100
+curl -s https://pub-c31f67d79d1b4cd28ff320612b1a9f84.r2.dev/manifest.txt | grep ai-ml
+.venv/bin/python -m loop.workloads fetch <object url> traces/llama2.c-llama2_7b.1.champsimtrace.gz 200
 ```
 
 The filename must match what `loop/search.py`'s `TRACE` table expects, since that name keys the
@@ -172,9 +164,9 @@ SEEDS=1 .venv/bin/python -m loop.search smoke s1
 
 ```bash
 python -m loop.memory build results/memory.json <spec traces> -- <gap traces>   # fill a memory
-SEEDS=5 BUDGET=16 python -m loop.search dc2 h1                                  # run a cell, every arm
-SEEDS=2 BUDGET=12 python -m loop.search dc2 c5 council                          # one arm
-python -m loop.search score results/runs/dc2_h1.json                            # read it
+SEEDS=2 BUDGET=16 python -m loop.search aiml n2                                 # run a cell, every arm
+SEEDS=2 BUDGET=16 python -m loop.search aiml n2 council                         # one arm
+python -m loop.search score results/runs/aiml_n2.json                           # read it
 python -m loop.search ceiling 100 10 <trace> <trace> <trace>                    # the independent ceiling
 ```
 

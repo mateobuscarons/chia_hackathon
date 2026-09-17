@@ -37,6 +37,13 @@ moves that lost on the datacenter suites. The best design known has va_ampm_lite
 spp_dev at LLC, L2 256x4 and a 1 MB LLC: a different basin from the datacenter one. Report
 `results/runs/aiml_n1.json`, transcripts `results/council*-n1-s*.log`.
 
+**Why the datacenter suites are not the showcase.** The head start there is too big: the handover
+opens at 90 and 93 % and every arm, forest or council, adds a few points at most in 16 designs. The
+council is good at learning fast from a good start and poor at exploiting a result that is already
+near the best. On `aiml` the head start is significant but not near-optimal (80 %), so the council
+has room to experiment and explore, and it separates itself from `pooled_bo`; that is the showcase,
+and the datacenter suites stay here as the record.
+
 `dc2` (whiskey, bravo, delta), stock 0.4389, best known 0.5485 from an independent 100-design
 search. Share of the stock-to-best-known gap after N designs, mean over seeds, and the design at
 which the mean curve reaches a level:
