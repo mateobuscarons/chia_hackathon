@@ -7,13 +7,9 @@
 Arms, each measuring BUDGET designs from the stock chip (design D0):
   bo          random forest + expected improvement, one design per round, so every
               pick is made against measured outcomes
-  pooled_bo   the identical search, started from the design the memory hands over
-              (loop.memory). One variable differs from `bo`, and it is the memory.
-  council     four specialists, one per concern, one concern moving per round,
-              started from the design the memory hands over (loop.council)
-  council_stock
-              the identical council, started from the stock chip. One variable
-              differs from `council`, and it is the memory.
+  council     the council (loop.council): an analyst that opens the search and writes
+              the sheet, four specialists proposing at once, sketches before anything is
+              committed, one counted design a round
 
 The question is designs-to-level, not level-at-N: how many simulations each arm
 needs to get within some share of the best design known. Shares are read by
@@ -23,7 +19,8 @@ mechanism separate from the arms. Scoring against a design an arm found bounds t
 metric at that arm, which has happened once and cost every arm five points.
 
 Env: SEEDS (default 2), FIRST_SEED, BUDGET (default 16), PARALLEL_RUNS, SIM_THREADS,
-MEMORY_PATH (default results/memory.json), ANALYST_MODEL.
+ANALYST_MODEL, LOOP_WARMUP / LOOP_SIM (the run's fidelity), PROBE_WARMUP / PROBE_SIM (the
+council's sketch rung).
 """
 
 import json
@@ -36,39 +33,27 @@ from concurrent.futures import ProcessPoolExecutor
 import numpy
 from sklearn.ensemble import RandomForestRegressor
 
-from loop import analyst, memory
-from loop.suite import make_suite_problem, measured_designs, short_name
+from loop import analyst
+from loop.suite import SIMULATION_INSTRUCTIONS, WARMUP_INSTRUCTIONS, make_suite_problem, measured_designs, short_name
 from loop.space import SEARCH_SPACE, random_feasible_designs, typed_knobs
 
 TRACE = {"mcf": "traces/605.mcf_s-665B.champsimtrace.xz",
          "lbm": "traces/619.lbm_s-2676B.champsimtrace.xz",
-         "omnetpp": "traces/620.omnetpp_s-874B.champsimtrace.xz",
-         "bfs.urand": "traces/bfs.urand-36B.champsimtrace.xz",
-         "pr.urand": "traces/pr.urand-129B.champsimtrace.xz",
-         "bfs.kron": "traces/bfs.kron-128B.champsimtrace.xz",
-         "sierra.a.4": "traces/sierra.a.4_0000.champsim.gz",
-         "merced": "traces/merced_0000.champsim.gz",
-         "tahoe": "traces/tahoe_0000.champsim.gz",
-         "whiskey": "traces/whiskey_0000.champsim.gz",
-         "bravo": "traces/bravo.a_0000.champsim.gz",
-         "delta": "traces/delta_0000.champsim.gz",
          "llama2": "traces/llama2.c-llama2_7b.1.champsimtrace.gz",
          "sd": "traces/stable-diffusion.cpp-v1-5-pruned-emaonly.1.champsimtrace.gz",
          "clip": "traces/clip_trace_1.champsimtrace.gz"}
 
-# The suite each cell tests. None of them is in the memory: the memory remembers
-# mcf, omnetpp, lbm, bfs.urand, pr.urand and bfs.kron, and nothing else.
+# The suite each cell tests.
 CELLS = {
-    # The headline: Google datacenter traces, never seen.
-    "dc": [TRACE["sierra.a.4"], TRACE["merced"], TRACE["tahoe"]],
-    # The confirmation: the three datacenter traces the first suite did not take.
-    "dc2": [TRACE["whiskey"], TRACE["bravo"], TRACE["delta"]],
-    # Out of regime: ML inference (DPC4 ai-ml, 200 MB prefixes), never seen.
+    # ML inference (DPC4 ai-ml, 200 MB prefixes): the suite.
     "aiml": [TRACE["llama2"], TRACE["sd"], TRACE["clip"]],
-    # The gate before any launch: every arm, one round, two workloads.
+    # The trace that ranks designs as the suite does (rho 0.96 with the suite objective over
+    # 217 designs), for development at a third of the simulation cost.
+    "llama2": [TRACE["llama2"]],
+    # The gate before any launch: every arm, one round, two cheap workloads.
     "smoke": [TRACE["mcf"], TRACE["lbm"]],
 }
-ARMS = ["bo", "pooled_bo", "council", "council_stock"]
+ARMS = ["bo", "council"]
 
 BUDGET = int(os.environ.get("BUDGET", "16"))
 SMOKE_BUDGET = 2          # the gate measures this many designs per arm, whatever BUDGET says
@@ -78,11 +63,6 @@ TREES = 100
 # 6.6 million); the agent may name ANY feasible design.
 CANDIDATE_POOL = 20000
 PARALLEL_RUNS = int(os.environ.get("PARALLEL_RUNS", "6"))
-
-
-def memory_path():
-    return os.environ.get("MEMORY_PATH", "results/memory.json")
-
 
 REPORT_DIR = "results/runs"
 
@@ -238,19 +218,16 @@ def measure_batch(problem, knobs_list, tag):
 
 # ---------------------------------------------------------------- the forest arms ----
 
-def forest_search(problem, budget, batch, seed, tag, start_design=None, warm_up=WARM_UP_DESIGNS):
+def forest_search(problem, budget, batch, seed, tag, warm_up=WARM_UP_DESIGNS):
     """`budget` designs bought in batches of `batch`. Both forest arms and the
     ceiling go through here, so the settings they disagree on are arguments rather
     than two copies of one loop - comparing curves grown under different warm-ups
     is how a wrong ratio gets published.
 
-    start_design: bought before anything else. `pooled_bo` passes the design the
-    memory hands over, so the only difference from `bo` is where the search begins.
-
     The candidate pool keeps the whole space in view, not only the incumbent's
-    neighbours: the best design measured sits SIX knobs from the memory's handover
-    and everything within five of it is capped well below the ceiling, so a search
-    that only walks one knob at a time cannot get there from a good start."""
+    neighbours: the best design measured has sat six knobs from a good start, with
+    everything within five of it capped well below the ceiling, so a search that only
+    walks one knob at a time cannot get there."""
     objective = problem["objective"]
     started = time.time()
     candidates = candidate_pool(problem, seed)
@@ -290,8 +267,6 @@ def forest_search(problem, budget, batch, seed, tag, start_design=None, warm_up=
                 tag, round_number, entry["index"], objective, metrics[objective], best, source,
                 (time.time() - started) / 60), flush=True)
 
-    if start_design is not None:
-        buy([typed_knobs(start_design)], "memory", 0)
 
     opening = []
     for name in candidates:
@@ -316,65 +291,6 @@ def forest_search(problem, budget, batch, seed, tag, start_design=None, warm_up=
     return {"designs": history, "rounds": []}
 
 
-# ---------------------------------------------------------------- the memory build's searcher ----
-
-def llm_search(problem, budget, per_round, tag):
-    """Stage 1 of a memory build (`loop.memory.search`), and nothing else reaches it:
-    the agent measures `per_round` designs a round. The designs of one round are
-    chosen together from the same information, so they are one decision, not two.
-
-    Like the forest arm, the budget counts designs that produced a measurement, so
-    a crashed design costs another round. Two guards bound that: a round that can
-    name no new design at all ends the run, and no run takes more rounds than its
-    budget in designs."""
-    objective = problem["objective"]
-    started = time.time()
-    stock_metrics = problem["evaluate"](problem["stock"])
-    history = [{"index": 0, "round": 0, "name": problem["name_of"](problem["stock"]), "knobs": problem["stock"],
-                "metrics": stock_metrics, "source": "stock", "hypothesis": None}]
-    taken = {history[0]["name"]}
-    best = stock_metrics[objective]
-    round_logs = []
-    print("[{}] {} designs, {} a round | {} | stock {:.4f}".format(
-        tag, budget, per_round, "+".join(problem["workloads"]), best), flush=True)
-    round_number = 0
-    while len(history) - 1 < budget and round_number < budget:
-        round_number += 1
-        wanted = min(per_round, budget - (len(history) - 1))
-        chosen, log = analyst.designs_for_round(problem, history, wanted, taken)
-        if len(chosen) == 0:
-            print("[{}] round {} could name no new design, stopping".format(tag, round_number), flush=True)
-            break
-        knobs_list = []
-        for design in chosen:
-            knobs_list.append(design["knobs"])
-        knobs_list, metrics_list, dropped = measure_batch(problem, knobs_list, tag)
-        by_name = {}
-        for design in chosen:
-            by_name[design["name"]] = design
-        for knobs, metrics in zip(knobs_list, metrics_list):
-            entry = dict(by_name[problem["name_of"](knobs)])
-            entry["index"] = len(history)
-            entry["round"] = round_number
-            entry["metrics"] = metrics
-            history.append(entry)
-            if metrics[objective] > best:
-                best = metrics[objective]
-            print("[{}] round {} | D{} | {}={:.4f} | best {:.4f} | {} | {:.0f} min".format(
-                tag, round_number, entry["index"], objective, metrics[objective], best, entry["source"],
-                (time.time() - started) / 60), flush=True)
-        log["round"] = round_number
-        log["dropped"] = dropped
-        if round_number > 1:
-            # Every later prompt is round 1's plus the rows now in `designs`, so
-            # storing it again would be the same four sections forty times a cell.
-            del log["prompt"]
-        round_logs.append(log)
-    if len(history) - 1 < budget:
-        print("[{}] finished short: {} of {} designs measured".format(tag, len(history) - 1, budget), flush=True)
-    return {"designs": history, "rounds": round_logs}
-
-
 # ---------------------------------------------------------------- one run ----
 
 def run_one(arm, cell_name, seed, budget, tag_prefix):
@@ -383,16 +299,15 @@ def run_one(arm, cell_name, seed, budget, tag_prefix):
     tag = "{}-{}-s{}".format(arm, tag_prefix, seed)
     if arm == "bo":
         result = forest_search(problem, budget, 1, seed, tag)
-    elif arm == "pooled_bo":
-        result = forest_search(problem, budget, 1, seed, tag,
-                               start_design=memory.handover(memory_path()))
     elif arm == "council":
         from loop import council
-        result = council.search(problem, budget, seed, tag,
-                                start_design=memory.handover(memory_path()))
-    elif arm == "council_stock":
-        from loop import council
-        result = council.search(problem, budget, seed, tag)
+        # PROBE_WARMUP / PROBE_SIM: the cheap rung the council sketches on before it records
+        # a design at the run's fidelity. Unset, the sketches run at the run's fidelity.
+        probe = problem
+        if os.environ.get("PROBE_WARMUP"):
+            probe = make_suite_problem(CELLS[cell_name], warmup=int(os.environ["PROBE_WARMUP"]),
+                                       simulation=int(os.environ["PROBE_SIM"]))
+        result = council.search(problem, budget, seed, tag, probe)
     else:
         raise ValueError("unknown arm " + arm)
     result["designs"] = compact(result["designs"], problem)
@@ -428,7 +343,9 @@ def run_cell(cell_name, tag, arms=None):
     output_path = report_path(cell_name, tag)
     report = {"cell": cell_name, "tag": tag, "workloads": workloads, "arms": arms, "seeds": seeds,
               "first_seed": first_seed, "budget": budget,
-              "memory_path": memory_path(), "model": analyst.MODEL, "runs": {}, "failed": []}
+              "fidelity": [WARMUP_INSTRUCTIONS, SIMULATION_INSTRUCTIONS],
+              "probe_fidelity": [int(os.environ["PROBE_WARMUP"]), int(os.environ["PROBE_SIM"])] if os.environ.get("PROBE_WARMUP") else None,
+              "model": analyst.MODEL, "runs": {}, "failed": []}
     for arm in arms:
         report["runs"][arm] = {}
     print("cell {} ({}) -> {} | workloads {} | arms {} | seeds {}..{} | {} designs per run".format(
@@ -534,7 +451,7 @@ def best_so_far(designs):
 
 def ceiling(traces, how_many, batch):
     """The reference a cell is scored against: the same forest search, run long,
-    from the stock chip and reading no memory. At 100 designs nothing was measured
+    from the stock chip. At 100 designs nothing was measured
     about the warm-up, so it takes the conventional ten percent."""
     problem = make_suite_problem(traces)
     objective = problem["objective"]

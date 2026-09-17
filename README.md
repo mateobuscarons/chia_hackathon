@@ -1,75 +1,55 @@
-# Few-shot cache tuning from a memory of earlier searches
+# Few-shot cache tuning by a council of LLM specialists
 
-Tuning a ChampSim cache hierarchy takes simulations, and simulations are the expensive part.
-This loop keeps a **memory** of searches already run on other workloads, boiled down to one
-design worth copying, and starts a new search from there.
-
-The question is not how good a design you can eventually find. It is **how many designs you
-have to measure to get close to it.**
+Tuning a ChampSim cache hierarchy takes simulations, and simulations are the expensive part. The
+question is not how good a design you can eventually find. It is **how many designs you have to
+measure to get close to it.**
 
 ## The result
 
-Three ML-inference traces (llama2_7b, stable-diffusion, clip) the loop has never seen. The memory
-was built from SPEC17 and GAP graph workloads only. "Best design known" is 2.0162 suite IPC, found
-by an independent 100-design search that used no memory. The stock chip is 1.2755.
+One ML-inference trace the loop had never seen (llama2_7b, DPC4 `ai-ml`), the stock chip at IPC
+0.4731, the best design known at 1.4697 (167 designs measured, 1M warm-up / 2M simulated). Share
+of the stock-to-best gap reached after N measured designs, mean over 2 seeds, min..max below:
 
-Share of the stock-to-best gap reached after N simulated designs, mean over 2 seeds:
-
-| | D1 | D4 | D8 | D12 | D16 |
+| | D1 | D2 | D3 | D4 | D5 |
 |---|---|---|---|---|---|
-| random forest from the stock chip | 32 % | 85 % | 90 % | 91 % | 91 % |
-| four LLM specialists, from the stock chip | 44 % | 89 % | 89 % | 89 % | 90 % |
-| the same forest, from the memory's design | 80 % | 85 % | 85 % | 87 % | 91 % |
-| four LLM specialists, from the memory's design | 80 % | 87 % | **95 %** | 95 % | **98 %** |
+| council, from the stock chip | **47 %** | **86 %** | **88 %** | **94 %** | **96 %** |
+| | 43..52 | 81..90 | 84..92 | 92..96 | 96..96 |
+| tuned random forest, from the stock chip | 32 % | 85 % | 85 % | 85 % | 90 % |
 
-Designs a search has to measure to reach a level, read off the mean curve. The reference is the
-memoryless forest run to 100 designs (warm-up 10, batch 10), the search that found the best design:
+The forest row is from the three-trace `aiml` suite at 5M/10M, the only cell it has run on; the
+same forest on this trace at this fidelity is run next.
 
-| | 90 % | 95 % | the specialists' 16-design result (1.9988) |
-|---|---|---|---|
-| reference run, 100 designs | D13 | D47 | D65 |
-| random forest from the stock chip | D12 | not within 16 | not within 16 |
-| four LLM specialists, from the stock chip | D16 | not within 16 | not within 16 |
-| the same forest, from the memory's design | D15 | not within 16 | not within 16 |
-| four LLM specialists, from the memory's design | **D5** | **D10** | **D16** |
+How long the tuned searches take to reach the council's D5 level:
 
-**The specialists from the memory reach in 16 designs what the reference search reaches in 65, and
-95 % in 10 against 47.** Both seeds ended on the same design. Every other arm sits at 90 to 91 %
-after 16 designs, the level the reference run has at D13. The two forest rows are the identical
-optimizer and so are the two specialist rows; only the starting point differs. Neither piece does
-it alone: without the memory the specialists stall at 90 %, and from the memory the forest stalls
-at 91 %.
+| | 96 % of the gap |
+|---|---|
+| council | **D5**, both seeds on the same design |
+| tuned random forest, 16 designs | not reached (91 % at D16, 90 % at D12) |
+| reference run, the forest run to 100 designs | between D47 (95 %) and D65 (97.6 %): at least 9x |
 
-Seeds: 2 an arm.
-
-`REPORT.md` has the full tables, the limits, and what we removed along the way.
+The forest and reference numbers are from the `aiml` suite at 5M/10M.
 
 ## How it works
 
-**Nothing about the test workloads enters the memory.** A memory is built by searching a separate
-set of workloads — here SPEC17 and GAP — and what it stores is one design:
+![The council loop](loop.png)
 
-```json
-{"chip": "C_server",
- "handover": {13 knobs},
- "chosen_from": {"designs": 163, "measured_on": 6, "mean_gap_share": 0.90,
-                 "per_workload": {"605.mcf_s-665B": {"stock": 0.3067, "best": 0.5228, "share": 0.885}, ...}}}
-```
+One round, one counted design. The **analyst** reads every design measured so far and writes a
+sheet: a verdict per cache level with the number behind it, the bottleneck, what the run has
+learned with its deltas, which knobs are failing by their own counters, a prediction. Four
+**specialists** (prefetch, geometry, replacement, concurrency; each owns its knobs) read the sheet
+and each propose one move on one level, or hold. Every proposal is **sketched** with cheap
+simulations, alone and all together, so the interaction between moves is a measured number before
+anything is committed. The analyst **composes** the round's design from the proposals with the
+sketches in front of it; a design the sketches predict to lose is refused and costs nothing. The
+composed design is measured and counted. Round 1 is the analyst's opening design from the stock
+chip's report. When every specialist holds, the analyst proposes a design of its own; the search
+stops when it has nothing either.
 
-The design is the one with the best mean share of the stock-to-best gap across every remembered
-workload, counting only designs measured on all but one of them. llama2_7b, stable-diffusion and
-clip are never simulated during that build and play no part in choosing it.
-
-Four searches are compared at the same budget, the same seeds and the same fidelity:
-
-- `bo` — random forest with expected improvement, from the stock chip
-- `pooled_bo` — the identical search, from the design the memory hands over
-- `council` — four Gemini specialists, one per concern (prefetch, geometry, replacement,
-  concurrency); one concern moves per round, from the design the memory hands over
-- `council_stock` — the identical council, from the stock chip
-
-The reference for a suite is the same forest run to 100 designs from the stock chip with no memory
-(`search ceiling`); its best design is the denominator every share divides by.
+Two arms, same budget, seeds and fidelity, both from the stock chip: `council`, and `bo`, a random
+forest with expected improvement, one design a round. The reference for a suite is the same forest
+run to 100 designs (`search ceiling`); the best design measured on every workload of the suite is
+the denominator every share divides by. The model is Gemini 3.1 Pro on Vertex; each specialist's
+prompt names no workload, trace or chip.
 
 ## Layout
 
@@ -78,101 +58,58 @@ The reference for a suite is the same forest run to 100 designs from the stock c
 | `loop/space.py` | what a design is: 13 knobs, the area budget |
 | `loop/simulate.py` | a design to numbers: ChampSim's config, the build, the run |
 | `loop/suite.py` | the objective, and the result tables that cache it |
-| `loop/search.py` | the arms, the driver, the score table |
-| `loop/council.py` | the four specialists: their principles, the per-level report, one move a round |
-| `loop/analyst.py` | the LLM: the call, the prompt, the proposals |
-| `loop/memory.py` | filling a memory, and the design it hands over |
-| `loop/workloads.py` | fetching, probing and judging a candidate workload |
-| `results/tables/` | the shared simulation cache, one per workload — the dataset |
-| `cluster/`, `upstream/` | the one-VM GCP recipe; patches for CHIA and ChampSim |
+| `loop/search.py` | the two arms, the driver, the score table, the ceiling |
+| `loop/council.py` | the analyst, the specialists, the sketches |
+| `loop/analyst.py` | the model call |
+| `loop/workloads.py` | fetching a trace |
+| `results/tables/` | the shared simulation cache, one per workload and fidelity: the dataset |
+| `results/runs/` | a run's report: every design, every round with its sketches |
+| `upstream/` | patches for ChampSim and CHIA |
 
 ## Setup
 
-Everything the project measured is in this repo: `results/tables/` holds all 9278 simulation
-results, so **every published number can be reproduced without a simulator and without a single
-trace.** Simulating new designs needs more.
-
-### To read the results (a few minutes)
+`results/tables/` holds every simulation result, so the score tables can be reproduced without a
+simulator or a trace:
 
 ```bash
 git clone https://github.com/mateobuscarons/chia_hackathon.git && cd chia_hackathon
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt   # Python 3.10+
-
-# the stock chip's knob values are read from ChampSim's own config, so the clone is
-# needed even for read-only work — but it does not need to be built
-git clone --depth 1 https://github.com/ChampSim/ChampSim.git champsim
-
-.venv/bin/python -m loop.search score results/runs/aiml_n1.json  # every arm on the ML-inference suite
+git clone --depth 1 https://github.com/ChampSim/ChampSim.git champsim  # the stock chip's config; no build needed
+LOOP_WARMUP=1000000 LOOP_SIM=2000000 .venv/bin/python -m loop.search score results/runs/llama2_f31.json
 ```
 
-### To simulate new designs (a few hours, mostly downloads and one build)
+To simulate new designs, build ChampSim with the SPP fix, fetch the traces and log in to Vertex:
 
 ```bash
-# 1. ChampSim, pinned to the commit the tables were produced with, with the SPP fix applied
-cd champsim
-git fetch --unshallow && git checkout 51588e1 && git submodule update --init
+cd champsim && git submodule update --init
 git apply ../upstream/0002-champsim-spp-dev-ghr-victim.patch   # without it, spp_dev designs crash
 ./vcpkg/bootstrap-vcpkg.sh && ./vcpkg/vcpkg install
 ./config.sh champsim_config.json && make -j8 && cd ..
+for i in $(seq 1 7); do cp -r champsim champsim_$i; done          # several designs compile at once
 
-# 2. copies of the tree, so several designs compile at once (one build holds a whole tree)
-for i in $(seq 1 7); do cp -r champsim champsim_$i; done
-
-# 3. traces (~3.9 GB, gitignored). Twelve workloads, from three sources.
-mkdir -p traces && cd traces
-for t in 605.mcf_s-665B 619.lbm_s-2676B 620.omnetpp_s-874B; do          # SPEC17
-  curl -sSLO "https://dpc3.compas.cs.stonybrook.edu/champsim-traces/speccpu/${t}.champsimtrace.xz"
-done
-cd ..
-```
-
-**GAP** — `bfs.urand-36B`, `pr.urand-129B`, `bfs.kron-128B` — live inside a ~10 GB zip on Zenodo
-record [20043527](https://zenodo.org/records/20043527). `fetch_gap` pulls one member out of it over
-HTTP ranges without downloading the archive; take the archive's file URL from the record page:
-
-```bash
-.venv/bin/python -m loop.workloads fetch_gap <zip url> bfs.urand-36B.champsimtrace.xz traces
-```
-
-Cite *Characterizing the impact of last-level cache replacement policies on big-data workloads*,
-IISWC 2020, if you use them.
-
-**ML inference** — `llama2.c-llama2_7b.1`, `stable-diffusion.cpp-v1-5-pruned-emaonly.1`,
-`clip_trace_1` — come from the DPC4 bucket's `ai-ml` set as 200 MB prefixes, which hold 100M
-instructions or more each, enough to simulate. The exact object path per trace is in the manifest:
-
-```bash
+# the ML-inference traces: 200 MB prefixes from the DPC4 bucket; the file name keys the tables
 curl -s https://pub-c31f67d79d1b4cd28ff320612b1a9f84.r2.dev/manifest.txt | grep ai-ml
 .venv/bin/python -m loop.workloads fetch <object url> traces/llama2.c-llama2_7b.1.champsimtrace.gz 200
-```
+# the smoke gate's SPEC17 traces
+curl -sSLO --output-dir traces https://dpc3.compas.cs.stonybrook.edu/champsim-traces/speccpu/605.mcf_s-665B.champsimtrace.xz
+curl -sSLO --output-dir traces https://dpc3.compas.cs.stonybrook.edu/champsim-traces/speccpu/619.lbm_s-2676B.champsimtrace.xz
 
-The filename must match what `loop/search.py`'s `TRACE` table expects, since that name keys the
-result tables.
-
-```bash
-# 4. only for the LLM arms and the memory build: credentials for Gemini on Vertex
-gcloud auth application-default login
-```
-
-Verify the setup with the gate — every arm, one round, two workloads:
-
-```bash
-SEEDS=1 .venv/bin/python -m loop.search smoke s1
+gcloud auth application-default login                              # Gemini on Vertex
+SEEDS=1 .venv/bin/python -m loop.search smoke s1                   # the gate: both arms, one round
 ```
 
 ## Run
 
 ```bash
-python -m loop.memory build results/memory.json <spec traces> -- <gap traces>   # fill a memory
-SEEDS=2 BUDGET=16 python -m loop.search aiml n2                                 # run a cell, every arm
-SEEDS=2 BUDGET=16 python -m loop.search aiml n2 council                         # one arm
-python -m loop.search score results/runs/aiml_n2.json                           # read it
-python -m loop.search ceiling 100 10 <trace> <trace> <trace>                    # the independent ceiling
+SEEDS=2 BUDGET=20 LOOP_WARMUP=1000000 LOOP_SIM=2000000 python -m loop.search llama2 f1 council
+SEEDS=2 BUDGET=16 python -m loop.search aiml a1                    # both arms on the suite
+python -m loop.search score results/runs/aiml_a1.json
+python -m loop.search ceiling 100 10 <trace> <trace> <trace>       # the independent reference
 ```
 
-A design is simulated once, ever: results are cached in `results/tables/<workload>.json`, keyed by
-the design's name, and every run reads that cache before simulating. Designs the simulator cannot
-measure are cached too, so a bad design costs one failed attempt rather than one per run.
+A design is simulated once, ever: results are cached in `results/tables/`, keyed by the design's
+name and the fidelity, and every run reads the cache before simulating. Every prompt and answer of
+a run is in `results/<arm>-<tag>-s<seed>.log`.
 
-Design, operations and open work are in `CLAUDE.md`. Findings are in `REPORT.md`. Contributions
-back to CHIA and ChampSim are in `CHIA_BLOCKS.md`.
+Design, operations and open work are in `CLAUDE.md`. Contributions back to CHIA and ChampSim are
+in `CHIA_BLOCKS.md`.

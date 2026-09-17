@@ -57,12 +57,12 @@ def short_name(trace_path):
 TABLE_DIR = "results/tables"
 
 
-def table_path(trace_name):
+def table_path(trace_name, warmup=WARMUP_INSTRUCTIONS, simulation=SIMULATION_INSTRUCTIONS):
     """The shared result table for one workload: the simulation cache every
     process reads and appends to. Non-default simulation lengths get their own."""
     suffix = ""
-    if WARMUP_INSTRUCTIONS != DEFAULT_WARMUP or SIMULATION_INSTRUCTIONS != DEFAULT_SIMULATION:
-        suffix = "_w{}M_s{}M".format(WARMUP_INSTRUCTIONS // 1_000_000, SIMULATION_INSTRUCTIONS // 1_000_000)
+    if warmup != DEFAULT_WARMUP or simulation != DEFAULT_SIMULATION:
+        suffix = "_w{}M_s{}M".format(warmup // 1_000_000, simulation // 1_000_000)
     os.makedirs(TABLE_DIR, exist_ok=True)
     return os.path.join(TABLE_DIR, "{}{}.json".format(trace_name, suffix))
 
@@ -113,7 +113,7 @@ def measured_rows(table):
 def complete(metrics):
     """A row is usable only if the current simulator wrote it. An older row is a
     cache miss, not a hit: it is re-simulated and overwritten, so no design ever
-    serves a report with holes in it - the handover included."""
+    serves a report with holes in it."""
     return metrics is not None and metrics.get("metrics_version") == METRICS_VERSION
 
 
@@ -143,11 +143,13 @@ class ChampSimProblem:
     """Answers evaluate() from the result table when it can; otherwise builds and
     runs ChampSim in this process, one thread per design."""
 
-    def __init__(self, trace_path, allow_simulation):
+    def __init__(self, trace_path, allow_simulation, warmup=WARMUP_INSTRUCTIONS, simulation=SIMULATION_INSTRUCTIONS):
         self.trace_path = trace_path
         self.trace_name = short_name(trace_path)
         self.allow_simulation = allow_simulation
-        self.table_path = table_path(self.trace_name)
+        self.warmup = warmup
+        self.simulation = simulation
+        self.table_path = table_path(self.trace_name, warmup, simulation)
         self.sweep_table = load_table(self.table_path)
         self.local_pool = ThreadPoolExecutor(max_workers=int(os.environ.get("SIM_THREADS", "4")))
 
@@ -208,7 +210,7 @@ class ChampSimProblem:
         try:
             config_path = make_config(knobs, BASE_CONFIG, GENERATED_DIR)
             binary_path = build_binary(config_path, CHAMPSIM_ROOT)
-            return run_simulation(binary_path, self.trace_path, WARMUP_INSTRUCTIONS, SIMULATION_INSTRUCTIONS)
+            return run_simulation(binary_path, self.trace_path, self.warmup, self.simulation)
         except Exception:
             self.remember(knobs, None)
             raise
@@ -233,14 +235,16 @@ def stock_design():
     return stock
 
 
-def make_suite_problem(trace_paths, allow_simulation=True):
+def make_suite_problem(trace_paths, allow_simulation=True, warmup=WARMUP_INSTRUCTIONS, simulation=SIMULATION_INSTRUCTIONS):
     """One design is scored on a SUITE of workloads: the objective is the geometric
     mean of the per-workload IPC (one simulation per workload per design). This is
-    how a design team scores a hierarchy; no chip is built for one program."""
+    how a design team scores a hierarchy; no chip is built for one program.
+    `warmup` and `simulation` pick the fidelity, each with its own tables: the
+    council's probes run the same problem at a cheaper rung."""
     holders = []
     names = []
     for trace_path in trace_paths:
-        holder = ChampSimProblem(trace_path, allow_simulation)
+        holder = ChampSimProblem(trace_path, allow_simulation, warmup, simulation)
         holders.append(holder)
         names.append(holder.trace_name)
     stock = stock_design()
@@ -297,6 +301,7 @@ def make_suite_problem(trace_paths, allow_simulation=True):
         "chip_text": describe(),
         "area_budget_kb": AREA_BUDGET_KB,
         "holders": holders,
+        "fidelity": (warmup, simulation),
     }
 
 
