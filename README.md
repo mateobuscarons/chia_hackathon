@@ -8,15 +8,15 @@ measure to get close to it.**
 
 One ML-inference trace the loop had never seen (llama2_7b, DPC4 `ai-ml`), the stock chip at IPC
 0.4731, the best design known at 1.4697 (167 designs measured, 1M warm-up / 2M simulated). Share
-of the stock-to-best gap reached after N measured designs, mean over 2 seeds, min..max below:
+of the stock-to-best gap reached after N measured designs, mean over 2 seeds:
 
-| | D1 | D2 | D3 | D4 | D5 |
-|---|---|---|---|---|---|
-| council, from the stock chip | **47 %** | **86 %** | **88 %** | **94 %** | **96 %** |
-| | 43..52 | 81..90 | 84..92 | 92..96 | 96..96 |
-| tuned random forest, from the stock chip | 32 % | 85 % | 85 % | 85 % | 90 % |
+| | D1 | D2 | D3 | D4 | D5 | D6 | D8 | D10 | D12 | D14 | D16 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| council, from the stock chip | **47 %** | **86 %** | **88 %** | **94 %** | **96 %** | - | - | - | - | - | - |
+| tuned random forest, from the stock chip | 32 % | 85 % | 85 % | 85 % | 90 % | 90 % | 90 % | 90 % | 91 % | 91 % | 91 % |
 
-The forest row is from the three-trace `aiml` suite at 5M/10M, the only cell it has run on; the
+Both council seeds stopped at D5: every later proposal was refused by the sketches, so no design
+was counted after it. The forest row is from the three-trace `aiml` suite at 5M/10M, the only cell it has run on; the
 same forest on this trace at this fidelity is run next.
 
 How long the tuned searches take to reach the council's D5 level:

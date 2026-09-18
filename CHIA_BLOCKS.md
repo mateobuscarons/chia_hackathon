@@ -3,7 +3,8 @@
 Two things belong upstream rather than in this repo: **reusable blocks** for cache-hierarchy
 design-space exploration, and **fixes** for gaps and bugs hit while building this loop. This file
 is the plan for both: what each block is, where it lands in CHIA's tree, what it exposes, how it
-is tested, and what this repo learned building its own version. Nothing here is written yet.
+is tested, and what this repo learned building its own version. The two patches are written;
+the blocks are not.
 
 **How CHIA is built, as read in the clone (`chia/`, gitignored).** A node is a Python function
 under `@ChiaFunction(resources={...})`; called directly it runs in-process, called as
@@ -75,9 +76,9 @@ ChampSim derives them from size). The node stays ignorant of it.
 
 **What this repo learned.** A build holds the whole tree, so `champsim_build: 1` per checkout is
 the scheduling contract; the node gets that for free from its resource. One configuration name
-means one exact binary, so a binary is worth caching by name with no verification: 939 binaries
-here at ~2 minutes each. Fixed cache latencies must be dropped from the config or capacity is
-free and the search finds nonsense.
+means one exact binary, so a binary is worth caching by name with no verification; a rebuild of
+a configured tree is seconds, only the per-config object and the link. Fixed cache latencies
+must be dropped from the config or capacity is free and the search finds nonsense.
 
 **Tests** (`chia/simulators/tests/test_champsim_live.py`, Tier 0): the config dict written and
 read back unchanged, `executable_name` honoured; a synthetic two-core stats JSON parsed into
@@ -104,7 +105,7 @@ Learned: the name must carry the whole configuration, be filesystem-safe and fre
 key. Feasibility is part of the space, not a filter after sampling; here it is an area budget
 coupling two levels.
 
-**`store.py`, from `loop/suite.py` and `loop/workloads.merge`, on `chia.database.SQLiteNode`.**
+**`store.py`, from `loop/suite.py`, on `chia.database.SQLiteNode`.**
 
 ```
 MeasurementStore(SQLiteNode)            # one database file on the head, WAL, colocated members
@@ -119,8 +120,8 @@ could not measure, so it is never paid for twice. A row carrying an older `versi
 and is re-measured. `measured_on_all` is the query the metric rests on: the best design
 measured on every target of a suite is the denominator every share divides by. This is not
 `chia.base.cache`: that replays one call by tag inside a loop; this is the experiment's dataset,
-shared by parallel runs and read long after them. The JSON tables in `results/tables/` were the
-first version of the same store and are read by `merge`.
+shared by parallel runs and read long after them. The JSON tables in `results/tables/`, one per
+workload and fidelity, are the first version of the same store; `merge` imports them.
 
 **`cases.py`, the memory between searches.**
 
@@ -135,12 +136,11 @@ concern that moved, the move (knob, from, to), and the outcome (delta IPC, delta
 energy). The feature vector is per-level hit ratios, prefetch coverage, miss latency, budget use
 and core width class; retrieval is Euclidean on those, with no embeddings and no model. The block
 stores every case with its source and reads only the sources the caller names, so which runs a
-loop learns from is the loop's policy, not the block's; every returned case carries its source, so
-the caller can log where a move came from. This loop reads its own run and the SoCs run before it
-(`CLAUDE.md`, "The redesign"). The first version of this repo carried one design
-across searches instead (in git history); measured, it bought a head start and nothing after
-it, and it cannot be refitted across SoCs without losing what made it good. Cases are what an
-architect actually remembers: a situation, a move, what happened.
+loop learns from is the loop's policy, not the block's, and every returned case carries its
+source. This loop reads its own run and the SoCs run before it (`CLAUDE.md`, "The redesign").
+The first version of this repo carried one design across searches instead (in git history):
+measured, it bought a head start and nothing after it, and it cannot be refitted across SoCs.
+Cases are what an architect remembers: a situation, a move, what happened.
 
 **`report_tool.py`.** A `ChiaTool` (MCP server on a worker, `chia/base/tools/ChiaTool.py`) whose
 functions are queries over the store and the cases: rows for a target, the ledger for an
@@ -190,10 +190,8 @@ experimental and not validated in production.
 **Why it is not cosmetic, measured here.** On Gemini 2.5 Flash thinking tokens are billed and
 counted as output and consume the same cap as the answer. An arm of this loop asked for eight
 designs as JSON; the answer plus the model's thinking exceeded 16k, the JSON was truncated, the
-layer raised, and a run that had simulated for an hour ended. One seed died twice, which is why
-that arm carried four seeds where the others carried five. Temperature stayed at the model's
-default rather than the value set, so the memory built through that path cannot be rebuilt
-bit-for-bit.
+layer raised, and a run that had simulated for an hour ended. Temperature stayed at the model's
+default rather than the value set, so a run through that path cannot be reproduced.
 
 **What lands.** `generation_config: dict | None = None` on `__init__`, merged into the request
 config with the SDK's own field names (`temperature`, `top_p`, `seed`, `response_mime_type`,
@@ -204,9 +202,7 @@ leave every current behaviour as it is.
 
 **Tests** (`chia/models/tests/test_vertex.py`, the mocked-loop layer): the config reaches
 `generate_content`; thinking tokens are counted; a 429 is raised at the default and retried when
-opted in. This repo carries the same fixes as a wrapper in `loop/analyst.py`
-(`generate_with_backoff`, the thinking count in `log_cost`), which the example in §6 drops in
-favour of the block.
+opted in. `loop/analyst.py` carries the same fixes as a wrapper, which §6 drops for the block.
 
 ## 4. `gs://` trace resolution
 
@@ -267,8 +263,8 @@ CPUs, N `champsim` workers on `ghcr.io/ucb-bar/chia-champsim` with the pinned Ch
 and the spp_dev patch applied in `worker_setup_commands`, a `cacti` worker on
 `ghcr.io/ucb-bar/chia-cacti`, and a `vertex_creds` worker for the model. The gate is the smoke
 cell through both paths, with the Gemini tool loop exercised and the precomputed-views fallback
-ready. CACTI latency changes the chip, so every table is rebuilt for the grid; the first
-version's tables in `results/tables/` stay as the dataset.
+ready. CACTI latency changes the chip, so every table is rebuilt for the grid; the tables in
+`results/tables/` stay as the dataset.
 
 ## 7. CACTI in cache mode
 
