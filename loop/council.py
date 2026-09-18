@@ -4,18 +4,30 @@ chip, in team rounds, sketching before they commit.
 A round: the analyst reads every design measured and writes the sheet (a verdict per level,
 the level that misses most never "fine", each finding with its numbers, what is
 unattributable, which knobs fail by their own counters, a prediction); all four specialists
-read it and propose at once, one move on one level each, or hold; every proposal is sketched
-at the probe rung - the incumbent, each proposal alone on it, all of them together - which
-counts for nothing; the analyst composes the round's design from the proposals with the
-sketches in front of it, choosing among them and altering no value; a composed design the wave
-did not sketch is sketched before it is committed; the composed design is measured at the
-run's fidelity and is the round's one counted design. Round 1 is the same with the analyst's
+read it and propose at once, one move each on their own knobs - one knob, or several when one
+mechanism needs them - or hold; every proposal is sketched at the probe rung - the incumbent,
+each proposal alone on it, all of them together - one wave of parallel simulations; the analyst
+composes the round's design from the proposals with the sketches in front of it, choosing among
+them and altering no value; a composed design the wave did not sketch is measured then. Every
+design evaluated is a design of the run. Round 1 is the same with the analyst's
 opening design from the stock report, split by concern, in place of proposals. The ledger keeps
-what the sketches predicted next to what was measured. The incumbent is the best design
-measured. When every specialist holds, the analyst takes the turn with one design of its own,
-split by concern like the opening. The search stops when the analyst too has nothing (or two
-of its turns in a row commit nothing), when the budget of counted designs is spent, or after
-three rounds per counted design of budget; a round the sketches veto costs no design.
+what the sketches predicted next to what was measured. Every design the run evaluates, sketch
+or composition, is a design of the run and counts against the budget; the council reads and
+stands on the composed designs, and the incumbent is the best of them. When every specialist holds, the analyst takes the turn
+with one design of its own, split by concern like the opening.
+
+The council only climbs, so it can stall in a local optimum with budget left. STALL_ROUNDS
+rounds in a row that do not move the incumbent make the next round a jump round: everyone reads
+the moves the sketches refused against the incumbent and, per knob, the values never measured as
+a one-knob change from it; each specialist proposes the untried one-knob move it expects most,
+alone, so the sketch is attributable, and only a concern whose neighbourhood is exhausted
+proposes the coupled move that puts its levels in a different regime; the analyst writes which
+other level's evidence would motivate a different design and composes from the parts that
+gained. A jump may not carry a part the sketches refused unless the parts together are not a
+loss; a jump the sketches do not predict to gain is not measured, and the next round jumps
+again with a smaller neighbourhood, sweeping the level the jump rounds have blamed and sketched
+least, so a stall does not spend its budget on the levels the sheet keeps naming. The search stops when the budget is spent or after three
+rounds per design of budget; a stalled search keeps jumping, its refused list growing.
 
 The concerns split the thirteen knobs by what they are - what prefetches, how big, what
 policy, how many misses in flight. The principles say what a knob does, never which value to
@@ -30,7 +42,7 @@ from concurrent.futures import ThreadPoolExecutor
 from loop import analyst
 from loop import search as engine
 from loop.simulate import derived_latency
-from loop.space import SEARCH_SPACE, cache_area_kb, fit_to_budget, knobs_changed, typed_knobs
+from loop.space import SEARCH_SPACE, cache_area_kb, config_name, fit_to_budget, knobs_changed, typed_knobs, within_budget
 
 # A concern owns a disjoint set of knobs and what it knows before it has measured
 # anything. The levels it can read a report for are the levels it owns knobs at.
@@ -107,6 +119,12 @@ CONCERNS = {
 }
 
 ORDER = ["prefetch", "geometry", "replacement", "concurrency"]
+
+# A stall is STALL_ROUNDS rounds in a row that did not move the incumbent; the next round is a
+# jump round. FLAT_SHARE of the incumbent is the tolerance below which a sketch counts as a loss
+# in the jump guard and in the refused list.
+STALL_ROUNDS = 2
+FLAT_SHARE = 0.005
 
 # The knob prefix names the level it sits at, and the level has a shape.
 LEVEL_OF = {"l1d": "L1D", "l2": "L2C", "llc": "LLC"}
@@ -264,20 +282,6 @@ def read_proposal(answer, concern_knobs):
             return None
         proposed[knob] = value
     return {"knobs": proposed, "reasoning": str(answer.get("reasoning", ""))[:300]}
-
-
-def merge(incumbent, proposal, tag):
-    """The next design: the incumbent with one concern's knobs replaced. A design over
-    the area budget is fitted back into it, which shrinks the LLC before the L2. Say so
-    when it happens: the specialist is scored for a design it did not propose."""
-    design = dict(incumbent)
-    design.update(proposal["knobs"])
-    fitted = fit_to_budget(design)
-    trimmed = knobs_changed(fitted, design)
-    if trimmed:
-        print("[{}] over budget: the fit trimmed {}".format(tag, ", ".join(
-            "{} {}->{}".format(knob, trimmed[knob][0], trimmed[knob][1]) for knob in trimmed)), flush=True)
-    return typed_knobs(fitted)
 
 
 
@@ -475,6 +479,15 @@ Add to the JSON:
 - "opening_reasoning": one sentence per move, what evidence it acts on.
 """
 
+JUMP_SHEET_TASK = """
+This is a jump round: the search is stalled on the current design and the moves refused against it
+are listed above. The sheets so far have placed the bottleneck at {named}. Add to the JSON:
+- "counterfactual": an object {{"level": the level named least, or never, whose evidence would most
+  change the design if it were read as the bottleneck; "cause": one sentence naming the mechanism;
+  "evidence": its numbers; "would_change": the knobs, across concerns, the specialists would then
+  have to move together}}. The specialists read it beside your verdicts.
+"""
+
 ANALYST_TURN_TASK = """
 Every specialist held on the current design this round. Besides the sheet, propose the one design
 you would measure: every move the current report's evidence supports, across as many concerns as
@@ -497,6 +510,10 @@ def sheet_text(sheet):
         lines.append("  {}:".format(key) + ("" if sheet[key] else " none"))
         lines += ["    - " + item for item in sheet[key]]
     lines.append("  hypothesis: " + sheet["hypothesis"])
+    if sheet.get("counterfactual"):
+        counter = sheet["counterfactual"]
+        lines.append("  counterfactual bottleneck at {}: {} | evidence: {} | would move together: {}".format(
+            counter["level"], counter["cause"], counter["evidence"], counter["would_change"]))
     return "\n".join(lines)
 
 
@@ -516,10 +533,13 @@ def previous_section(previous, history, objective):
     return ["", "## Your previous hypothesis, and what happened", "  " + previous["hypothesis"], measured]
 
 
-def diagnose(problem, history, incumbent_entry, tag, opening=False, previous=None, rounds=(), turn=False):
+def diagnose(problem, history, incumbent_entry, tag, opening=False, previous=None, rounds=(), turn=False, state=None, evaluated=None):
     """One call a round: the bottleneck sheet every specialist reads, in round 1 the opening
-    design, and when every specialist held, the analyst's own design for the round. It reads its previous sheet and what was measured since. None if the
-    call fails or the answer is not a sheet; the round then runs without one."""
+    design, and when every specialist held, the analyst's own design for the round. It reads
+    its previous sheet and what was measured since; on a jump round it also names the
+    counterfactual bottleneck. `incumbent_entry` is the design the round refines from. None if
+    the call fails or the answer is not a sheet; the round then runs without one."""
+    jump = state is not None and state["mode"] == "jump"
     objective = problem["objective"]
     parts = ["## Role",
              "You are the analyst of a team tuning one cache hierarchy. Four specialists own the knobs, "
@@ -536,8 +556,7 @@ def diagnose(problem, history, incumbent_entry, tag, opening=False, previous=Non
              ""]
     parts += knob_section()
     parts += ["",
-              "## The current design (the best this run has measured), D{} {}={:.4f}".format(
-                  incumbent_entry["index"], objective, incumbent_entry["metrics"][objective]),
+              current_heading(incumbent_entry, objective),
               "  knobs:  " + assignment(incumbent_entry["knobs"], list(SEARCH_SPACE)),
               "  area:   {:.0f} of {} KB of the budget in use by L2 + LLC".format(
                   cache_area_kb(incumbent_entry["knobs"]), problem["area_budget_kb"]),
@@ -557,12 +576,25 @@ def diagnose(problem, history, incumbent_entry, tag, opening=False, previous=Non
               sketch_ledger(rounds, objective),
               "",
               "## What each value of each knob has done across the run",
-              value_ledger(history, list(SEARCH_SPACE), problem["workloads"], objective),
-              "",
+              value_ledger(history, list(SEARCH_SPACE), problem["workloads"], objective)]
+    if jump:
+        parts += ["  (a design's ipc is credited to every value it carries; knobs that moved together are not separated here)",
+                  "  never measured as a one-knob change from the current design:",
+                  untried_text(evaluated if evaluated is not None else history, list(SEARCH_SPACE), incumbent_entry["knobs"])]
+    parts += ["",
               "## The team's recent designs",
-              recent(history, problem),
-              "",
-              DIAGNOSIS_TASK + (OPENING_TASK if opening else ANALYST_TURN_TASK if turn else "")]
+              recent(history, problem)]
+    parts += state_section(state)
+    task = DIAGNOSIS_TASK
+    if jump:
+        counts = {}
+        for record in rounds:
+            if record.get("sheet"):
+                level = record["sheet"]["bottleneck"]["level"]
+                counts[level] = counts.get(level, 0) + 1
+        task += JUMP_SHEET_TASK.format(named=", ".join(
+            "{} ({} sheets)".format(level, n) for level, n in sorted(counts.items(), key=lambda item: -item[1])) or "no level yet")
+    parts += ["", task + (OPENING_TASK if opening else ANALYST_TURN_TASK if turn else "")]
     prompt_text = "\n".join(parts)
     note(tag, "\n---------------- diagnosis{} ----------------\n{}".format(
         " + opening" if opening else " + the analyst's turn" if turn else "", prompt_text))
@@ -592,6 +624,9 @@ def diagnose(problem, history, incumbent_entry, tag, opening=False, previous=Non
              "learned": items("learned", 6), "unattributable": items("unattributable", 8),
              "failing": items("failing", 8),
              "hypothesis": str(answer.get("hypothesis", ""))[:400]}
+    if jump and isinstance(answer.get("counterfactual"), dict):
+        sheet["counterfactual"] = {key: str(answer["counterfactual"].get(key, ""))[:300]
+                                   for key in ["level", "cause", "evidence", "would_change"]}
     note(tag, "-> sheet:\n" + sheet_text(sheet))
     if opening or turn:
         sheet["opening"] = answer.get("opening")
@@ -631,12 +666,13 @@ def opening_design(sheet, problem, tag, base=None):
 TASK = """## Task
 Every specialist proposes this round. Each proposal is sketched cheaply, alone and together with
 the others, before the analyst composes the round's design from the proposals that belong
-together; one design is then measured for real. Propose the move for your knobs that the evidence supports, on one
-level; if it depends on another concern's move - a smaller level that needs timely prefetch in
-front of it, a policy that pays only behind a prefetcher - say so in your reasoning. Move as far
-as your levels' evidence supports in one design rather than one notch at a time; the next round
-tells you if it was too far. Hold (return the current values) when the evidence at your levels
-shows nothing worth a simulation.
+together; one design is then measured for real. Propose the move for your knobs that the evidence
+supports - one knob, or several of yours together when one mechanism needs them; if it depends on
+another concern's move - a smaller level that needs timely prefetch in front of it, a policy that
+pays only behind a prefetcher - say so in your reasoning. Move as far as your levels' evidence
+supports in one design rather than one notch at a time; the next round tells you if it was too
+far. Hold (return the current values) when the evidence at your levels shows nothing worth a
+simulation.
 
 Do not re-propose an assignment of your knobs that this run has already measured below the
 current design, unless that row says other knobs differed and those differences change your
@@ -649,7 +685,27 @@ Return JSON with exactly these keys:
 """
 
 
-def specialist(problem, name, history, incumbent, incumbent_entry, tag, sheet, log, rounds=()):
+JUMP_TASK = """## Task
+The search is stalled: the rounds against the current design did not move it, and the moves the
+sketches refused against it are listed above. Your candidates are the values of your knobs never
+measured as a one-knob change from the current design, listed above: a move refused on an earlier
+design was never measured on this one, and a move of yours that changed several knobs at once
+credited none of them alone. Propose the one you expect most, alone: nothing else of yours moves,
+so the sketch is attributable; the level the state names to sweep first, else the levels the
+sheet blames first, but any of your levels. Only
+when that list is empty for your knobs, propose the coupled move that puts your levels in a
+different regime, and say which hypothesis about the bottleneck it tests. Do not re-propose a
+move refused against the current design. Hold (return the current values) only if you can name
+the measurement that would make you move.
+
+Return JSON with exactly these keys:
+- "reasoning": one sentence - the hypothesis the move tests and the mechanism it acts on, or why
+  you are holding and what would make you move.
+- "knobs": an object with exactly your knobs and one allowed value each.
+"""
+
+
+def specialist(problem, name, history, incumbent, incumbent_entry, tag, sheet, log, rounds=(), state=None, evaluated=None):
     """The first version's specialist prompt with the analyst's sheet after the current
     design's report, the derived view of its levels, its concern's moves with their deltas
     and what each value of its knobs has done. One proposal for its own knobs, or None.
@@ -657,6 +713,7 @@ def specialist(problem, name, history, incumbent, incumbent_entry, tag, sheet, l
     down in order."""
     concern = CONCERNS[name]
     objective = problem["objective"]
+    jump = state is not None and state["mode"] == "jump"
     parts = ["## Role",
              "You are the {} specialist in a team tuning one cache hierarchy.".format(name),
              "You choose only these knobs: " + ", ".join(concern["knobs"]) + ".",
@@ -699,8 +756,12 @@ def specialist(problem, name, history, incumbent, incumbent_entry, tag, sheet, l
               measured_view(history, concern["knobs"], objective, incumbent),
               "",
               "## What each value of your knobs has done across the run",
-              value_ledger(history, concern["knobs"], problem["workloads"], objective),
-              "",
+              value_ledger(history, concern["knobs"], problem["workloads"], objective)]
+    if jump:
+        parts += ["  (a design's ipc is credited to every value it carries; knobs that moved together are not separated here)",
+                  "  never measured as a one-knob change from the current design:",
+                  untried_text(evaluated if evaluated is not None else history, concern["knobs"], incumbent_entry["knobs"])]
+    parts += ["",
               "## Every move of your concern this run has made, and what it did",
               concern_moves(history, concern["knobs"], objective),
               "",
@@ -708,9 +769,9 @@ def specialist(problem, name, history, incumbent, incumbent_entry, tag, sheet, l
               concern_sketches(rounds, name),
               "",
               "## The team's recent designs",
-              recent(history, problem),
-              "",
-              TASK]
+              recent(history, problem)]
+    parts += state_section(state)
+    parts += ["", JUMP_TASK if jump else TASK]
     prompt_text = "\n".join(parts)
     log.append("\n---------------- {} specialist ----------------\n{}".format(name, prompt_text))
     asked_once_more = False
@@ -754,6 +815,7 @@ def levels_moved(proposal_knobs, incumbent):
                    if str(value) != str(incumbent[knob])})
 
 
+
 # ---------------------------------------------------------------- the sketches ----
 
 def parts_of(design, incumbent):
@@ -775,11 +837,12 @@ def with_parts(incumbent, parts):
     return typed_knobs(fit_to_budget(typed_knobs(design)))
 
 
-def probe_wave(probe_problem, incumbent, parts, tag):
+def probe_wave(probe_problem, incumbent_entry, parts, tag, measure, round_number):
     """Sketches at the probe rung, measured together: the incumbent, each part alone on it,
-    and all parts together. Deltas against the incumbent's own sketch, so the rung's bias
-    cancels. None if the incumbent's sketch failed."""
+    and all parts together. Every sketch is a design of the run. Deltas against the
+    incumbent's own sketch, so the rung's bias cancels. None if the incumbent's sketch failed."""
     objective = probe_problem["objective"]
+    incumbent = incumbent_entry["knobs"]
     planned = [("incumbent", typed_knobs(incumbent))]
     planned += [(name, with_parts(incumbent, [part])) for name, part in parts.items()]
     if len(parts) > 1:
@@ -787,23 +850,27 @@ def probe_wave(probe_problem, incumbent, parts, tag):
     label_of = {}
     for label, design in planned:
         label_of.setdefault(probe_problem["name_of"](design), label)
-    knobs_list, metrics_list, _ = engine.measure_batch(probe_problem, [design for _, design in planned], tag)
+    entries = measure(probe_problem, [design for _, design in planned],
+                      lambda knobs: "sketch:" + label_of[probe_problem["name_of"](knobs)], round_number, incumbent_entry)
     values = {}
-    for knobs, metrics in zip(knobs_list, metrics_list):
-        values[label_of[probe_problem["name_of"](knobs)]] = metrics[objective]
+    for (label, _), entry in zip(planned, entries):
+        if entry is not None:
+            values.setdefault(label, entry["metrics"][objective])
     if "incumbent" not in values:
         note(tag, "-> the incumbent's sketch failed; no sketches this round")
         return None
     base = values["incumbent"]
     probes = {"rung": list(probe_problem["fidelity"]), "incumbent": base,
-              "parts": {name: values[name] - base for name in parts if name in values}}
+              "parts": {name: values[name] - base for name in parts if name in values},
+              "failed": [name for name in parts if name not in values]}
     if "joint" in values:
         probes["joint"] = values["joint"] - base
         probes["interaction"] = probes["joint"] - sum(probes["parts"].values())
     note(tag, "-> sketches at {}: {}{}".format(
         "/".join("{}M".format(n // 1_000_000) for n in probes["rung"]),
         ", ".join("{} {:+.4f}".format(name, delta) for name, delta in probes["parts"].items()),
-        " | together {:+.4f}, interaction {:+.4f}".format(probes["joint"], probes["interaction"]) if "joint" in probes else ""))
+        (" | together {:+.4f}, interaction {:+.4f}".format(probes["joint"], probes["interaction"]) if "joint" in probes else "")
+        + (" | could not be simulated: " + ", ".join(probes["failed"]) if probes["failed"] else "")))
     return probes
 
 
@@ -846,6 +913,88 @@ def sketch_ledger(rounds, objective):
     return "\n".join(lines) if lines else "  no sketches yet"
 
 
+def refused_moves(rounds, index):
+    """The moves sketched against design `index` and not committed, with what the sketch said:
+    the tabu list of a stall, and where the flat moves - free parts of a coupled design - are
+    read from."""
+    refused = []
+    for record in rounds:
+        probes = record.get("probes")
+        if record["against"] != index or not probes or not record.get("moves"):
+            continue
+        for name, moved in record["moves"].items():
+            if name in probes.get("failed", []):
+                refused.append((name, moved, None))
+            elif name in probes["parts"] and name not in record["include"]:
+                refused.append((name, moved, probes["parts"][name]))
+    return refused
+
+
+def refused_text(refused, tolerance):
+    lines = ["  {}: {} | {}".format(
+        name, ", ".join("{} {}->{}".format(knob, a, b) for knob, (a, b) in sorted(moved.items())),
+        "the simulator could not measure it" if delta is None
+        else "sketched {:+.4f}{}".format(delta, " (flat)" if abs(delta) <= tolerance else ""))
+        for name, moved, delta in refused]
+    return "\n".join(lines) if lines else "  none"
+
+
+def sweep_level(rounds, index):
+    """After a jump round against design `index` found nothing, the level the next one sweeps:
+    the level those jump rounds have blamed least and sketched least, so a stall does not spend
+    its budget on the levels the sheet keeps naming. None before the first empty jump."""
+    jumps = [record for record in rounds if record["mode"] == "jump" and record["against"] == index]
+    if not jumps:
+        return None
+    score = {level: 0 for level in ALL_LEVELS}
+    for record in jumps:
+        sheet = record.get("sheet") or {}
+        for key in ("bottleneck", "counterfactual"):
+            level = (sheet.get(key) or {}).get("level")
+            if level in score:
+                score[level] += 1
+        for moved in record.get("moves", {}).values():
+            for knob in moved:
+                score[LEVEL_OF[knob.split("_")[0]]] += 1
+    return min(ALL_LEVELS, key=lambda level: score[level])
+
+
+def untried_text(history, knobs, current):
+    """The values of these knobs never measured as a single change from the current design,
+    sketches included, within the area budget: the neighbourhood the run has not looked at. A
+    design that moved several knobs at once credits none of them alone, so a value carried only
+    by such designs is untried here."""
+    measured = {config_name(entry["knobs"]) for entry in history}
+    lines = []
+    for knob in knobs:
+        untried = [str(value) for value in SEARCH_SPACE[knob]
+                   if value != current[knob] and within_budget(dict(current, **{knob: value}))
+                   and config_name(dict(current, **{knob: value})) not in measured]
+        if untried:
+            lines.append("  {}: {}".format(knob, ", ".join(untried)))
+    return "\n".join(lines) if lines else "  every one-knob change from the current design has been measured"
+
+
+def state_section(state):
+    """What a jump round tells everyone before the task. Nothing in a climbing round."""
+    if state is None or state["mode"] != "jump":
+        return []
+    lines = ["", "## The search is stalled",
+             "  {} rounds in a row did not move the current design.".format(state["stalled"]),
+             "  moves the sketches refused against it (none is worth re-proposing alone):",
+             refused_text(state["refused"], state["tolerance"])]
+    if state.get("sweep"):
+        lines += ["  the jump rounds against this design found nothing at the levels the sheet blamed; this round "
+                  "sweeps the {}: propose your untried one-knob move there if you have one, else at any of your "
+                  "levels.".format(state["sweep"])]
+    return lines
+
+
+def current_heading(current_entry, objective):
+    return "## The current design (the best this run has measured), D{} {}={:.4f}".format(
+        current_entry["index"], objective, current_entry["metrics"][objective])
+
+
 def sketch_text(probes):
     if probes is None:
         return "  no sketches this round"
@@ -875,7 +1024,18 @@ Return JSON with exactly these keys:
 """
 
 
-def synthesize(problem, sheet, incumbent, proposals, probes, tag):
+JUMP_SYNTHESIS = """## This is a jump round
+The search is stalled on the current design and the proposals are one-knob moves never measured
+from it. The sketches decide: a part that lost by more than {tolerance:.4f} may be in the design
+only if the "all together" sketch is not a loss, and the code enforces this. Compose from the parts
+that gained: several attributable gains may go together when the "all together" sketch confirms
+them. A design the sketches do not predict to gain is not measured, and the next round jumps
+again. Include nothing if no part gained.
+
+"""
+
+
+def synthesize(problem, sheet, incumbent, proposals, probes, tag, state=None):
     """The analyst's second call: which of the proposals form the round's design, with the
     sketches in front of it. Returns (included concern names, hypothesis). On any failure
     every proposal is in."""
@@ -901,8 +1061,9 @@ def synthesize(problem, sheet, incumbent, proposals, probes, tag):
                   "    because: " + proposals[name]["reasoning"]]
     parts += ["",
               "## What the sketches say (change in {} against the current design, at the probe rung)".format(problem["objective"]),
-              sketch_text(probes),
-              "", SYNTHESIS_TASK]
+              sketch_text(probes)]
+    parts += ["", (JUMP_SYNTHESIS.format(tolerance=state["tolerance"]) if state is not None and state["mode"] == "jump" else "")
+              + SYNTHESIS_TASK]
     prompt_text = "\n".join(parts)
     note(tag, "\n---------------- synthesis ----------------\n" + prompt_text)
     try:
@@ -941,85 +1102,130 @@ def predicted(probes, include):
 # ---------------------------------------------------------------- the search ----
 
 def search(problem, budget, seed, tag, probe_problem=None):
-    """`budget` designs, one a round: the analyst's sheet, four proposals at once, the sketches,
-    the analyst's composition, one measurement at the run's fidelity."""
+    """`budget` designs, sketches included: every design the run evaluates counts once, whether
+    the simulator ran or the table answered. A round: the analyst's sheet, four proposals at
+    once, the sketch wave, the analyst's composition, and the composed design measured if the
+    wave did not. The incumbent is the best design measured at the run's fidelity, from a
+    sketch or a composition alike."""
     objective = problem["objective"]
+    fidelity = tuple(problem["fidelity"])
     started = time.time()
     history = []
     rounds = []
+    by_name = {}            # (design name, rung) -> its entry: a design is evaluated once
 
-    def record(knobs, metrics, source, round_number, hypothesis, against, probes=None):
+    def record(knobs, metrics, source, round_number, hypothesis, against, rung):
         entry = {"index": len(history), "round": round_number, "name": problem["name_of"](knobs),
                  "knobs": knobs, "metrics": metrics, "source": source, "hypothesis": hypothesis,
-                 "against": None, "baseline": None, "moved": {}, "probes": probes}
+                 "rung": list(rung), "against": None, "baseline": None, "moved": {}}
         if against is not None:
             entry["against"] = against["index"]
             entry["baseline"] = against["metrics"][objective]
             entry["moved"] = knobs_changed(knobs, against["knobs"])
         history.append(entry)
+        by_name[(entry["name"], tuple(rung))] = entry
         note(tag, "\n======== D{} [{}] {}={:.4f} | {} ========".format(
-            entry["index"], source, objective, entry["metrics"][objective],
-            ", ".join("{}={}".format(knob, entry["knobs"][knob])
-                      for knob in sorted(knobs_changed(entry["knobs"], problem["stock"]))) or "stock"))
-        if probes is not None and against is not None:
-            note(tag, "-> measured {:+.4f} against D{}; the sketches predicted {:+.4f}".format(
-                entry["metrics"][objective] - entry["baseline"], against["index"], probes["predicted"]))
+            entry["index"], source, objective, metrics[objective],
+            ", ".join("{}={}".format(knob, knobs[knob]) for knob in sorted(knobs_changed(knobs, problem["stock"]))) or "stock"))
         print("[{}] round {} | D{} | {}={:.4f} | {} | {:.0f} min".format(
-            tag, round_number, entry["index"], objective, entry["metrics"][objective], source,
-            (time.time() - started) / 60), flush=True)
+            tag, round_number, entry["index"], objective, metrics[objective], source, (time.time() - started) / 60), flush=True)
         return entry
 
-    def commit(incumbent_entry, proposals, sheet, source, round_number):
-        """Sketch the proposals, compose, measure the composed design once. Returns the entry
-        or None when nothing new could be measured."""
+    def measure(problem_, designs, source, round_number, against, hypothesis=None):
+        """The designs' entries, in the order asked: the ones already evaluated at this rung
+        are read back, the others are measured now and recorded. None for a design the
+        simulator could not measure. `source` is a label or a function of the knobs."""
+        rung = tuple(problem_["fidelity"])
+        fresh, seen = [], set()
+        for design in designs:
+            name = problem_["name_of"](design)
+            if (name, rung) not in by_name and name not in seen:
+                seen.add(name)
+                fresh.append(design)
+        if fresh:
+            knobs_list, metrics_list, _ = engine.measure_batch(problem_, fresh, tag)
+            for knobs, metrics in zip(knobs_list, metrics_list):
+                record(knobs, metrics, source(knobs) if callable(source) else source, round_number, hypothesis, against, rung)
+        return [by_name.get((problem_["name_of"](design), rung)) for design in designs]
+
+    def committed_designs():
+        """The record the council reads and stands on: the composed designs, not the sketches. Every sketch still counts against the budget and is in the report, and the
+        jump round's neighbourhood list reads every design evaluated."""
+        return [entry for entry in history if not entry["source"].startswith("sketch:")]
+
+    def incumbent_of():
+        return max((entry for entry in committed_designs() if tuple(entry["rung"]) == fidelity),
+                   key=lambda entry: entry["metrics"][objective])
+
+    def commit(incumbent_entry, proposals, sheet, source, round_number, state=None):
+        """Sketch the proposals, compose, measure the composed design. Returns its entry, or
+        None when nothing was composed or nothing new could be measured."""
         incumbent = incumbent_entry["knobs"]
+        mode = state["mode"] if state is not None else "climb"
         parts = {name: proposals[name]["knobs"] for name in proposals}
-        probes = probe_wave(probe_problem, incumbent, parts, tag) if probe_problem is not None else None
-        if len(proposals) > 1:
-            include, hypothesis = synthesize(problem, sheet, incumbent, proposals, probes, tag)
+        moves = {name: knobs_changed(with_parts(incumbent, [parts[name]]), incumbent) for name in parts}
+        probes = probe_wave(probe_problem, incumbent_entry, parts, tag, measure, round_number) if probe_problem is not None else None
+        if probes is not None and probes["failed"]:
+            # A part the simulator could not measure is out of the round and on the refused list.
+            proposals = {name: proposals[name] for name in proposals if name not in probes["failed"]}
+            parts = {name: parts[name] for name in parts if name not in probes["failed"]}
+        if not proposals:
+            include, hypothesis = [], "nothing could be simulated"
+        elif len(proposals) > 1:
+            include, hypothesis = synthesize(problem, sheet, incumbent, proposals, probes, tag, state)
         else:
             # One proposal: nothing to compose, the sketch alone decides below.
             include, hypothesis = list(proposals), next(iter(proposals.values()))["reasoning"]
-        moves = {name: knobs_changed(with_parts(incumbent, [parts[name]]), incumbent) for name in parts}
+        if probes is not None and include and mode == "jump":
+            # A jump may not carry a part the sketches refused, unless all the parts together
+            # are not a loss.
+            tolerance = FLAT_SHARE * probes["incumbent"]
+            losers = [name for name in include if probes["parts"].get(name, 0.0) < -tolerance]
+            together_ok = ("joint" in probes and probes["joint"] >= -tolerance
+                           and len(include) == len(probes["parts"]))
+            if losers and not together_ok:
+                note(tag, "-> a jump may not carry parts the sketches refused ({}); left out".format(", ".join(losers)))
+                include = [name for name in include if name not in losers]
         if probes is not None and include:
             value, exact = predicted(probes, include)
             if not exact:
-                # A composed subset nobody sketched: sketch it now, so the veto and the ledger
-                # read a measurement rather than the sum of its parts.
+                # A composed subset nobody sketched: sketch it now, so the veto reads a
+                # measurement rather than the sum of its parts. It is a design of the run.
                 composed = with_parts(incumbent, [parts[name] for name in include])
-                _, sketched, _ = engine.measure_batch(probe_problem, [composed], tag)
-                if sketched:
-                    measured = sketched[0][probe_problem["objective"]] - probes["incumbent"]
-                    note(tag, "-> sketched the composed design {}: {:+.4f} (sum of parts {:+.4f})".format(
-                        " + ".join(include), measured, value))
-                    value, exact = measured, True
+                sketched = measure(probe_problem, [composed], "sketch:" + "+".join(include), round_number, incumbent_entry)[0]
+                if sketched is not None:
+                    value, exact = sketched["metrics"][objective] - probes["incumbent"], True
+                    note(tag, "-> sketched the composed design {}: {:+.4f}".format(" + ".join(include), value))
             probes = dict(probes, predicted=value, exact=exact, include=include)
+            # The sketches veto: a design they predict to lose is not measured, whoever composed
+            # it.
             if value <= 0.0:
-                # The sketches veto: a design they predict to lose is not measured, whoever composed it.
-                note(tag, "-> the sketches predict {:+.4f} for {}: vetoed, nothing committed".format(value, " + ".join(include)))
+                note(tag, "-> the sketches predict {:+.4f} for {}: vetoed, nothing composed".format(value, " + ".join(include)))
                 include = []
-        rounds.append({"round": round_number, "against": incumbent_entry["index"], "sheet": sheet,
+        rounds.append({"round": round_number, "mode": mode, "against": incumbent_entry["index"], "sheet": sheet,
                        "proposals": proposals, "moves": moves, "include": include,
                        "hypothesis": hypothesis, "probes": probes})
         if not include:
-            note(tag, "-> nothing committed this round; the sketches go to the ledger")
+            note(tag, "-> nothing composed this round; the sketches stay in the ledger")
             return None
         design = with_parts(incumbent, [parts[name] for name in include])
         if not knobs_changed(design, incumbent):
-            note(tag, "-> the composed design is the current design, nothing to measure")
-            return None
-        if problem["name_of"](design) in {entry["name"] for entry in history}:
-            note(tag, "-> the composed design was measured before this run, nothing to measure")
-            return None
-        knobs_list, metrics_list, _ = engine.measure_batch(problem, [design], tag)
-        if not knobs_list:
-            print("[{}] round {} | design could not be measured".format(tag, round_number), flush=True)
+            note(tag, "-> the composed design is the current design")
             return None
         label = source if len(include) > 1 else "council:" + include[0]
-        return record(knobs_list[0], metrics_list[0], label, round_number, hypothesis, incumbent_entry, probes)
+        entry = measure(problem, [design], label, round_number, incumbent_entry, hypothesis)[0]
+        if entry is None:
+            print("[{}] round {} | the composed design could not be measured".format(tag, round_number), flush=True)
+            return None
+        if entry["source"].startswith("sketch:"):
+            entry["source"] = label          # the wave measured it; the analyst chose it
+            entry["hypothesis"] = hypothesis
+        note(tag, "-> composed: D{} {}={:.4f}, {:+.4f} against D{}".format(
+            entry["index"], objective, entry["metrics"][objective],
+            entry["metrics"][objective] - incumbent_entry["metrics"][objective], incumbent_entry["index"]))
+        return entry
 
-    stock_entry = record(problem["stock"], engine.measure_batch(problem, [typed_knobs(problem["stock"])], tag)[1][0],
-                         "stock", 0, None, None)
+    stock_entry = measure(problem, [typed_knobs(problem["stock"])], "stock", 0, None)[0]
 
     # Round 1: the analyst's sheet for the stock chip and its opening, split by concern.
     round_number = 1
@@ -1033,52 +1239,80 @@ def search(problem, budget, seed, tag, probe_problem=None):
                      for name, part in parts_of(opening, problem["stock"]).items()}
         commit(stock_entry, proposals, sheet, "council:opening", 1)
 
-    # Empty rounds cost no design, so they do not end the search; the cap on rounds does, or
-    # a round in which every specialist holds and the analyst has nothing either.
+    # A round that improves nothing costs its sketches, so the budget ends the search, or the
+    # cap on rounds. A stalled search keeps jumping, its refused list growing.
     max_rounds = 3 * budget
-    empty_turns = 0
+    stalled = 0             # rounds in a row in which the incumbent did not move
     while len(history) - 1 < budget and round_number < max_rounds:
-        incumbent_entry = max(history, key=lambda entry: entry["metrics"][objective])
-        incumbent = incumbent_entry["knobs"]
+        incumbent_entry = incumbent_of()
+        mode = "jump" if stalled >= STALL_ROUNDS else "climb"
+        current_entry = incumbent_entry
+        current = current_entry["knobs"]
+        state = {"mode": mode, "stalled": stalled,
+                 "refused": refused_moves(rounds, current_entry["index"]),
+                 "sweep": sweep_level(rounds, current_entry["index"]) if mode == "jump" else None,
+                 "tolerance": FLAT_SHARE * current_entry["metrics"][objective]}
         round_number += 1
-        note(tag, "\n\n################ round {} | incumbent D{} {}={:.4f} ################".format(
-            round_number, incumbent_entry["index"], objective, incumbent_entry["metrics"][objective]))
-        sheet = diagnose(problem, history, incumbent_entry, tag, previous=previous, rounds=rounds)
+        note(tag, "\n\n################ round {} | {}{} | current D{} {}={:.4f} | incumbent D{} | {} of {} designs ################".format(
+            round_number, mode, " " + state["sweep"] if state["sweep"] else "", current_entry["index"], objective,
+            current_entry["metrics"][objective], incumbent_entry["index"], len(history) - 1, budget))
+        committed = committed_designs()
+        sheet = diagnose(problem, committed, current_entry, tag, previous=previous, rounds=rounds, state=state, evaluated=history)
         previous = sheet if sheet is not None else previous
 
         logs = {name: [] for name in ORDER}
         with ThreadPoolExecutor(max_workers=len(ORDER)) as pool:
-            futures = {name: pool.submit(specialist, problem, name, history, incumbent, incumbent_entry, tag, sheet, logs[name], rounds)
+            futures = {name: pool.submit(specialist, problem, name, committed, current, current_entry, tag, sheet, logs[name], rounds, state, history)
                        for name in ORDER}
             answers = {name: future.result() for name, future in futures.items()}
         for name in ORDER:
             for text in logs[name]:
                 note(tag, text)
-        # A proposal counts as a move only if it changes the design once typed and fitted.
-        proposals = {name: answers[name] for name in ORDER
-                     if answers[name] is not None
-                     and knobs_changed(with_parts(incumbent, [answers[name]["knobs"]]), incumbent)}
+        # A proposal counts as a move only if it changes the design once typed and fitted; a
+        # move the sketches already refused against this design, or a design the simulator
+        # could not measure, is a hold and costs no sketch.
+        proposals = {}
+        for name in ORDER:
+            if answers[name] is None:
+                continue
+            design = with_parts(current, [answers[name]["knobs"]])
+            moved = knobs_changed(design, current)
+            if not moved:
+                continue
+            if not problem.get("is_candidate", lambda knobs: True)(design):
+                note(tag, "-> {}'s design is one the simulator could not measure before; taken as a hold".format(name))
+                continue
+            if any(other == name and refused == moved for other, refused, _ in state["refused"]):
+                note(tag, "-> {} re-proposed a move the sketches refused against D{}; taken as a hold".format(
+                    name, current_entry["index"]))
+                continue
+            proposals[name] = answers[name]
         source = "council:joint"
         if not proposals:
             # Holds can wait on one another; the analyst, who reads every level, takes the turn
-            # with one design of its own. The search stops when it has nothing, or when two of
-            # its turns in a row commit nothing.
+            # with one design of its own.
             note(tag, "-> every specialist held; the analyst takes the turn")
-            sheet = diagnose(problem, history, incumbent_entry, tag, previous=previous, rounds=rounds, turn=True)
+            sheet = diagnose(problem, committed, current_entry, tag, previous=previous, rounds=rounds, turn=True, state=state, evaluated=history)
             previous = sheet if sheet is not None else previous
-            design = opening_design(sheet, problem, tag, base=incumbent) if sheet is not None else None
-            if design is None or empty_turns >= 2:
-                print("[{}] round {} | every specialist held on D{} and the analyst has nothing: stopping".format(
-                    tag, round_number, incumbent_entry["index"]), flush=True)
-                break
-            proposals = {name: {"knobs": part, "reasoning": sheet["opening_reasoning"]}
-                         for name, part in parts_of(design, incumbent).items()}
-            source = "council:analyst"
-        entry = commit(incumbent_entry, proposals, sheet, source, round_number)
-        if entry is None:
-            print("[{}] round {} | nothing committed".format(tag, round_number), flush=True)
-        empty_turns = empty_turns + 1 if (entry is None and source == "council:analyst") else 0
+            design = opening_design(sheet, problem, tag, base=current) if sheet is not None else None
+            if design is not None:
+                proposals = {name: {"knobs": part, "reasoning": sheet["opening_reasoning"]}
+                             for name, part in parts_of(design, current).items()}
+                source = "council:analyst"
+        if proposals:
+            commit(current_entry, proposals, sheet, source, round_number, state)
+
+        # What the round did: the incumbent is the best design measured, a sketch included.
+        best_now = incumbent_of()
+        improved = best_now["index"] != incumbent_entry["index"]
+        stalled = 0 if improved else stalled + 1
+        if not improved:
+            print("[{}] round {} | {} | the incumbent did not move".format(tag, round_number, mode), flush=True)
+        if stalled >= STALL_ROUNDS:
+            note(tag, "-> {} rounds did not move the incumbent D{}: the next round is a jump round".format(
+                stalled, incumbent_entry["index"]))
     if round_number >= max_rounds:
         print("[{}] {} rounds: stopping".format(tag, round_number), flush=True)
-
+    print("[{}] {} designs evaluated, best D{} {}={:.4f}".format(
+        tag, len(history) - 1, incumbent_of()["index"], objective, incumbent_of()["metrics"][objective]), flush=True)
     return {"designs": history, "rounds": rounds}

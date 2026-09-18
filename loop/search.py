@@ -18,7 +18,8 @@ why `ceiling` exists - it is the same forest search run long, and it must stay a
 mechanism separate from the arms. Scoring against a design an arm found bounds the
 metric at that arm, which has happened once and cost every arm five points.
 
-Env: SEEDS (default 2), FIRST_SEED, BUDGET (default 16), PARALLEL_RUNS, SIM_THREADS,
+Env: SEEDS (default 2), FIRST_SEED, BUDGET (default 60), BO_BATCH (designs per forest
+round, default 1), PARALLEL_RUNS, SIM_THREADS,
 ANALYST_MODEL, LOOP_WARMUP / LOOP_SIM (the run's fidelity), PROBE_WARMUP / PROBE_SIM (the
 council's sketch rung).
 """
@@ -55,7 +56,7 @@ CELLS = {
 }
 ARMS = ["bo", "council"]
 
-BUDGET = int(os.environ.get("BUDGET", "16"))
+BUDGET = int(os.environ.get("BUDGET", "60"))
 SMOKE_BUDGET = 2          # the gate measures this many designs per arm, whatever BUDGET says
 WARM_UP_DESIGNS = 3       # taken from the pool before the forest chooses anything
 TREES = 100
@@ -201,7 +202,7 @@ def measure_batch(problem, knobs_list, tag):
     try:
         return knobs_list, problem["evaluate_many"](knobs_list), []
     except Exception as error:
-        print("[{}] batch failed ({}), retrying one at a time".format(tag, repr(error)[-160:]), flush=True)
+        print("[{}] batch failed ({}), retrying one at a time".format(tag, str(error)[-300:]), flush=True)
     kept = []
     metrics = []
     dropped = []
@@ -212,7 +213,7 @@ def measure_batch(problem, knobs_list, tag):
             kept.append(knobs)
         except Exception as error:
             dropped.append(name)
-            print("[{}] dropped {}: {}".format(tag, name, repr(error)[-160:]), flush=True)
+            print("[{}] dropped {}: {}".format(tag, name, str(error)[-300:]), flush=True)
     return kept, metrics, dropped
 
 
@@ -298,7 +299,14 @@ def run_one(arm, cell_name, seed, budget, tag_prefix):
     problem = make_suite_problem(CELLS[cell_name])
     tag = "{}-{}-s{}".format(arm, tag_prefix, seed)
     if arm == "bo":
-        result = forest_search(problem, budget, 1, seed, tag)
+        # BO_BATCH: designs measured at once per round, so the forest can spend a round's
+        # wall clock on several simulations the way the council's sketch wave does. The
+        # picks of one wave are drawn without each other's outcomes, which is the trade
+        # the parallelism buys. One wave warms the search up, so a round is a round in
+        # both arms.
+        batch = int(os.environ.get("BO_BATCH", "1"))
+        warm_up = batch if batch > 1 else WARM_UP_DESIGNS
+        result = forest_search(problem, budget, batch, seed, tag, warm_up=warm_up)
     elif arm == "council":
         from loop import council
         # PROBE_WARMUP / PROBE_SIM: the cheap rung the council sketches on before it records
@@ -343,6 +351,7 @@ def run_cell(cell_name, tag, arms=None):
     output_path = report_path(cell_name, tag)
     report = {"cell": cell_name, "tag": tag, "workloads": workloads, "arms": arms, "seeds": seeds,
               "first_seed": first_seed, "budget": budget,
+              "bo_batch": int(os.environ.get("BO_BATCH", "1")),
               "fidelity": [WARMUP_INSTRUCTIONS, SIMULATION_INSTRUCTIONS],
               "probe_fidelity": [int(os.environ["PROBE_WARMUP"]), int(os.environ["PROBE_SIM"])] if os.environ.get("PROBE_WARMUP") else None,
               "model": analyst.MODEL, "runs": {}, "failed": []}

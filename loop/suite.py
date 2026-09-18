@@ -23,8 +23,8 @@ import os
 import time
 from concurrent.futures import ThreadPoolExecutor
 
-from loop.simulate import (ALL_CACHES, KNOB_LOCATION, METRICS_VERSION, build_binary, build_config,
-                           describe, make_config, run_simulation)
+from loop.simulate import (ALL_CACHES, KNOB_LOCATION, METRICS_VERSION, SimulatorInterrupted, build_binary,
+                           build_config, describe, make_config, run_simulation)
 from loop.space import AREA_BUDGET_KB, SEARCH_SPACE, config_name, in_space, typed_knobs, within_budget
 
 CHAMPSIM_ROOT = "champsim"
@@ -211,6 +211,8 @@ class ChampSimProblem:
             config_path = make_config(knobs, BASE_CONFIG, GENERATED_DIR)
             binary_path = build_binary(config_path, CHAMPSIM_ROOT)
             return run_simulation(binary_path, self.trace_path, self.warmup, self.simulation)
+        except SimulatorInterrupted:
+            raise                       # killed from outside: not the design's fault, not cached
         except Exception:
             self.remember(knobs, None)
             raise

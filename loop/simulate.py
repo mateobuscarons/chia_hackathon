@@ -145,6 +145,10 @@ def make_config(knobs, base_config_path, output_dir):
 # ---------------------------------------------------------------- the run ----
 
 
+class SimulatorInterrupted(RuntimeError):
+    """The simulator was killed from outside; nothing is known about the design."""
+
+
 def run_simulation(binary_path, trace_paths, warmup_instructions, simulation_instructions):
     """Run one simulation and return a flat metrics dict (ipc, misses, mpki).
 
@@ -161,7 +165,14 @@ def run_simulation(binary_path, trace_paths, warmup_instructions, simulation_ins
         "--simulation-instructions", str(simulation_instructions),
         "--json", stats_path,
     ] + list(trace_paths)
-    subprocess.run(command, check=True, capture_output=True, text=True)
+    try:
+        subprocess.run(command, check=True, capture_output=True, text=True)
+    except subprocess.CalledProcessError as error:
+        # A negative code is a signal from outside (a kill, the OS): the design is not to
+        # blame and the table must not remember it as a crash.
+        message = "ChampSim exited {} for {} on {}: {}".format(
+            error.returncode, os.path.basename(binary_path), trace_paths[0], (error.stderr or "")[-300:].strip())
+        raise (SimulatorInterrupted if error.returncode < 0 else RuntimeError)(message)
 
     # A design that makes ChampSim exit cleanly but write no usable stats used to
     # surface as a bare JSONDecodeError with nothing identifying it, which killed a
