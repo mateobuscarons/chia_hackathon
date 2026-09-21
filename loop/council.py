@@ -17,17 +17,19 @@ stands on the composed designs, and the incumbent is the best of them. When ever
 with one design of its own, split by concern like the opening.
 
 The council only climbs, so it can stall in a local optimum with budget left. STALL_ROUNDS
-rounds in a row that do not move the incumbent make the next round a jump round: everyone reads
-the moves the sketches refused against the incumbent and, per knob, the values never measured as
-a one-knob change from it; each specialist proposes the untried one-knob move it expects most,
-alone, so the sketch is attributable, and only a concern whose neighbourhood is exhausted
-proposes the coupled move that puts its levels in a different regime; the analyst writes which
-other level's evidence would motivate a different design and composes from the parts that
-gained. A jump may not carry a part the sketches refused unless the parts together are not a
-loss; a jump the sketches do not predict to gain is not measured, and the next round jumps
-again with a smaller neighbourhood, sweeping the level the jump rounds have blamed and sketched
-least, so a stall does not spend its budget on the levels the sheet keeps naming. The search stops when the budget is spent or after three
-rounds per design of budget; a stalled search keeps jumping, its refused list growing.
+rounds in a row that do not move the incumbent make the next round a jump round. The jump round
+measures instead of guessing: the wave sketches every value of every knob at one level never
+measured as a one-knob change from the incumbent, the level with the fewest such moves first so
+each round completes a level, at most SWEEP_CAP designs a wave; beside them, one coupled design
+the analyst writes from its counterfactual bottleneck, the knobs across concerns it would move
+together. The analyst composes from the parts that gained. A jump may not carry a part the
+sketches refused; a jump the sketches do not predict to gain is not measured, and the next round
+sweeps the next level. Once every one-knob move has been measured, only the restructure is
+sketched, and when the analyst offers none it takes the turn with a design of its own. With
+SWEEP off the jump round is the earlier one: each specialist proposes the untried one-knob move
+it expects most, alone, and the next empty jump sweeps the level blamed and sketched least. The
+search stops when the budget is spent or after three rounds per design of budget; a stalled
+search keeps jumping, its refused list growing.
 
 The concerns split the thirteen knobs by what they are - what prefetches, how big, what
 policy, how many misses in flight. The principles say what a knob does, never which value to
@@ -40,9 +42,18 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 
 from loop import analyst
+from loop import chip
 from loop import search as engine
-from loop.simulate import derived_latency
-from loop.space import SEARCH_SPACE, cache_area_kb, config_name, fit_to_budget, knobs_changed, typed_knobs, within_budget
+from loop.space import SEARCH_SPACE, cache_area_kb, config_name, knobs_changed, typed_knobs, within_budget
+
+# CHIP_VIEW off reverts what the council READS about the chip to the form it had before the
+# chip was derived: the override-diff chip line, the misses-per-kilo-instruction bottleneck
+# ranking, the old off-chip figure, no memory-time decomposition, no traffic against what the
+# channels deliver, no sharing or per-core or silicon in the report, unfiltered knob lists and
+# no workload line. The chip itself is unchanged - CACTI latency, the per-core area budget and
+# the per-core mixes stay, because those are the machine and not the reading. This is the
+# ablation arm: it answers whether the reading helped, or only the machine.
+CHIP_VIEW = os.environ.get("CHIP_VIEW", "1") == "1"
 
 # A concern owns a disjoint set of knobs and what it knows before it has measured
 # anything. The levels it can read a report for are the levels it owns knobs at.
@@ -64,18 +75,24 @@ CONCERNS = {
             "never used, so a weaker mechanism at a level can beat a stronger one.",
             "Strided and streaming access is covered by simple stride prefetchers. Irregular "
             "access needs spatial or correlating designs, and some of it cannot be covered at all.",
+            "A prefetch consumes the same off-chip bandwidth as a demand miss. Where the traffic "
+            "already reaching memory is close to what the channels deliver, coverage is taken from "
+            "somewhere else - a weaker mechanism at another level, or accuracy - not added on top.",
         ],
     },
     "geometry": {
         "knobs": ["l1d_sets", "l1d_ways", "l2_sets", "l2_ways", "llc_sets", "llc_ways"],
         "principles": [
-            "Capacity is not free. Hit latency is a function of capacity alone: re-splitting the "
-            "same capacity between sets and ways changes associativity, not latency. Enlarging a "
-            "level lowers its miss rate and raises its hit time - and the hit time is paid on "
-            "every access that reaches it, including the ones that go on to miss.",
+            "Capacity is not free, and on some levels neither is associativity: the ladder gives "
+            "what every shape costs on this chip, in cycles and in silicon, and the two do not "
+            "always move together. Enlarging a level lowers its miss rate and raises its hit time "
+            "- and the hit time is paid on every access that reaches it, including the ones that "
+            "go on to miss.",
             "A level with a low hit ratio charges its hit latency on nearly every access and then "
             "misses anyway. Shrinking it takes that latency out of the path to the level below "
-            "and frees area. The right size is set by where the hits are, not by the budget.",
+            "and frees area. The right size is set by where the hits are, not by the budget. But a "
+            "low hit ratio is not on its own a reason to shrink: read it against what a miss past "
+            "the level costs, and against whether the level above is sending it anything to reuse.",
             "Area is a budget to allocate between levels, not a quantity to spend in full. "
             "Capacity placed where it does not remove misses buys latency and nothing else.",
             "The level worth growing is the one whose misses are both frequent and not already "
@@ -114,21 +131,64 @@ CONCERNS = {
             "miss concurrency is not the constraint; where it is high, they are the first thing to check.",
             "Prefetches occupy the same registers as demand misses, so a more aggressive "
             "prefetcher raises the concurrency a level needs.",
+            "Off-chip traffic cannot exceed what the channels deliver. As it approaches that "
+            "figure a miss queues on top of its service time, so the measured miss latency climbs "
+            "above what an idle memory costs and more registers buy nothing.",
         ],
     },
 }
+
+if not CHIP_VIEW:
+    # The ablation reads the chip the way the council read it before the chip was derived, so
+    # the principles go back too: no bandwidth, no silicon, and the capacity-alone claim the
+    # CACTI ladder later contradicted. Both are defects, and being defects is the point - they
+    # are part of what the change removed.
+    CONCERNS["prefetch"]["principles"] = CONCERNS["prefetch"]["principles"][:-1]
+    CONCERNS["concurrency"]["principles"] = CONCERNS["concurrency"]["principles"][:-1]
+    CONCERNS["geometry"]["principles"][0] = (
+        "Capacity is not free. Hit latency is a function of capacity alone: re-splitting the "
+        "same capacity between sets and ways changes associativity, not latency. Enlarging a "
+        "level lowers its miss rate and raises its hit time - and the hit time is paid on "
+        "every access that reaches it, including the ones that go on to miss.")
+    CONCERNS["geometry"]["principles"][1] = (
+        "A level with a low hit ratio charges its hit latency on nearly every access and then "
+        "misses anyway. Shrinking it takes that latency out of the path to the level below "
+        "and frees area. The right size is set by where the hits are, not by the budget.")
 
 ORDER = ["prefetch", "geometry", "replacement", "concurrency"]
 
 # A stall is STALL_ROUNDS rounds in a row that did not move the incumbent; the next round is a
 # jump round. FLAT_SHARE of the incumbent is the tolerance below which a sketch counts as a loss
 # in the jump guard and in the refused list.
-STALL_ROUNDS = 2
+STALL_ROUNDS = 1
 FLAT_SHARE = 0.005
+
+# SWEEP: a jump round measures the untried one-knob neighbourhood of one level, SWEEP_CAP designs
+# a wave at most, and sketches the analyst's coupled restructure beside it. Off, the jump round
+# asks each specialist for the one untried move it expects most. Measured on the mobile aiml
+# cell, where the guess-based jump never sketched the one move worth +0.185 in twenty rounds.
+SWEEP = os.environ.get("SWEEP", "1") == "1"
+SWEEP_CAP = 8
+
+# Two mechanisms the loop runs with, each turned off by setting its variable to 0. PAIRS
+# sketches every pair of proposals beside the parts alone and all together, so an interaction
+# is attributed to two concerns instead of read off the joint. GEOM_LADDER shows the geometry
+# specialist what the run has measured at each capacity, beside the latency that capacity
+# costs. Measured on the aiml suite against the loop without them, in rounds to 95 % of the
+# gap: 9.5 without either, 5.5 with the ladder, 3.0 with the pairs; neither regresses, and all
+# three reach 99 % in about ten rounds.
+# ROUNDS caps the search by rounds rather than by designs. A round is the unit of time -
+# one wave of parallel simulations - while a design is the unit of cost, and the two arms
+# spend designs per round at different rates, so an arm is sized in whichever the
+# comparison is drawn on. 0 leaves the budget to stop the run.
+MAX_ROUNDS = int(os.environ.get("ROUNDS", "0"))
+PAIR_SKETCHES = os.environ.get("PAIRS", "1") == "1"
+GEOM_LADDER = os.environ.get("GEOM_LADDER", "1") == "1"
 
 # The knob prefix names the level it sits at, and the level has a shape.
 LEVEL_OF = {"l1d": "L1D", "l2": "L2C", "llc": "LLC"}
 SHAPE_OF = {"L1D": ("l1d_sets", "l1d_ways"), "L2C": ("l2_sets", "l2_ways"), "LLC": ("llc_sets", "llc_ways")}
+ALL_LEVELS = ["L1D", "L2C", "LLC"]
 
 for _name in ORDER:
     _levels = []
@@ -144,10 +204,14 @@ if sorted(_owned) != sorted(SEARCH_SPACE):
     raise RuntimeError("concerns do not partition the search space: " + str(sorted(_owned)))
 
 
+TRANSCRIPTS = os.path.join("results", "transcripts")
+
+
 def note(tag, text):
     """Append to this run's transcript as it happens, so a run in flight can be read
-    round by round. One file per seed; `results/*.log` is already gitignored."""
-    with open(os.path.join("results", tag + ".log"), "a") as log_file:
+    round by round. One file per (SoC, arm, seed), named so it pairs with its report."""
+    os.makedirs(TRANSCRIPTS, exist_ok=True)
+    with open(os.path.join(TRANSCRIPTS, tag + ".log"), "a") as log_file:
         log_file.write(text + "\n")
 
 
@@ -186,25 +250,136 @@ def placement_table(concern_knobs):
                      for value in accepts)
 
 
-def latency_ladder(levels):
-    """Every capacity a level can take and the hit latency it costs. Derived from
-    the shape, so it is free to print and it is the same rule on any chip."""
+def feasible_values(knob, current):
+    """The values this knob can take with the rest of the design as it is: a geometry the
+    area budget forbids on this chip is not an option, so it is never offered."""
+    if not CHIP_VIEW:
+        return SEARCH_SPACE[knob]
+    return [value for value in SEARCH_SPACE[knob]
+            if within_budget(dict(current, **{knob: value}))]
+
+
+def feasible_shapes(level, current):
+    """The (sets, ways) this level can take, everything else held at the current design."""
+    sets_knob, ways_knob = SHAPE_OF[level]
+    shapes = []
+    for sets in SEARCH_SPACE[sets_knob]:
+        for ways in SEARCH_SPACE[ways_knob]:
+            if within_budget(dict(current, **{sets_knob: sets, ways_knob: ways})):
+                shapes.append((sets, ways))
+    return shapes
+
+
+def latency_ladder(levels, current):
+    """What every capacity this chip can build costs at each level: the hit latency in
+    this chip's cycles and the silicon it takes, every instance of a private level
+    counted. Both come from the cache characterised at this chip's node and clock, so
+    the ladder belongs to this chip and to no other."""
+    lines = []
+    for level in levels:
+        if not CHIP_VIEW:
+            costs = {sets * ways: chip.latency(level, sets, ways)
+                     for sets in SEARCH_SPACE[SHAPE_OF[level][0]]
+                     for ways in SEARCH_SPACE[SHAPE_OF[level][1]]}
+            lines.append("  {}: {}".format(level, " | ".join(
+                "{} KB {} cy".format(blocks * 64 // 1024, costs[blocks]) for blocks in sorted(costs))))
+            continue
+        by_capacity = {}
+        for sets, ways in feasible_shapes(level, current):
+            silicon = chip.area_mm2(level, sets, ways)
+            cost = (chip.latency(level, sets, ways),
+                    "{:.2f}".format(silicon) if silicon < 1 else "{:.1f}".format(silicon))
+            by_capacity.setdefault(sets * ways * 64 // 1024, {}).setdefault(cost, set()).add(ways)
+        cells = []
+        for kilobytes in sorted(by_capacity):
+            for (cycles, area), widths in sorted(by_capacity[kilobytes].items()):
+                at = "" if len(by_capacity[kilobytes]) == 1 else " at {} ways".format(
+                    " or ".join(str(width) for width in sorted(widths)))
+                cells.append("{} KB{} {} cy {} mm2".format(kilobytes, at, cycles, area))
+        lines.append("  {}: {}".format(level, " | ".join(cells)))
+    return "\n".join(lines)
+
+
+def capacity_ladder(history, levels, workloads, objective, current):
+    """What the run's own measurements say a capacity buys: per level, the capacities it has
+    been measured at, the misses per kilo-instruction the level still takes there and the best
+    objective reached with it. The latency ladder says what a capacity costs; this says what it
+    removes, which the counters of the designs already evaluated answer for free. Only designs
+    carrying the current design's prefetcher at that level are counted, because a prefetcher
+    moves a level's misses as much as its capacity does."""
     lines = []
     for level in levels:
         sets_knob, ways_knob = SHAPE_OF[level]
-        costs = {}
-        for sets in SEARCH_SPACE[sets_knob]:
-            for ways in SEARCH_SPACE[ways_knob]:
-                costs[sets * ways] = derived_latency(sets, ways)
-        lines.append("  {}: {}".format(level, " | ".join(
-            "{} KB {} cy".format(blocks * 64 // 1024, costs[blocks]) for blocks in sorted(costs))))
-    return "\n".join(lines)
+        prefetcher = {"L1D": "l1d_prefetcher", "L2C": "l2_prefetcher", "LLC": "llc_prefetcher"}[level]
+        seen = {}
+        for entry in history:
+            if str(entry["knobs"][prefetcher]) != str(current[prefetcher]):
+                continue
+            measured = [entry["metrics"].get("{}:{}_mpki".format(workload, level)) for workload in workloads]
+            measured = [value for value in measured if value is not None]
+            if not measured:
+                continue
+            kilobytes = int(entry["knobs"][sets_knob]) * int(entry["knobs"][ways_knob]) * 64 // 1024
+            stats = seen.setdefault(kilobytes, {"n": 0, "mpki": 0.0, "best": None})
+            stats["n"] += 1
+            stats["mpki"] += sum(measured) / len(measured)
+            value = entry["metrics"][objective]
+            if stats["best"] is None or value > stats["best"]:
+                stats["best"] = value
+        if seen:
+            lines.append("  {}: {}".format(level, " | ".join(
+                "{} KB: {} design{}, mpki {:.2f}, best {:.4f}".format(
+                    kilobytes, seen[kilobytes]["n"], "" if seen[kilobytes]["n"] == 1 else "s",
+                    seen[kilobytes]["mpki"] / seen[kilobytes]["n"], seen[kilobytes]["best"])
+                for kilobytes in sorted(seen))))
+    return "\n".join(lines) if lines else "  nothing measured yet"
+
+
+def chip_line(problem):
+    """The chip as the prompts see it: the derived card, or the old override diff."""
+    return problem["chip_text"] if CHIP_VIEW else chip.chip_text_diff()
+
+
+def area_line(knobs, problem):
+    """What the design spends: the budgeted capacity, and the silicon the three levels
+    take on this chip with every instance of a private level counted."""
+    if not CHIP_VIEW:
+        return "  area:   {:.0f} of {} KB of the budget in use by L2 + LLC".format(
+            cache_area_kb(knobs), problem["area_budget_kb"])
+    silicon = sum(chip.area_mm2(level, knobs[SHAPE_OF[level][0]], knobs[SHAPE_OF[level][1]])
+                  for level in ALL_LEVELS)
+    return "  area:   {:.0f} of the chip's {} KB in L2 + LLC; the three levels take {:.1f} mm2".format(
+        cache_area_kb(knobs), problem["area_budget_kb"], silicon)
 
 
 def labels_for(workloads):
     """Workloads are shown by position (W1, W2, ...), never by name: a trace's file
     name can say what the program is, and the specialist is not told."""
     return {workload: "W{}".format(index + 1) for index, workload in enumerate(workloads)}
+
+
+def shape_text(level, sets, ways):
+    """A level's shape as this chip builds it: the array, what it costs in silicon and in
+    cycles, and - where the chip has more than one core - whether it exists once per core
+    or once for all of them, which is what decides whether its capacity is paid once or
+    per core and whether its counters are one core's or every core's."""
+    cores = chip.card()["cores"]
+    kilobytes = sets * ways * 64 // 1024
+    if not CHIP_VIEW:
+        return "{} x {} = {} blocks, {} KB, hit latency {} cycles".format(
+            sets, ways, sets * ways, kilobytes, chip.latency(level, sets, ways))
+    copies = chip.instances(level)
+    array = "{} x {} = {} blocks".format(sets, ways, sets * ways)
+    if cores == 1:
+        where = "{}, {} KB".format(array, kilobytes)
+    elif copies > 1:
+        where = "one per core, {} of them: {}, {} KB each, {} KB in total".format(
+            copies, array, kilobytes, kilobytes * copies)
+    else:
+        where = "shared by all {} cores: {}, {} KB, {} KB per core".format(
+            cores, array, kilobytes, kilobytes // cores)
+    return "{}, {:.2f} mm2, hit latency {} cycles".format(
+        where, chip.area_mm2(level, sets, ways), chip.latency(level, sets, ways))
 
 
 def level_report(entry, levels, workloads):
@@ -224,15 +399,19 @@ def level_report(entry, levels, workloads):
                 return entry["metrics"].get("{}:{}_{}".format(workload, level, metric))
             if got("mpki") is None:
                 continue
-            cell = "{} mpki {:.2f}, hit {:.2f}".format(labels[workload], got("mpki"), got("hit_ratio") or 0.0)
+            cell = "{} mpki {:.2f}".format(labels[workload], got("mpki"))
+            per_core = got("mpki_cores") if CHIP_VIEW else None
+            if per_core and len(per_core) > 1:
+                cell += " (per core {:.0f} to {:.0f})".format(min(per_core), max(per_core))
+            cell += ", hit {:.2f}".format(got("hit_ratio") or 0.0)
             if got("pf_coverage") is not None:
                 cell += ", prefetch cov {:.2f} acc {:.2f}".format(
                     got("pf_coverage"), got("pf_accuracy") or 0.0)
             if got("miss_latency"):
                 cell += ", miss {:.0f} cy".format(got("miss_latency"))
             cells.append(cell)
-        lines.append("  {}: {} x {} = {} blocks, {} KB, hit latency {} cycles | {}".format(
-            level, sets, ways, sets * ways, sets * ways * 64 // 1024, derived_latency(sets, ways),
+        lines.append("  {}: {} | {}".format(
+            level, shape_text(level, sets, ways),
             " | ".join(cells) if cells else "counters not measured for this design"))
     return "\n".join(lines)
 
@@ -283,9 +462,6 @@ def read_proposal(answer, concern_knobs):
         proposed[knob] = value
     return {"knobs": proposed, "reasoning": str(answer.get("reasoning", ""))[:300]}
 
-
-
-ALL_LEVELS = ["L1D", "L2C", "LLC"]
 
 
 # ---------------------------------------------------------------- views ----
@@ -362,23 +538,73 @@ def value_ledger(history, knobs, workloads, objective):
     return "\n".join(lines)
 
 
-LEVEL_SHAPE = {"L1D": ("l1d_sets", "l1d_ways"), "L2C": ("l2_sets", "l2_ways"), "LLC": ("llc_sets", "llc_ways")}
 VERDICTS = ["capacity-bound", "latency-heavy", "prefetch-uncovered", "prefetch-polluting", "bandwidth-bound", "fine"]
 
 
+def memory_time(entry, workload):
+    """Where a thousand instructions' memory time goes, as shares of the total: each
+    level's demand hits pay that level's hit latency, and the last level's demand misses
+    pay the DRAM service the counters measured. Each level's own hits, not the difference
+    between two levels' misses: a miss that merges into a miss already outstanding is
+    counted as a miss at its level and never reaches the level below, and on a streaming
+    workload three misses in four merge, so the difference credits the level below with
+    hits it never served. Overlap between outstanding misses is not modelled, so this
+    ranks the tiers; it does not account for cycles."""
+    metrics = entry["metrics"]
+
+    def got(key):
+        return metrics.get("{}:{}".format(workload, key))
+
+    instructions = got("instructions")
+    if not instructions:
+        return None
+    tiers = {}
+    for level in ALL_LEVELS:
+        hits = got(level + "_hits")
+        if hits is None:
+            return None
+        sets_knob, ways_knob = SHAPE_OF[level]
+        tiers[level] = hits * 1000.0 / instructions * chip.latency(
+            level, entry["knobs"][sets_knob], entry["knobs"][ways_knob])
+    tiers["DRAM"] = (got("LLC_misses") or 0) * 1000.0 / instructions * (got("LLC_miss_latency") or 0.0)
+    total = sum(tiers.values())
+    return {tier: tiers[tier] / total for tier in tiers} if total else None
+
+
+def off_chip_bytes_per_cycle(entry, workload):
+    """The traffic that actually reaches memory, in bytes per chip cycle, counted at the
+    memory controller. A level's miss count is not this number: a prefetch that merges
+    into an outstanding miss is counted as a miss and never leaves the chip, and on a
+    design with a deep prefetcher most of them do."""
+    metrics = entry["metrics"]
+
+    def got(key):
+        return metrics.get("{}:{}".format(workload, key)) or 0
+
+    requests = (got("dram_rq_row_buffer_hit") + got("dram_rq_row_buffer_miss")
+                + got("dram_wq_row_buffer_hit") + got("dram_wq_row_buffer_miss"))
+    cycles = metrics.get("{}:cycles".format(workload))
+    if not cycles or not requests:
+        return None
+    return requests * 64.0 / (cycles / chip.card()["cores"])
+
+
 def derived_view(entry, workloads, levels=ALL_LEVELS):
-    """The quantities an architect reasons with, computed from the counters alone so they
-    read the same on any chip and any suite. Per workload and level: the share of the
-    accesses reaching the level that miss it, the share of the level above's misses that
-    miss again here, the hit cycles paid per useful hit, the prefetches issued and the
-    useless ones per thousand instructions; then off-chip traffic in KB per thousand
-    instructions and the DRAM row-buffer hit rate."""
+    """The quantities an architect reasons with, computed from the counters and this
+    chip's own numbers. Per workload: what share of the accesses reaching a level miss it
+    and how many of the level above's misses miss again; where the memory time goes;
+    what reaches memory against what the channels can deliver; what a miss costs against
+    what it would cost on an idle memory; the row-buffer hit rate; and, where the chip
+    has more than one core, what each core got."""
     labels = labels_for(workloads)
+    card = chip.card()
     lines = []
     for workload in workloads:
         metrics = entry["metrics"]
+
         def got(key):
             return metrics.get("{}:{}".format(workload, key))
+
         kilo = (got("instructions") or 0) / 1000.0
         if not kilo:
             continue
@@ -388,29 +614,82 @@ def derived_view(entry, workloads, levels=ALL_LEVELS):
             hits, misses = got(level + "_hits"), got(level + "_misses")
             if hits is None or misses is None:
                 continue
+            # What leaves a level is its misses less the ones that merged into a miss
+            # already outstanding; only those reach the level below.
+            leaving = misses - (got(level + "_merges") or 0)
             if level not in levels:
-                above_misses = misses
+                above_misses = leaving
                 continue
             accesses = hits + misses
-            sets_knob, ways_knob = LEVEL_SHAPE[level]
-            latency = derived_latency(entry["knobs"][sets_knob], entry["knobs"][ways_knob])
-            hit_ratio = hits / accesses if accesses else 0.0
             cell = "{}: miss share {:.2f}".format(level, misses / accesses if accesses else 0.0)
             if above_misses:
                 cell += ", of the level above's misses {:.2f} miss again".format(min(misses / above_misses, 9.99))
-            cell += ", {:.1f} hit cycles per useful hit".format(latency / hit_ratio if hit_ratio else float("inf"))
             issued, useless = got(level + "_pf_issued") or 0, got(level + "_pf_useless") or 0
             if issued:
                 cell += ", prefetch issued {:.1f}/ki useless {:.1f}/ki".format(issued / kilo, useless / kilo)
+            if not CHIP_VIEW:
+                sets_knob, ways_knob = SHAPE_OF[level]
+                ratio = hits / accesses if accesses else 0.0
+                cell += ", {:.1f} hit cycles per useful hit".format(
+                    chip.latency(level, entry["knobs"][sets_knob], entry["knobs"][ways_knob]) / ratio
+                    if ratio else float("inf"))
             cells.append(cell)
-            above_misses = misses
-        llc_misses = (got("LLC_misses") or 0) + (got("LLC_pf_misses") or 0)
-        cells.append("off-chip {:.1f} KB/ki".format(llc_misses * 64 / 1024 / kilo))
+            above_misses = leaving
+        if not CHIP_VIEW:
+            # The figure the council read before the controller's own counts were used: it
+            # counts prefetch misses that merge into an outstanding miss and never leave the
+            # chip, which on a deep prefetcher is most of them.
+            leaving = (got("LLC_misses") or 0) + (got("LLC_pf_misses") or 0)
+            cells.append("off-chip {:.1f} KB/ki".format(leaving * 64 / 1024 / kilo))
+            row_hit, row_miss = got("dram_rq_row_buffer_hit") or 0, got("dram_rq_row_buffer_miss") or 0
+            if row_hit + row_miss:
+                cells.append("DRAM row-buffer hit {:.2f}".format(row_hit / (row_hit + row_miss)))
+            lines.append("  {} | {}".format(labels[workload], " | ".join(cells)))
+            continue
+        shares = memory_time(entry, workload)
+        if shares:
+            cells.append("memory time " + " ".join(
+                ["{} hits {:.0f}%".format(level, 100 * shares[level]) for level in ALL_LEVELS]
+                + ["DRAM {:.0f}%".format(100 * shares["DRAM"])]))
+        traffic = off_chip_bytes_per_cycle(entry, workload)
+        if traffic:
+            peak = card["dram_peak_bytes_per_cycle"]
+            cells.append("off-chip {:.2f} of the {:.1f} B/cycle the channels deliver ({:.0f}%)".format(
+                traffic, peak, 100 * traffic / peak))
+        if got("LLC_miss_latency"):
+            cells.append("a miss past the last level costs {:.0f} cy, against the {:.0f} a DRAM access "
+                         "takes with the channels idle ({:.0f} if its row is already open)".format(
+                             got("LLC_miss_latency"), card["dram_row_miss_cycles"], card["dram_row_hit_cycles"]))
         row_hit, row_miss = got("dram_rq_row_buffer_hit") or 0, got("dram_rq_row_buffer_miss") or 0
         if row_hit + row_miss:
             cells.append("DRAM row-buffer hit {:.2f}".format(row_hit / (row_hit + row_miss)))
+        per_core = [got("core{}:ipc".format(index)) for index in range(card["cores"])]
+        if card["cores"] > 1 and all(value is not None for value in per_core):
+            cells.append("per-core ipc " + " / ".join("{:.2f}".format(value) for value in per_core))
         lines.append("  {} | {}".format(labels[workload], " | ".join(cells)))
     return "\n".join(lines)
+
+
+def workload_view(entry, history, workloads):
+    """What each workload is contributing and how much is left in it: its IPC in this
+    design, and how far that is below the best this run has measured for that workload
+    alone. The objective is a geometric mean, so it follows whichever is furthest back."""
+    labels = labels_for(workloads)
+    values = {workload: entry["metrics"].get(workload + ":ipc") for workload in workloads}
+    present = [workload for workload in workloads if values[workload] is not None]
+    if not present:
+        return "  nothing measured yet"
+    lowest = min(present, key=lambda workload: values[workload])
+    cells = []
+    for workload in present:
+        best = max([row["metrics"].get(workload + ":ipc") or 0.0 for row in history] + [values[workload]])
+        behind = ("at the best this run has measured for it" if values[workload] >= best - 1e-9
+                  else "{:.0f}% below the best this run has measured for it".format(
+                      100.0 * (best - values[workload]) / best))
+        cells.append("{} ipc {:.3f}{}, {}".format(
+            labels[workload], values[workload],
+            " (the lowest; the objective follows it)" if workload == lowest else "", behind))
+    return "  " + " | ".join(cells)
 
 
 def last_round_section(problem, history, incumbent, levels):
@@ -426,16 +705,35 @@ def last_round_section(problem, history, incumbent, levels):
             level_report(history[-1], levels, problem["workloads"])]
 
 
-def knob_section():
-    """Every knob and its allowed values, the prefetch placement table and the latency ladder."""
-    lines = ["## Knobs and allowed values"]
-    lines += ["- {}: {}".format(knob, json.dumps(SEARCH_SPACE[knob])) for knob in SEARCH_SPACE]
+def knob_section(current):
+    """Every knob and the values this chip can take with the rest of the design as it
+    stands, the prefetch placement table, and this chip's own capacity ladder."""
+    lines = ["## Knobs and the values available (a geometry this chip's area budget forbids is left out)"
+             if CHIP_VIEW else "## Knobs and allowed values"]
+    lines += ["- {}: {}".format(knob, json.dumps(feasible_values(knob, current))) for knob in SEARCH_SPACE]
     lines += ["Prefetch mechanisms and the levels that accept each:", placement_table(CONCERNS["prefetch"]["knobs"]),
-              "Capacity and the hit latency it costs (latency follows capacity alone):", latency_ladder(ALL_LEVELS)]
+              "What a capacity costs at each level on this chip, in cycles and in silicon:"
+              if CHIP_VIEW else "Capacity and the hit latency it costs:",
+              latency_ladder(ALL_LEVELS, current)]
     return lines
 
 
 # ---------------------------------------------------------------- the diagnosis ----
+
+RANK_BY_TIME = """Rank the levels by the share of the
+  memory time they hold in the derived view, not by how often they miss: the tier holding the most
+  time is where the objective is lost, and it is never fine, whatever its misses per
+  kilo-instruction or its hit ratio; its verdict names what would cut that time. A level's share is
+  the time spent serving its hits, which is cut by making the hits cheaper or by moving them to a
+  cheaper level; DRAM's share is time waiting for memory, which is cut by removing the traffic."""
+
+DRAM_IS_A_TIER = """ DRAM is a tier of that same ranking: when it
+  holds the most memory time it is the bottleneck, and the evidence is what reaches the channels
+  against what they deliver, and what a miss costs against an idle memory."""
+
+RANK_BY_MISSES = """Rank the levels by misses per
+  kilo-instruction first: the level that misses most is where the objective is lost, and it is
+  never fine, whatever its hit ratio; its verdict names what would cut those misses."""
 
 DIAGNOSIS_TASK = """## Task
 Write the sheet for the current design. You choose no knob and you name no knob value: the
@@ -447,11 +745,9 @@ together teaches nothing about any one of them: say so, and draw no per-knob les
 Return JSON with exactly these keys:
 - "levels": an object with one entry each for L1D, L2C and LLC: {"verdict": one of capacity-bound,
   latency-heavy, prefetch-uncovered, prefetch-polluting, bandwidth-bound, fine; "number": the one
-  figure from the report or the derived view that says so}. Rank the levels by misses per
-  kilo-instruction first: the level that misses most is where the objective is lost, and it is
-  never fine, whatever its hit ratio; its verdict names what would cut those misses.
+  figure from the report or the derived view that says so}. {ranking}
 - "bottleneck": an object {"level": one of L1D, L2C, LLC, DRAM, "cause": one sentence naming the
-  mechanism, "evidence": the numbers that show it}.
+  mechanism, "evidence": the numbers that show it}.{dram}
 - "learned": a list of up to six strings. Each states one finding with its numbers: the knob or
   level, what moved, the change in the objective with its sign and the design ids, and the counter
   that explains it - of the form "L2 halved: +0.002 (D3 vs D1); L2 hit ratio unchanged at 0.28,
@@ -474,6 +770,9 @@ every move the stock report's evidence already supports, across as many concerns
 reaches, and leave every other knob at its stock value. The specialists refine from it one concern
 at a time.
 
+The design must fit the chip's area budget - L2 plus LLC capacity, a private level counted once
+per core - or it is not measured at all.
+
 Add to the JSON:
 - "opening": an object with every knob and one allowed value each.
 - "opening_reasoning": one sentence per move, what evidence it acts on.
@@ -486,6 +785,15 @@ are listed above. The sheets so far have placed the bottleneck at {named}. Add t
   change the design if it were read as the bottleneck; "cause": one sentence naming the mechanism;
   "evidence": its numbers; "would_change": the knobs, across concerns, the specialists would then
   have to move together}}. The specialists read it beside your verdicts.
+"""
+
+RESTRUCTURE_TASK = """- "restructure": the coupled design that tests the counterfactual: the current design with the
+  knobs in "would_change" moved together to the values you would test, every other knob at its
+  current value; an object with every knob and one allowed value each. Here, as in the opening,
+  you name values. It is sketched beside the one-knob moves listed above and is measured only if
+  its sketch gains. Do not write a design the refused list already holds. Omit the key when the
+  counterfactual names nothing worth a simulation.
+- "restructure_reasoning": one sentence per knob moved, what evidence it acts on.
 """
 
 ANALYST_TURN_TASK = """
@@ -533,12 +841,10 @@ def previous_section(previous, history, objective):
     return ["", "## Your previous hypothesis, and what happened", "  " + previous["hypothesis"], measured]
 
 
-def diagnose(problem, history, incumbent_entry, tag, opening=False, previous=None, rounds=(), turn=False, state=None, evaluated=None):
-    """One call a round: the bottleneck sheet every specialist reads, in round 1 the opening
-    design, and when every specialist held, the analyst's own design for the round. It reads
-    its previous sheet and what was measured since; on a jump round it also names the
-    counterfactual bottleneck. `incumbent_entry` is the design the round refines from. None if
-    the call fails or the answer is not a sheet; the round then runs without one."""
+def diagnosis_prompt(problem, history, incumbent_entry, opening=False, previous=None, rounds=(),
+                     turn=False, state=None, evaluated=None):
+    """The analyst's prompt for one round. Kept apart from the call so it can be rendered
+    without one (`preview`)."""
     jump = state is not None and state["mode"] == "jump"
     objective = problem["objective"]
     parts = ["## Role",
@@ -548,21 +854,23 @@ def diagnose(problem, history, incumbent_entry, tag, opening=False, previous=Non
              "established with its numbers, what they cannot tell apart, and which knobs are failing by "
              "their own counters.",
              "",
-             "## Chip", problem["chip_text"],
+             "## Chip", chip_line(problem),
              "Objective: maximise {}, the geometric mean of IPC over {}.".format(
                  objective, " + ".join(labels_for(problem["workloads"]).values())),
              "Concerns and their knobs: " + "; ".join(
                  "{} ({})".format(name, ", ".join(CONCERNS[name]["knobs"])) for name in ORDER) + ".",
              ""]
-    parts += knob_section()
+    parts += knob_section(incumbent_entry["knobs"])
     parts += ["",
               current_heading(incumbent_entry, objective),
               "  knobs:  " + assignment(incumbent_entry["knobs"], list(SEARCH_SPACE)),
-              "  area:   {:.0f} of {} KB of the budget in use by L2 + LLC".format(
-                  cache_area_kb(incumbent_entry["knobs"]), problem["area_budget_kb"]),
+              area_line(incumbent_entry["knobs"], problem),
               level_report(incumbent_entry, ALL_LEVELS, problem["workloads"]),
-              "  derived from the counters:",
+              ("  derived from the counters and this chip:" if CHIP_VIEW else "  derived from the counters:"),
               derived_view(incumbent_entry, problem["workloads"])]
+    if CHIP_VIEW:
+        parts += ["", "## What each workload contributes",
+                  workload_view(incumbent_entry, history, problem["workloads"])]
     if history[-1]["index"] != incumbent_entry["index"]:
         parts += last_round_section(problem, history, incumbent_entry["knobs"], ALL_LEVELS)
         parts += ["  derived from the counters:", derived_view(history[-1], problem["workloads"])]
@@ -585,7 +893,8 @@ def diagnose(problem, history, incumbent_entry, tag, opening=False, previous=Non
               "## The team's recent designs",
               recent(history, problem)]
     parts += state_section(state)
-    task = DIAGNOSIS_TASK
+    task = DIAGNOSIS_TASK.replace("{ranking}", RANK_BY_TIME if CHIP_VIEW else RANK_BY_MISSES)
+    task = task.replace("{dram}", DRAM_IS_A_TIER if CHIP_VIEW else "")
     if jump:
         counts = {}
         for record in rounds:
@@ -594,8 +903,21 @@ def diagnose(problem, history, incumbent_entry, tag, opening=False, previous=Non
                 counts[level] = counts.get(level, 0) + 1
         task += JUMP_SHEET_TASK.format(named=", ".join(
             "{} ({} sheets)".format(level, n) for level, n in sorted(counts.items(), key=lambda item: -item[1])) or "no level yet")
+        if SWEEP and not turn:
+            task += RESTRUCTURE_TASK
     parts += ["", task + (OPENING_TASK if opening else ANALYST_TURN_TASK if turn else "")]
-    prompt_text = "\n".join(parts)
+    return "\n".join(parts)
+
+
+def diagnose(problem, history, incumbent_entry, tag, opening=False, previous=None, rounds=(), turn=False, state=None, evaluated=None):
+    """One call a round: the bottleneck sheet every specialist reads, in round 1 the opening
+    design, and when every specialist held, the analyst's own design for the round. It reads
+    its previous sheet and what was measured since; on a jump round it also names the
+    counterfactual bottleneck. `incumbent_entry` is the design the round refines from. None if
+    the call fails or the answer is not a sheet; the round then runs without one."""
+    jump = state is not None and state["mode"] == "jump"
+    prompt_text = diagnosis_prompt(problem, history, incumbent_entry, opening, previous, rounds,
+                                   turn, state, evaluated)
     note(tag, "\n---------------- diagnosis{} ----------------\n{}".format(
         " + opening" if opening else " + the analyst's turn" if turn else "", prompt_text))
     try:
@@ -631,16 +953,20 @@ def diagnose(problem, history, incumbent_entry, tag, opening=False, previous=Non
     if opening or turn:
         sheet["opening"] = answer.get("opening")
         sheet["opening_reasoning"] = str(answer.get("opening_reasoning", ""))[:600]
+    if jump and SWEEP and not turn:
+        sheet["restructure"] = answer.get("restructure")
+        sheet["restructure_reasoning"] = str(answer.get("restructure_reasoning", ""))[:600]
     return sheet
 
 
-def opening_design(sheet, problem, tag, base=None):
+def opening_design(sheet, problem, tag, base=None, key="opening"):
     """The analyst's design: every knob at an allowed value, fitted to the budget, and
     different from the base, the stock chip in round 1 and the incumbent on the analyst's
-    turn. None otherwise, and round 1 opens on the stock chip."""
-    what = "opening" if base is None else "analyst"
+    turn and in a jump round's restructure. None otherwise, and round 1 opens on the
+    stock chip."""
+    what = "opening" if base is None else "analyst" if key == "opening" else key
     base = problem["stock"] if base is None else base
-    proposed = sheet.get("opening") if sheet else None
+    proposed = sheet.get(key) if sheet else None
     if not isinstance(proposed, dict):
         note(tag, "-> no {} design".format(what))
         return None
@@ -651,13 +977,17 @@ def opening_design(sheet, problem, tag, base=None):
             note(tag, "-> {} off-contract at {}={}, dropped".format(what, knob, value))
             return None
         design[knob] = value
-    design = typed_knobs(fit_to_budget(typed_knobs(design)))
+    design = typed_knobs(design)
+    if not within_budget(design):
+        note(tag, "-> the {} design needs {:.0f} KB of the chip's {} KB, dropped".format(
+            what, cache_area_kb(design), problem["area_budget_kb"]))
+        return None
     if not knobs_changed(design, base):
         note(tag, "-> the {} design is the current one".format(what))
         return None
     note(tag, "-> {}: {}\n   because: {}".format(what,
         ", ".join("{}={}".format(knob, design[knob]) for knob in sorted(knobs_changed(design, base))),
-        sheet["opening_reasoning"]))
+        sheet[key + "_reasoning"]))
     return design
 
 
@@ -705,12 +1035,10 @@ Return JSON with exactly these keys:
 """
 
 
-def specialist(problem, name, history, incumbent, incumbent_entry, tag, sheet, log, rounds=(), state=None, evaluated=None):
-    """The first version's specialist prompt with the analyst's sheet after the current
-    design's report, the derived view of its levels, its concern's moves with their deltas
-    and what each value of its knobs has done. One proposal for its own knobs, or None.
-    Transcript lines go to `log`, so four specialists can answer at once and be written
-    down in order."""
+def specialist_prompt(problem, name, history, incumbent, incumbent_entry, sheet, rounds=(),
+                      state=None, evaluated=None):
+    """One specialist's prompt for one round. Kept apart from the call so it can be
+    rendered without one (`preview`)."""
     concern = CONCERNS[name]
     objective = problem["objective"]
     jump = state is not None and state["mode"] == "jump"
@@ -722,28 +1050,38 @@ def specialist(problem, name, history, incumbent, incumbent_entry, tag, sheet, l
              "## Principles"]
     parts += ["- " + line for line in concern["principles"]]
     parts += ["",
-              "## Chip", problem["chip_text"],
+              "## Chip", chip_line(problem),
               "Objective: maximise {}, the geometric mean of IPC over {}.".format(
                   objective, " + ".join(labels_for(problem["workloads"]).values())),
               "",
-              "## Your knobs and their allowed values"]
+              "## Your knobs and the values available (a geometry this chip's area budget forbids is left out)"
+              if CHIP_VIEW else "## Your knobs and their allowed values"]
     if name == "prefetch":
         parts += ["One mechanism per level. The same mechanisms serve several levels, so this is one",
                   "placement decision across the levels, not one choice per level.",
                   placement_table(concern["knobs"])]
     else:
-        parts += ["- {}: {}".format(knob, json.dumps(SEARCH_SPACE[knob])) for knob in concern["knobs"]]
+        parts += ["- {}: {}".format(knob, json.dumps(feasible_values(knob, incumbent)))
+                  for knob in concern["knobs"]]
     if name == "geometry":
-        parts += ["", "Capacity and the hit latency it costs (latency follows capacity alone):",
-                  latency_ladder(concern["levels"])]
+        parts += ["", "What a capacity costs at your levels on this chip, in cycles and in silicon:"
+                  if CHIP_VIEW else "Capacity and the hit latency it costs:",
+                  latency_ladder(concern["levels"], incumbent)]
+        if GEOM_LADDER:
+            parts += ["", "What this run has measured at each capacity (what the capacity removes, "
+                          "against what the ladder above says it costs):",
+                      capacity_ladder(evaluated if evaluated is not None else history,
+                                      concern["levels"], problem["workloads"], objective, incumbent)]
     parts += ["",
               "## The current design (the best this run has measured)",
               "  yours:  " + assignment(incumbent, concern["knobs"]),
-              "  area:   {:.0f} of {} KB of the budget in use by L2 + LLC".format(
-                  cache_area_kb(incumbent), problem["area_budget_kb"]),
+              area_line(incumbent, problem),
               level_report(incumbent_entry, concern["levels"], problem["workloads"]),
-              "  derived from the counters:",
+              ("  derived from the counters and this chip:" if CHIP_VIEW else "  derived from the counters:"),
               derived_view(incumbent_entry, problem["workloads"], concern["levels"])]
+    if CHIP_VIEW:
+        parts += ["", "## What each workload contributes",
+                  workload_view(incumbent_entry, history, problem["workloads"])]
     if sheet is not None:
         parts += ["",
                   "## The analyst's sheet, written this round from every design measured",
@@ -772,9 +1110,21 @@ def specialist(problem, name, history, incumbent, incumbent_entry, tag, sheet, l
               recent(history, problem)]
     parts += state_section(state)
     parts += ["", JUMP_TASK if jump else TASK]
-    prompt_text = "\n".join(parts)
+    return "\n".join(parts)
+
+
+def specialist(problem, name, history, incumbent, incumbent_entry, tag, sheet, log, rounds=(), state=None, evaluated=None):
+    """The first version's specialist prompt with the analyst's sheet after the current
+    design's report, the derived view of its levels, its concern's moves with their deltas
+    and what each value of its knobs has done. One proposal for its own knobs, or None.
+    Transcript lines go to `log`, so four specialists can answer at once and be written
+    down in order."""
+    concern = CONCERNS[name]
+    prompt_text = specialist_prompt(problem, name, history, incumbent, incumbent_entry, sheet,
+                                    rounds, state, evaluated)
     log.append("\n---------------- {} specialist ----------------\n{}".format(name, prompt_text))
     asked_once_more = False
+    asked_for_area = False
     for attempt in range(3):
         try:
             answer = analyst.ask(prompt_text)
@@ -794,6 +1144,18 @@ def specialist(problem, name, history, incumbent, incumbent_entry, tag, sheet, l
         log.append("-> {}{}\n   because: {}".format(
             assignment(proposed["knobs"], concern["knobs"]), "   (held)" if held else "",
             proposed["reasoning"]))
+        candidate = with_parts(incumbent, [proposed["knobs"]])
+        if not within_budget(candidate):
+            over = cache_area_kb(candidate) - problem["area_budget_kb"]
+            if asked_for_area:
+                log.append("-> still {:.0f} KB over the chip's budget; taken as a hold".format(over))
+                return None
+            asked_for_area = True
+            log.append("-> {:.0f} KB over the chip's budget; asked once more".format(over))
+            prompt_text += ("\n\n## Once more\nYour proposal needs {:.0f} KB of L2 plus LLC capacity, "
+                            "{:.0f} KB more than this chip has. Propose one that fits.".format(
+                                cache_area_kb(candidate), over))
+            continue
         if len(levels) > 1 and not asked_once_more:
             # The task asks for one level a round; ask once more, then take what comes.
             asked_once_more = True
@@ -830,22 +1192,35 @@ def parts_of(design, incumbent):
 
 
 def with_parts(incumbent, parts):
-    """The incumbent with these parts applied, fitted to the budget."""
+    """The incumbent with these parts applied. Nothing is rewritten to fit the area
+    budget: a design that does not fit is refused where it was proposed, so a move in the
+    ledger is always the move that was made."""
     design = dict(incumbent)
     for part in parts:
         design.update(part)
-    return typed_knobs(fit_to_budget(typed_knobs(design)))
+    return typed_knobs(design)
 
 
-def probe_wave(probe_problem, incumbent_entry, parts, tag, measure, round_number):
+def probe_wave(probe_problem, incumbent_entry, parts, tag, measure, round_number, combine=True):
     """Sketches at the probe rung, measured together: the incumbent, each part alone on it,
     and all parts together. Every sketch is a design of the run. Deltas against the
-    incumbent's own sketch, so the rung's bias cancels. None if the incumbent's sketch failed."""
+    incumbent's own sketch, so the rung's bias cancels. None if the incumbent's sketch failed.
+    A sweep wave (`combine` off) sketches the parts alone only: each is one knob, and the
+    composition sketches whatever it puts together."""
     objective = probe_problem["objective"]
     incumbent = incumbent_entry["knobs"]
     planned = [("incumbent", typed_knobs(incumbent))]
     planned += [(name, with_parts(incumbent, [part])) for name, part in parts.items()]
-    if len(parts) > 1:
+    if combine and PAIR_SKETCHES and len(parts) > 2:
+        # Three or more parts: the joint sketch shows that the parts are not additive but not
+        # which two carry it. Each pair is one more simulation in the same wave, so the round
+        # costs no more time, and the composition reads the pair instead of a sum.
+        names = list(parts)
+        for first in range(len(names)):
+            for second in range(first + 1, len(names)):
+                planned.append(("{}+{}".format(names[first], names[second]),
+                                with_parts(incumbent, [parts[names[first]], parts[names[second]]])))
+    if combine and len(parts) > 1:
         planned.append(("joint", with_parts(incumbent, list(parts.values()))))
     label_of = {}
     for label, design in planned:
@@ -863,13 +1238,15 @@ def probe_wave(probe_problem, incumbent_entry, parts, tag, measure, round_number
     probes = {"rung": list(probe_problem["fidelity"]), "incumbent": base,
               "parts": {name: values[name] - base for name in parts if name in values},
               "failed": [name for name in parts if name not in values]}
+    probes["pairs"] = {label: values[label] - base for label in values if "+" in label}
     if "joint" in values:
         probes["joint"] = values["joint"] - base
         probes["interaction"] = probes["joint"] - sum(probes["parts"].values())
     note(tag, "-> sketches at {}: {}{}".format(
         "/".join("{}M".format(n // 1_000_000) for n in probes["rung"]),
         ", ".join("{} {:+.4f}".format(name, delta) for name, delta in probes["parts"].items()),
-        (" | together {:+.4f}, interaction {:+.4f}".format(probes["joint"], probes["interaction"]) if "joint" in probes else "")
+        ("".join(" | {} {:+.4f}".format(label, delta) for label, delta in probes["pairs"].items()))
+        + (" | together {:+.4f}, interaction {:+.4f}".format(probes["joint"], probes["interaction"]) if "joint" in probes else "")
         + (" | could not be simulated: " + ", ".join(probes["failed"]) if probes["failed"] else "")))
     return probes
 
@@ -902,8 +1279,10 @@ def sketch_ledger(rounds, objective):
         cells = []
         for name, moved in record["moves"].items():
             if name in probes["parts"]:
-                cells.append("{} {} {:+.4f}".format(
-                    name, ", ".join("{} {}->{}".format(knob, a, b) for knob, (a, b) in sorted(moved.items())),
+                # A sweep part is named by its move; the move alone says it.
+                cells.append("{}{} {:+.4f}".format(
+                    name + " " if name in CONCERNS or name == "restructure" else "",
+                    ", ".join("{} {}->{}".format(knob, a, b) for knob, (a, b) in sorted(moved.items())),
                     probes["parts"][name]))
         if "joint" in probes:
             cells.append("together {:+.4f}".format(probes["joint"]))
@@ -913,16 +1292,20 @@ def sketch_ledger(rounds, objective):
     return "\n".join(lines) if lines else "  no sketches yet"
 
 
-def refused_moves(rounds, index):
-    """The moves sketched against design `index` and not committed, with what the sketch said:
-    the tabu list of a stall, and where the flat moves - free parts of a coupled design - are
-    read from."""
+def refused_moves(rounds, indices):
+    """The moves sketched against any design in `indices` and not committed, with what the
+    sketch said: the tabu list of a stall, and where the flat moves - free parts of a coupled
+    design - are read from. `indices` is the current design and every design as good as it
+    within the flat tolerance: a gain of a hair makes a new incumbent, and a move that lost
+    against the design a hair below it has been measured."""
     refused = []
     for record in rounds:
         probes = record.get("probes")
-        if record["against"] != index or not probes or not record.get("moves"):
+        if record["against"] not in indices or not probes or not record.get("moves"):
             continue
         for name, moved in record["moves"].items():
+            if any(moved == seen for _, seen, _ in refused):
+                continue
             if name in probes.get("failed", []):
                 refused.append((name, moved, None))
             elif name in probes["parts"] and name not in record["include"]:
@@ -930,9 +1313,26 @@ def refused_moves(rounds, index):
     return refused
 
 
+def blocked(moved, refused):
+    """Why a move against the current design is a hold before it is sketched: the sketches
+    refused this very move, or every knob it touches has lost twice against this design
+    already, at two values. None when the move is worth a sketch."""
+    if any(moved == seen for _, seen, _ in refused):
+        return "a move the sketches refused against this design"
+    counts = {}
+    for _, seen, _ in refused:
+        for knob in seen:
+            counts[knob] = counts.get(knob, 0) + 1
+    tired = [knob for knob in moved if counts.get(knob, 0) >= 2]
+    if tired and len(tired) == len(moved):
+        return "every knob it moves has lost twice against this design ({})".format(", ".join(sorted(tired)))
+    return None
+
+
 def refused_text(refused, tolerance):
     lines = ["  {}: {} | {}".format(
-        name, ", ".join("{} {}->{}".format(knob, a, b) for knob, (a, b) in sorted(moved.items())),
+        name if name in CONCERNS or name == "restructure" else "sweep",
+        ", ".join("{} {}->{}".format(knob, a, b) for knob, (a, b) in sorted(moved.items())),
         "the simulator could not measure it" if delta is None
         else "sketched {:+.4f}{}".format(delta, " (flat)" if abs(delta) <= tolerance else ""))
         for name, moved, delta in refused]
@@ -959,20 +1359,53 @@ def sweep_level(rounds, index):
     return min(ALL_LEVELS, key=lambda level: score[level])
 
 
-def untried_text(history, knobs, current):
+def untried_moves(history, knobs, current, is_candidate=lambda knobs: True):
     """The values of these knobs never measured as a single change from the current design,
-    sketches included, within the area budget: the neighbourhood the run has not looked at. A
-    design that moved several knobs at once credits none of them alone, so a value carried only
-    by such designs is untried here."""
+    sketches included, within the area budget and runnable: the neighbourhood the run has not
+    looked at, as (knob, value) pairs in knob order. A design that moved several knobs at once
+    credits none of them alone, so a value carried only by such designs is untried here."""
     measured = {config_name(entry["knobs"]) for entry in history}
+    moves = []
+    for knob in knobs:
+        for value in SEARCH_SPACE[knob]:
+            design = dict(current, **{knob: value})
+            if (value != current[knob] and within_budget(design) and is_candidate(design)
+                    and config_name(design) not in measured):
+                moves.append((knob, value))
+    return moves
+
+
+def untried_text(history, knobs, current):
     lines = []
     for knob in knobs:
-        untried = [str(value) for value in SEARCH_SPACE[knob]
-                   if value != current[knob] and within_budget(dict(current, **{knob: value}))
-                   and config_name(dict(current, **{knob: value})) not in measured]
+        untried = [str(value) for _, value in untried_moves(history, [knob], current)]
         if untried:
             lines.append("  {}: {}".format(knob, ", ".join(untried)))
     return "\n".join(lines) if lines else "  every one-knob change from the current design has been measured"
+
+
+def sweep_parts(history, current, is_candidate, rounds):
+    """The sweep of a jump round: every untried one-knob move at one level, at most SWEEP_CAP of
+    them, the level swept longest ago first and a level never swept before any of them. The
+    rotation is the run's, not the incumbent's: a gain of a hair makes a new incumbent, and
+    ordering by the size of the neighbourhood restarted at the smallest level every time and
+    never reached the largest. Each part is labelled by its move, and the label is what the
+    ledgers and the refused list carry. (None, {}) once every one-knob move from the current
+    design has been measured."""
+    by_level = {}
+    for level in ALL_LEVELS:
+        knobs = [knob for knob in SEARCH_SPACE if LEVEL_OF[knob.split("_")[0]] == level]
+        moves = untried_moves(history, knobs, current, is_candidate)
+        if moves:
+            by_level[level] = moves
+    if not by_level:
+        return None, {}
+    last_swept = {}
+    for record in rounds:
+        if record["mode"] == "jump" and record.get("sweep"):
+            last_swept[record["sweep"]] = record["round"]
+    level = min(by_level, key=lambda name: (last_swept.get(name, -1), ALL_LEVELS.index(name)))
+    return level, {"{}={}".format(knob, value): {knob: value} for knob, value in by_level[level][:SWEEP_CAP]}
 
 
 def state_section(state):
@@ -981,9 +1414,13 @@ def state_section(state):
         return []
     lines = ["", "## The search is stalled",
              "  {} rounds in a row did not move the current design.".format(state["stalled"]),
-             "  moves the sketches refused against it (none is worth re-proposing alone):",
+             "  moves the sketches refused against it, or against a design as good as it (none is worth re-proposing alone):",
              refused_text(state["refused"], state["tolerance"])]
-    if state.get("sweep"):
+    if state.get("sweep") and SWEEP:
+        lines += ["  this round measures every value of every knob at the {} never measured as a one-knob "
+                  "change from the current design, each alone, beside the restructure you write below; you "
+                  "compose from what gains.".format(state["sweep"])]
+    elif state.get("sweep"):
         lines += ["  the jump rounds against this design found nothing at the levels the sheet blamed; this round "
                   "sweeps the {}: propose your untried one-knob move there if you have one, else at any of your "
                   "levels.".format(state["sweep"])]
@@ -999,6 +1436,8 @@ def sketch_text(probes):
     if probes is None:
         return "  no sketches this round"
     lines = ["  {} alone: {:+.4f}".format(name, delta) for name, delta in probes["parts"].items()]
+    lines += ["  {} together: {:+.4f}".format(label.replace("+", " and "), delta)
+              for label, delta in probes.get("pairs", {}).items()]
     if "joint" in probes:
         lines.append("  all together: {:+.4f} | interaction (together minus the sum of the parts): {:+.4f}".format(
             probes["joint"], probes["interaction"]))
@@ -1026,11 +1465,13 @@ Return JSON with exactly these keys:
 
 JUMP_SYNTHESIS = """## This is a jump round
 The search is stalled on the current design and the proposals are one-knob moves never measured
-from it. The sketches decide: a part that lost by more than {tolerance:.4f} may be in the design
-only if the "all together" sketch is not a loss, and the code enforces this. Compose from the parts
-that gained: several attributable gains may go together when the "all together" sketch confirms
-them. A design the sketches do not predict to gain is not measured, and the next round jumps
-again. Include nothing if no part gained.
+from it, and, where one is listed, the restructure written from the counterfactual bottleneck,
+which moves several knobs together. The sketches decide: a part that lost by more than
+{tolerance:.4f} may be in the design only if the "all together" sketch is not a loss, and the code
+enforces this. Compose from the parts that gained: several attributable gains may go together, and
+a composition nobody sketched is sketched before it is measured. A design the sketches do not
+predict to gain is not measured, and the next round jumps again. Include nothing if no part
+gained.
 
 """
 
@@ -1045,7 +1486,7 @@ def synthesize(problem, sheet, incumbent, proposals, probes, tag, state=None):
              "and every proposal has been sketched; you compose the round's design from the proposals, "
              "choosing among them and altering no value.",
              "",
-             "## Chip", problem["chip_text"],
+             "## Chip", chip_line(problem),
              "",
              "## Your sheet this round",
              sheet_text(sheet) if sheet is not None else "  (no sheet this round)",
@@ -1054,10 +1495,12 @@ def synthesize(problem, sheet, incumbent, proposals, probes, tag, state=None):
              "",
              "## The proposals"]
     for name in names:
-        # A proposal may carry only the knobs it moves (the opening's parts do); show the whole concern.
+        # A proposal may carry only the knobs it moves (the opening's parts do); show the whole
+        # concern. A sweep part or the restructure is not a concern's: show what it moves.
         whole = dict(incumbent)
         whole.update(proposals[name]["knobs"])
-        parts += ["  {}: {}".format(name, assignment(whole, CONCERNS[name]["knobs"])),
+        shown = CONCERNS[name]["knobs"] if name in CONCERNS else sorted(knobs_changed(whole, incumbent))
+        parts += ["  {}: {}".format(name, assignment(whole, shown)),
                   "    because: " + proposals[name]["reasoning"]]
     parts += ["",
               "## What the sketches say (change in {} against the current design, at the probe rung)".format(problem["objective"]),
@@ -1094,9 +1537,42 @@ def predicted(probes, include):
         return None
     if len(include) == 1 and include[0] in probes["parts"]:
         return probes["parts"][include[0]], True
+    if len(include) == 2:
+        for label in ("+".join(include), "+".join(reversed(include))):
+            if label in probes.get("pairs", {}):
+                return probes["pairs"][label], True
     if len(include) == len(probes["parts"]) and "joint" in probes:
         return probes["joint"], True
     return sum(probes["parts"].get(name, 0.0) for name in include), False
+
+
+# ---------------------------------------------------------------- the preview ----
+
+def preview(problem):
+    """Every prompt the council would write in its opening round on this chip, rendered
+    and printed without a single model call, against the stock design.
+
+    This is how a change to what the council reads gets checked. A run costs hours before
+    it says whether the loop reads the chip right; this costs one simulation of the stock
+    design, and nothing once that row is in the tables. Run it on each SoC in turn and the
+    difference between the chips is the difference between the printouts."""
+    knobs = typed_knobs(problem["stock"])
+    entry = {"index": 0, "round": 0, "name": problem["name_of"](knobs), "knobs": knobs,
+             "metrics": problem["evaluate"](knobs), "source": "stock", "hypothesis": None,
+             "rung": list(problem["fidelity"]), "against": None, "baseline": None, "moved": {}}
+    history = [entry]
+    blocks = [("the analyst, opening round", diagnosis_prompt(problem, history, entry, opening=True))]
+    for name in ORDER:
+        blocks.append(("the {} specialist".format(name),
+                       specialist_prompt(problem, name, history, knobs, entry, None)))
+    for title, text in blocks:
+        print("\n" + "=" * 96)
+        print("== {} | {} characters, about {} tokens".format(title, len(text), len(text) // 4))
+        print("=" * 96)
+        print(text)
+    print("\n{} prompts, about {} tokens a round before the sheet and the ledgers fill.".format(
+        len(blocks), sum(len(text) for _, text in blocks) // 4))
+    return blocks
 
 
 # ---------------------------------------------------------------- the search ----
@@ -1157,14 +1633,15 @@ def search(problem, budget, seed, tag, probe_problem=None):
         return max((entry for entry in committed_designs() if tuple(entry["rung"]) == fidelity),
                    key=lambda entry: entry["metrics"][objective])
 
-    def commit(incumbent_entry, proposals, sheet, source, round_number, state=None):
+    def commit(incumbent_entry, proposals, sheet, source, round_number, state=None, combine=True):
         """Sketch the proposals, compose, measure the composed design. Returns its entry, or
         None when nothing was composed or nothing new could be measured."""
         incumbent = incumbent_entry["knobs"]
         mode = state["mode"] if state is not None else "climb"
         parts = {name: proposals[name]["knobs"] for name in proposals}
         moves = {name: knobs_changed(with_parts(incumbent, [parts[name]]), incumbent) for name in parts}
-        probes = probe_wave(probe_problem, incumbent_entry, parts, tag, measure, round_number) if probe_problem is not None else None
+        probes = (probe_wave(probe_problem, incumbent_entry, parts, tag, measure, round_number, combine)
+                  if probe_problem is not None else None)
         if probes is not None and probes["failed"]:
             # A part the simulator could not measure is out of the round and on the refused list.
             proposals = {name: proposals[name] for name in proposals if name not in probes["failed"]}
@@ -1202,7 +1679,25 @@ def search(problem, budget, seed, tag, probe_problem=None):
             if value <= 0.0:
                 note(tag, "-> the sketches predict {:+.4f} for {}: vetoed, nothing composed".format(value, " + ".join(include)))
                 include = []
+        if probes is not None and tuple(probe_problem["fidelity"]) == fidelity:
+            # The sketches ran at the run's fidelity, so they are measurements: the best of the
+            # wave is the round's design when it beats what was composed, whoever proposed it.
+            sketched = dict(probes["parts"])
+            sketched.update(probes.get("pairs", {}))
+            if "joint" in probes:
+                sketched["joint"] = probes["joint"]
+            best_label = max(sketched, key=lambda label: sketched[label]) if sketched else None
+            chosen = probes.get("predicted", 0.0) if include else 0.0
+            # Beats means by more than the flat tolerance: a tie goes to the analyst's choice,
+            # which carries fewer knobs than the sketch that matched it.
+            margin = FLAT_SHARE * probes["incumbent"] if include else 0.0
+            if best_label is not None and sketched[best_label] > max(chosen, 0.0) + margin:
+                include = list(parts) if best_label == "joint" else best_label.split("+")
+                note(tag, "-> the wave's best sketch, {} {:+.4f}, beats the composition ({:+.4f}); taken as the round's design".format(
+                    best_label, sketched[best_label], chosen))
+                probes = dict(probes, predicted=sketched[best_label], exact=True, include=include)
         rounds.append({"round": round_number, "mode": mode, "against": incumbent_entry["index"], "sheet": sheet,
+                       "sweep": state.get("sweep") if state is not None else None,
                        "proposals": proposals, "moves": moves, "include": include,
                        "hypothesis": hypothesis, "probes": probes})
         if not include:
@@ -1241,17 +1736,27 @@ def search(problem, budget, seed, tag, probe_problem=None):
 
     # A round that improves nothing costs its sketches, so the budget ends the search, or the
     # cap on rounds. A stalled search keeps jumping, its refused list growing.
-    max_rounds = 3 * budget
+    max_rounds = min(3 * budget, MAX_ROUNDS) if MAX_ROUNDS else 3 * budget
     stalled = 0             # rounds in a row in which the incumbent did not move
     while len(history) - 1 < budget and round_number < max_rounds:
         incumbent_entry = incumbent_of()
         mode = "jump" if stalled >= STALL_ROUNDS else "climb"
         current_entry = incumbent_entry
         current = current_entry["knobs"]
+        is_candidate = problem.get("is_candidate", lambda knobs: True)
+        swept = {}
+        if mode == "jump" and SWEEP:
+            sweep, swept = sweep_parts(history, current, is_candidate, rounds)
+        else:
+            sweep = sweep_level(rounds, current_entry["index"]) if mode == "jump" else None
+        tolerance = FLAT_SHARE * current_entry["metrics"][objective]
+        peers = {entry["index"] for entry in committed_designs()
+                 if tuple(entry["rung"]) == fidelity
+                 and entry["metrics"][objective] >= current_entry["metrics"][objective] - tolerance}
         state = {"mode": mode, "stalled": stalled,
-                 "refused": refused_moves(rounds, current_entry["index"]),
-                 "sweep": sweep_level(rounds, current_entry["index"]) if mode == "jump" else None,
-                 "tolerance": FLAT_SHARE * current_entry["metrics"][objective]}
+                 "refused": refused_moves(rounds, peers),
+                 "sweep": sweep,
+                 "tolerance": tolerance}
         round_number += 1
         note(tag, "\n\n################ round {} | {}{} | current D{} {}={:.4f} | incumbent D{} | {} of {} designs ################".format(
             round_number, mode, " " + state["sweep"] if state["sweep"] else "", current_entry["index"], objective,
@@ -1260,47 +1765,76 @@ def search(problem, budget, seed, tag, probe_problem=None):
         sheet = diagnose(problem, committed, current_entry, tag, previous=previous, rounds=rounds, state=state, evaluated=history)
         previous = sheet if sheet is not None else previous
 
-        logs = {name: [] for name in ORDER}
-        with ThreadPoolExecutor(max_workers=len(ORDER)) as pool:
-            futures = {name: pool.submit(specialist, problem, name, committed, current, current_entry, tag, sheet, logs[name], rounds, state, history)
-                       for name in ORDER}
-            answers = {name: future.result() for name, future in futures.items()}
-        for name in ORDER:
-            for text in logs[name]:
-                note(tag, text)
-        # A proposal counts as a move only if it changes the design once typed and fitted; a
-        # move the sketches already refused against this design, or a design the simulator
-        # could not measure, is a hold and costs no sketch.
         proposals = {}
-        for name in ORDER:
-            if answers[name] is None:
-                continue
-            design = with_parts(current, [answers[name]["knobs"]])
-            moved = knobs_changed(design, current)
-            if not moved:
-                continue
-            if not problem.get("is_candidate", lambda knobs: True)(design):
-                note(tag, "-> {}'s design is one the simulator could not measure before; taken as a hold".format(name))
-                continue
-            if any(other == name and refused == moved for other, refused, _ in state["refused"]):
-                note(tag, "-> {} re-proposed a move the sketches refused against D{}; taken as a hold".format(
-                    name, current_entry["index"]))
-                continue
-            proposals[name] = answers[name]
         source = "council:joint"
+        combine = True
+        if mode == "jump" and SWEEP:
+            # The sweep measures the neighbourhood the specialists would have guessed at, one
+            # level a round, and the analyst's restructure is sketched beside it; nobody
+            # proposes. Parts alone only: the composition sketches what it puts together.
+            proposals = {label: {"knobs": part, "reasoning": "one-knob sweep of the " + sweep}
+                         for label, part in swept.items()}
+            design = opening_design(sheet, problem, tag, base=current, key="restructure") if sheet is not None else None
+            if design is not None:
+                moved = knobs_changed(design, current)
+                if any(refused == moved for _, refused, _ in state["refused"]):
+                    note(tag, "-> the restructure is a design the sketches refused against D{}; dropped".format(
+                        current_entry["index"]))
+                elif not is_candidate(design):
+                    note(tag, "-> the restructure is a design the simulator could not measure before; dropped")
+                else:
+                    proposals["restructure"] = {"knobs": {knob: design[knob] for knob in moved},
+                                                "reasoning": sheet["restructure_reasoning"]}
+            source = "council:jump"
+            combine = False
+        else:
+            logs = {name: [] for name in ORDER}
+            with ThreadPoolExecutor(max_workers=len(ORDER)) as pool:
+                futures = {name: pool.submit(specialist, problem, name, committed, current, current_entry, tag, sheet, logs[name], rounds, state, history)
+                           for name in ORDER}
+                answers = {name: future.result() for name, future in futures.items()}
+            for name in ORDER:
+                for text in logs[name]:
+                    note(tag, text)
+            # A proposal counts as a move only if it changes the design once typed and fitted; a
+            # move the sketches already refused against this design, or a design the simulator
+            # could not measure, is a hold and costs no sketch.
+            for name in ORDER:
+                if answers[name] is None:
+                    continue
+                design = with_parts(current, [answers[name]["knobs"]])
+                moved = knobs_changed(design, current)
+                if not moved:
+                    continue
+                if not within_budget(design):
+                    note(tag, "-> {}'s design needs {:.0f} KB of the chip's {} KB; taken as a hold".format(
+                        name, cache_area_kb(design), problem["area_budget_kb"]))
+                    continue
+                if not is_candidate(design):
+                    note(tag, "-> {}'s design is one the simulator could not measure before; taken as a hold".format(name))
+                    continue
+                why = blocked(moved, state["refused"])
+                if why:
+                    note(tag, "-> {} proposed {}; taken as a hold".format(name, why))
+                    continue
+                proposals[name] = answers[name]
         if not proposals:
             # Holds can wait on one another; the analyst, who reads every level, takes the turn
-            # with one design of its own.
+            # with one design of its own. Its parts are held to the same refused list.
             note(tag, "-> every specialist held; the analyst takes the turn")
             sheet = diagnose(problem, committed, current_entry, tag, previous=previous, rounds=rounds, turn=True, state=state, evaluated=history)
             previous = sheet if sheet is not None else previous
             design = opening_design(sheet, problem, tag, base=current) if sheet is not None else None
             if design is not None:
-                proposals = {name: {"knobs": part, "reasoning": sheet["opening_reasoning"]}
-                             for name, part in parts_of(design, current).items()}
+                for name, part in parts_of(design, current).items():
+                    why = blocked(knobs_changed(with_parts(current, [part]), current), state["refused"])
+                    if why:
+                        note(tag, "-> the analyst's {} part is {}; dropped".format(name, why))
+                        continue
+                    proposals[name] = {"knobs": part, "reasoning": sheet["opening_reasoning"]}
                 source = "council:analyst"
         if proposals:
-            commit(current_entry, proposals, sheet, source, round_number, state)
+            commit(current_entry, proposals, sheet, source, round_number, state, combine)
 
         # What the round did: the incumbent is the best design measured, a sketch included.
         best_now = incumbent_of()

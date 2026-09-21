@@ -1,24 +1,26 @@
-# Upstream clones - not our code. ChampSim is a setup step (see CLAUDE.md); the chia clone is
-# kept for the block work in CHIA_BLOCKS.md and the loop does not use it.
+# Upstream clones - not our code. ChampSim and CACTI are setup steps (see CLAUDE.md);
+# the chia clone is kept for the block work in CHIA_BLOCKS.md.
 champsim/
 chia/
+cacti/
 # Extra ChampSim trees for parallel builds (loop.simulate.tree_paths finds them)
 champsim_[0-9]*/
 # Compiled ChampSim binaries, one per design: a build cache, rebuilt on demand
 champsim_bin/
-# CACTI 7 clone, built locally for the cache PPA ladders (see CLAUDE.md Setup)
-cacti/
 
-# Environment, traces and generated inputs
+# Environment, secrets, traces and generated inputs
 .venv/
+.env
 traces/
 configs/generated/
 loop/__pycache__/
-# Per-machine cost accounting
+
+# Per-machine, regenerated on demand. The CACTI cache (results/cacti_*nm.json) is committed:
+# a machine without a CACTI build reads it and never shells out.
+# cost accounting, one file per machine
 results/llm_usage*.json
-# Smoke-gate reports: a gate artifact, not a result
-results/runs/smoke_*.json
-# Run transcripts, pids and table locks
-results/*.log
-results/*.pid
+# every prompt and answer of a run: large, and the report in results/runs/ carries the numbers
+results/transcripts/
+# gate artifacts, not results
+results/runs/*smoke*.json
 results/**/*.lock

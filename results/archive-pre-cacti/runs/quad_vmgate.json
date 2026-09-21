@@ -1,0 +1,291 @@
+{
+ "cell": "quad",
+ "tag": "vmgate",
+ "workloads": [
+  "mix_het",
+  "mix_hom"
+ ],
+ "arms": [
+  "council"
+ ],
+ "seeds": 1,
+ "first_seed": 0,
+ "budget": 2,
+ "bo_batch": 1,
+ "fidelity": [
+  1000000,
+  2000000
+ ],
+ "probe_fidelity": null,
+ "model": "gemini-3.1-pro-preview",
+ "soc": "quad",
+ "chip": "D_quad",
+ "cores": 4,
+ "area_budget_kb": 8192,
+ "flags": {
+  "pairs": true,
+  "geom_ladder": true
+ },
+ "runs": {
+  "council": {
+   "0": {
+    "designs": [
+     {
+      "index": 0,
+      "round": 0,
+      "name": "D_quad_l1d_prefetcher-no_l1d_sets-64_l1d_ways-12_l2_mshr-32_l2_prefetcher-no_l2_replacement-lru_l2_sets-1024_l2_ways-8_llc_mshr-128_llc_prefetcher-no_llc_replacement-lru_llc_sets-2048_llc_ways-16",
+      "knobs": {
+       "l1d_sets": 64,
+       "l1d_ways": 12,
+       "l1d_prefetcher": "no",
+       "l2_sets": 1024,
+       "l2_ways": 8,
+       "l2_prefetcher": "no",
+       "l2_replacement": "lru",
+       "llc_sets": 2048,
+       "llc_ways": 16,
+       "llc_prefetcher": "no",
+       "llc_replacement": "lru",
+       "l2_mshr": 32,
+       "llc_mshr": 128
+      },
+      "source": "stock",
+      "hypothesis": null,
+      "ipc": 0.6210414664416514,
+      "per_workload": {
+       "mix_het": {
+        "ipc": 0.9144389791457348,
+        "LLC_mpki": 23.50747061566173
+       },
+       "mix_hom": {
+        "ipc": 0.42178047068849717,
+        "LLC_mpki": 35.83483916516084
+       }
+      }
+     },
+     {
+      "index": 1,
+      "round": 1,
+      "name": "D_quad_l1d_prefetcher-ip_stride_l1d_sets-64_l1d_ways-12_l2_mshr-32_l2_prefetcher-spp_dev_l2_replacement-lru_l2_sets-1024_l2_ways-8_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-lru_llc_sets-2048_llc_ways-16",
+      "knobs": {
+       "l1d_sets": 64,
+       "l1d_ways": 12,
+       "l1d_prefetcher": "ip_stride",
+       "l2_sets": 1024,
+       "l2_ways": 8,
+       "l2_prefetcher": "spp_dev",
+       "l2_replacement": "lru",
+       "llc_sets": 2048,
+       "llc_ways": 16,
+       "llc_prefetcher": "spp_dev",
+       "llc_replacement": "lru",
+       "l2_mshr": 32,
+       "llc_mshr": 128
+      },
+      "source": "council:prefetch",
+      "hypothesis": "Enabling prefetchers at all cache levels will increase prefetch coverage above zero and substantially improve IPC, addressing the current lack of prefetching.",
+      "ipc": 0.933415056395235,
+      "per_workload": {
+       "mix_het": {
+        "ipc": 1.2877516112153555,
+        "LLC_mpki": 9.992118754925778
+       },
+       "mix_hom": {
+        "ipc": 0.6765774237184123,
+        "LLC_mpki": 17.022747872156515
+       }
+      }
+     },
+     {
+      "index": 2,
+      "round": 1,
+      "name": "D_quad_l1d_prefetcher-no_l1d_sets-64_l1d_ways-12_l2_mshr-32_l2_prefetcher-no_l2_replacement-lru_l2_sets-1024_l2_ways-8_llc_mshr-128_llc_prefetcher-no_llc_replacement-lru_llc_sets-1024_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 64,
+       "l1d_ways": 12,
+       "l1d_prefetcher": "no",
+       "l2_sets": 1024,
+       "l2_ways": 8,
+       "l2_prefetcher": "no",
+       "l2_replacement": "lru",
+       "llc_sets": 1024,
+       "llc_ways": 8,
+       "llc_prefetcher": "no",
+       "llc_replacement": "lru",
+       "l2_mshr": 32,
+       "llc_mshr": 128
+      },
+      "source": "sketch:geometry",
+      "hypothesis": null,
+      "ipc": 0.6351707277401856,
+      "per_workload": {
+       "mix_het": {
+        "ipc": 0.9313446487925425,
+        "LLC_mpki": 23.274470906911365
+       },
+       "mix_hom": {
+        "ipc": 0.43318212425555447,
+        "LLC_mpki": 35.66671433328567
+       }
+      }
+     },
+     {
+      "index": 3,
+      "round": 1,
+      "name": "D_quad_l1d_prefetcher-ip_stride_l1d_sets-64_l1d_ways-12_l2_mshr-32_l2_prefetcher-spp_dev_l2_replacement-lru_l2_sets-1024_l2_ways-8_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-lru_llc_sets-1024_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 64,
+       "l1d_ways": 12,
+       "l1d_prefetcher": "ip_stride",
+       "l2_sets": 1024,
+       "l2_ways": 8,
+       "l2_prefetcher": "spp_dev",
+       "l2_replacement": "lru",
+       "llc_sets": 1024,
+       "llc_ways": 8,
+       "llc_prefetcher": "spp_dev",
+       "llc_replacement": "lru",
+       "l2_mshr": 32,
+       "llc_mshr": 128
+      },
+      "source": "sketch:joint",
+      "hypothesis": null,
+      "ipc": 0.9150664238246844,
+      "per_workload": {
+       "mix_het": {
+        "ipc": 1.2863218864535557,
+        "LLC_mpki": 10.218991058382825
+       },
+       "mix_hom": {
+        "ipc": 0.6509619161653987,
+        "LLC_mpki": 17.56511621744189
+       }
+      }
+     }
+    ],
+    "rounds": [
+     {
+      "round": 1,
+      "mode": "climb",
+      "against": 0,
+      "sheet": {
+       "levels": {
+        "L1D": {
+         "verdict": "prefetch-uncovered",
+         "number": "prefetch cov 0.00"
+        },
+        "L2C": {
+         "verdict": "capacity-bound",
+         "number": "hit 0.00 on W2"
+        },
+        "LLC": {
+         "verdict": "latency-heavy",
+         "number": "hit 0.00"
+        }
+       },
+       "bottleneck": {
+        "level": "LLC",
+        "cause": "The LLC provides no hits for either workload but charges a 15-cycle hit latency for every access.",
+        "evidence": "W1 hit 0.00, W2 hit 0.00, hit latency 15 cycles"
+       },
+       "learned": [],
+       "unattributable": [],
+       "failing": [
+        "llc_sets and llc_ways charge 15 cycles of hit latency for 0.00 hit ratio (3 and 1 alternatives measured)",
+        "l1d_prefetcher has 0.00 coverage (3 alternatives measured)",
+        "l2_prefetcher has 0.00 coverage (4 alternatives measured)",
+        "llc_prefetcher has 0.00 coverage (3 alternatives measured)"
+       ],
+       "hypothesis": "Enabling prefetchers at all levels will increase prefetch coverage above 0.00 and reduce L1D MPKI.",
+       "opening": {
+        "l1d_sets": 64,
+        "l1d_ways": 12,
+        "l1d_prefetcher": "ip_stride",
+        "l2_sets": 1024,
+        "l2_ways": 8,
+        "l2_prefetcher": "spp_dev",
+        "l2_replacement": "lru",
+        "llc_sets": 1024,
+        "llc_ways": 8,
+        "llc_prefetcher": "spp_dev",
+        "llc_replacement": "lru",
+        "l2_mshr": 32,
+        "llc_mshr": 128
+       },
+       "opening_reasoning": "Enabled ip_stride at L1D and spp_dev at L2/LLC to cover the unmitigated misses, and minimized LLC capacity to 512 KB to reduce its hit latency since it currently provides a 0.00 hit ratio."
+      },
+      "proposals": {
+       "prefetch": {
+        "knobs": {
+         "l1d_prefetcher": "ip_stride",
+         "l2_prefetcher": "spp_dev",
+         "llc_prefetcher": "spp_dev"
+        },
+        "reasoning": "Enabled ip_stride at L1D and spp_dev at L2/LLC to cover the unmitigated misses, and minimized LLC capacity to 512 KB to reduce its hit latency since it currently provides a 0.00 hit ratio."
+       },
+       "geometry": {
+        "knobs": {
+         "llc_sets": 1024,
+         "llc_ways": 8
+        },
+        "reasoning": "Enabled ip_stride at L1D and spp_dev at L2/LLC to cover the unmitigated misses, and minimized LLC capacity to 512 KB to reduce its hit latency since it currently provides a 0.00 hit ratio."
+       }
+      },
+      "moves": {
+       "prefetch": {
+        "l1d_prefetcher": [
+         "no",
+         "ip_stride"
+        ],
+        "l2_prefetcher": [
+         "no",
+         "spp_dev"
+        ],
+        "llc_prefetcher": [
+         "no",
+         "spp_dev"
+        ]
+       },
+       "geometry": {
+        "llc_sets": [
+         2048,
+         1024
+        ],
+        "llc_ways": [
+         16,
+         8
+        ]
+       }
+      },
+      "include": [
+       "prefetch"
+      ],
+      "hypothesis": "Enabling prefetchers at all cache levels will increase prefetch coverage above zero and substantially improve IPC, addressing the current lack of prefetching.",
+      "probes": {
+       "rung": [
+        1000000,
+        2000000
+       ],
+       "incumbent": 0.6210414664416514,
+       "parts": {
+        "prefetch": 0.31237358995358366,
+        "geometry": 0.014129261298534201
+       },
+       "failed": [],
+       "pairs": {},
+       "joint": 0.294024957383033,
+       "interaction": -0.03247789386908484,
+       "predicted": 0.31237358995358366,
+       "exact": true,
+       "include": [
+        "prefetch"
+       ]
+      }
+     }
+    ]
+   }
+  }
+ },
+ "failed": [],
+ "wall_seconds": 317.2154037952423
+}

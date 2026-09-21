@@ -7,9 +7,8 @@ Three steps, and this file is the only place any of them lives:
                 built in whichever ChampSim tree is free
   run_simulation  that binary on a trace -> a flat metrics dict (ipc, misses, mpki)
 
-The chip itself is here too, as PROFILE: the handful of fields this project
-overrides on ChampSim's stock core and memory. Fields that are search knobs are
-not chip parameters and are not in it.
+The chip comes from `loop.chip`: the SoC's overrides on ChampSim's stock core and
+memory, the clock every latency is counted in, and CACTI's hit latency for each level.
 """
 
 import fcntl
@@ -21,7 +20,8 @@ import time
 import tempfile
 import os
 
-from loop.space import AREA_BUDGET_KB, CHIP, config_name
+from loop import chip
+from loop.space import config_name
 
 # The cache levels our loop tunes and reports on.
 # The levels whose hit and miss counts are kept. Only the LLC's are read anywhere
@@ -41,28 +41,16 @@ PREFETCH_STATS = {"pf_requested": "prefetch requested", "pf_issued": "prefetch i
 # Bumped whenever this file changes what it records. A row written under an older
 # version is a cache miss and is re-simulated, so a design never serves a report
 # with holes in it.
-METRICS_VERSION = 2
+METRICS_VERSION = 3
 
 
 # ---------------------------------------------------------------- the chip ----
 
-PROFILE = {
-    "ooo_cpu": {"rob_size": 512, "lq_size": 192, "sq_size": 114, "scheduler_size": 192},
-    "L1D": {"mshr_size": 32},
-    "L2C": {"mshr_size": 64},
-    "LLC": {"ways": 16, "mshr_size": 128},
-    "physical_memory": {"data_rate": 3200, "channels": 2},
-}
+# The chip is `loop.chip`: this file renders any chip and knows none.
 
-# Caches whose fixed latency is dropped so ChampSim derives it from size: a bigger
-# cache is then slower, and capacity is never free.
+# Caches whose hit latency this loop sets from CACTI rather than leaving to ChampSim's
+# size formula, so a level's latency follows the SoC's node and clock.
 LATENCY_CACHES = ["L1D", "L2C", "LLC"]
-
-
-def derived_latency(sets, ways):
-    """The hit latency ChampSim derives for a cache of this shape, in cycles
-    (cache_builder.h: the formula the deleted `latency` fields fall through to)."""
-    return max(2, round((int(sets) * int(ways)) ** 0.343 * 0.416))
 
 # Where each knob lives in the ChampSim config JSON: (section, field).
 KNOB_LOCATION = {
@@ -77,50 +65,23 @@ KNOB_LOCATION = {
 _base_config_cache = {}
 
 
-def describe():
-    """The chip in one line for the agent's prompt: its overrides over the stock
-    ChampSim core and memory, and its area budget."""
-    knob_fields = ["sets", "ways", "prefetcher", "replacement", "mshr_size"]
-    parts = []
-    for section_name in sorted(PROFILE):
-        fields = []
-        for field_name in sorted(PROFILE[section_name]):
-            if section_name in ["L1D", "L2C", "LLC"] and field_name in knob_fields:
-                continue
-            fields.append("{} {}".format(field_name, PROFILE[section_name][field_name]))
-        if len(fields) > 0:
-            parts.append("{}: {}".format(section_name, ", ".join(fields)))
-    return "Chip {} (one core; area budget {} KB for L2 + LLC): {}".format(CHIP, AREA_BUDGET_KB, "; ".join(parts))
-
-
-def apply_profile(config):
-    """Overwrite the stock config's fields with the chip's overrides."""
-    for section_name in PROFILE:
-        if section_name == "ooo_cpu":
-            # ChampSim stores cores as a list; the first entry is the template.
-            target = config["ooo_cpu"][0]
-        else:
-            target = config[section_name]
-        for field_name in PROFILE[section_name]:
-            target[field_name] = PROFILE[section_name][field_name]
-    return config
-
-
 def build_config(knobs, base_config_path):
     """The full ChampSim config dict for one design (nothing written)."""
     if base_config_path not in _base_config_cache:
         with open(base_config_path) as base_file:
             _base_config_cache[base_config_path] = json.load(base_file)
     config = json.loads(json.dumps(_base_config_cache[base_config_path]))   # deep copy
-    config = apply_profile(config)
+    config = chip.apply_profile(config)
     config["executable_name"] = config_name(knobs)
     for knob in knobs:
         section, field = KNOB_LOCATION[knob]
         config[section][field] = knobs[knob]
-    # Drop the fixed latencies: ChampSim then uses round((sets*ways)^0.343 * 0.416).
+    # CACTI's access time at this SoC's node and clock, in place of ChampSim's own
+    # size formula: the same capacity costs a different number of cycles on a chip
+    # clocked differently, which is what makes two chips want different geometry.
     for cache_name in LATENCY_CACHES:
-        if "latency" in config[cache_name]:
-            del config[cache_name]["latency"]
+        config[cache_name]["latency"] = chip.latency(
+            cache_name, config[cache_name]["sets"], config[cache_name]["ways"])
     return config
 
 
@@ -214,6 +175,7 @@ def run_simulation(binary_path, trace_paths, warmup_instructions, simulation_ins
     metrics["rob_occupancy_at_mispredict"] = sum(
         core["Avg ROB occupancy at mispredict"] for core in stats["cores"]) / len(stats["cores"])
 
+    per_core_instructions = [core["instructions"] for core in stats["cores"]]
     for cache_name in ALL_CACHES:
         try:
             found = _find_caches(stats, cache_name)
@@ -238,6 +200,13 @@ def run_simulation(binary_path, trace_paths, warmup_instructions, simulation_ins
             metrics["{}_{}".format(cache_name, key)] = counts[key]
         metrics[cache_name + "_mpki"] = counts["misses"] * 1000.0 / total_instructions
         metrics[cache_name + "_miss_latency"] = miss_latency
+        if len(found) > 1:
+            # A private level on a multi-core chip: the mean hides which core is
+            # missing. Keep each instance's own rate, in core order.
+            metrics[cache_name + "_mpki_cores"] = [
+                sum(sum(cache[access_type]["miss"]) for access_type in TRAFFIC
+                    if not TRAFFIC[access_type]) * 1000.0 / instructions
+                for cache, instructions in zip(found, per_core_instructions)]
 
     channels = stats.get("DRAM", [])
     for channel in channels:
@@ -364,11 +333,14 @@ def _configure_and_make(config_path, champsim_root, executable_name, binary_path
 
 
 def _find_caches(stats, cache_name):
-    """Every instance of one cache level; ChampSim names them 'LLC' but also 'cpu0_L1D'."""
+    """Every instance of one cache level, in core order; ChampSim names them 'LLC' but
+    also 'cpu0_L1D'. A private level has one instance per core, a shared level one."""
     found = []
     for key in stats:
         if key == cache_name or key.endswith("_" + cache_name):
-            found.append(stats[key])
+            core = int(key[3:key.index("_")]) if key.startswith("cpu") else -1
+            found.append((core, stats[key]))
     if len(found) == 0:
         raise KeyError("cache not found in ChampSim output: " + cache_name)
-    return found
+    found.sort()
+    return [cache for _, cache in found]

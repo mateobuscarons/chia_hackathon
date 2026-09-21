@@ -3,7 +3,7 @@
 `make_suite_problem(traces)` returns the `problem` dict the arms search:
   stock, search_space, is_candidate(knobs), name_of(knobs),
   evaluate(knobs) -> metrics, evaluate_many([knobs]) -> [metrics],
-  objective ("ipc": the geometric mean over the suite), workloads, chip_text,
+  objective ("ipc": the geometric mean over the suite), workloads, chip_text, chip,
   area_budget_kb, holders (one result table per workload).
 
 A design is scored on a SUITE, not one program: that is how a design team scores a
@@ -23,8 +23,10 @@ import os
 import time
 from concurrent.futures import ThreadPoolExecutor
 
+from loop import chip                         # the chip this run tunes, as numbers
 from loop.simulate import (ALL_CACHES, KNOB_LOCATION, METRICS_VERSION, SimulatorInterrupted, build_binary,
-                           build_config, describe, make_config, run_simulation)
+                           build_config, make_config, run_simulation)
+from loop.socs import CORES
 from loop.space import AREA_BUDGET_KB, SEARCH_SPACE, config_name, in_space, typed_knobs, within_budget
 
 CHAMPSIM_ROOT = "champsim"
@@ -52,9 +54,50 @@ def short_name(trace_path):
     return name
 
 
+def workload_of(entry):
+    """What one workload of a cell is: a trace on a single-core chip, or ("name", [trace per
+    core]) on a multi-core one, where the mix is the workload and its name keys the table."""
+    if isinstance(entry, str):
+        return short_name(entry), [entry]
+    return entry[0], list(entry[1])
+
+
+def workloads_for(programs):
+    """What a design is measured on, given how many cores the chip has - the cell names
+    the programs, the chip decides how they are run.
+
+    One core: each program is a workload. Several cores: a workload is one trace per
+    core, and there are two of them - the cell's programs cycled onto the cores, and the
+    cell's first program on every core, which is the worst case for a shared level. A
+    cell lists its heaviest program first."""
+    if CORES == 1:
+        return list(programs)
+    mixes = [("het", [programs[index % len(programs)] for index in range(CORES)]),
+             ("hom", [programs[0]] * CORES)]
+    # The name keys the result table, so it has to say which traces the mix is: two cells
+    # on the same chip both have a heterogeneous mix, and a row of one must never be read
+    # for the other. A cell of one program makes the two mixes the same traces; the name
+    # says so and the duplicate is dropped rather than simulated twice.
+    workloads, seen = [], set()
+    for kind, traces in mixes:
+        if tuple(traces) in seen:
+            continue                 # a cell of one program makes both mixes the same traces
+        seen.add(tuple(traces))
+        workloads.append(("mix_{}_{}".format(kind, digest(traces)), traces))
+    return workloads
+
+
+def digest(traces):
+    """A short stable token for a list of traces."""
+    value = 0
+    for character in "|".join(traces):
+        value = (value * 131 + ord(character)) & 0xFFFFFFFF
+    return "{:08x}".format(value)[:4]
+
+
 # ---------------------------------------------------------------- the result tables: what has already been measured ----
 
-TABLE_DIR = "results/tables"
+TABLE_DIR = os.environ.get("TABLE_DIR", "results/tables")   # a cell measured elsewhere scores against its own machine's tables
 
 
 def table_path(trace_name, warmup=WARMUP_INSTRUCTIONS, simulation=SIMULATION_INSTRUCTIONS):
@@ -94,20 +137,6 @@ def save_table(table, path):
     os.replace(temporary_path, path)
 
 
-def measured_rows(table):
-    """Every complete row of a table as {"name", "knobs", "ipc", "metrics"}."""
-    rows = []
-    for name in table:
-        entry = table[name]
-        if entry["metrics"] is None or "ipc" not in entry["metrics"]:
-            continue
-        knobs = {}
-        for knob in SEARCH_SPACE:
-            knobs[knob] = entry["knobs"][knob]      # only the space's knobs: old rows may carry extra tags
-        rows.append({"name": name, "knobs": knobs, "ipc": entry["metrics"]["ipc"], "metrics": entry["metrics"]})
-    return rows
-
-
 # ---------------------------------------------------------------- measuring one workload ----
 
 def complete(metrics):
@@ -143,9 +172,8 @@ class ChampSimProblem:
     """Answers evaluate() from the result table when it can; otherwise builds and
     runs ChampSim in this process, one thread per design."""
 
-    def __init__(self, trace_path, allow_simulation, warmup=WARMUP_INSTRUCTIONS, simulation=SIMULATION_INSTRUCTIONS):
-        self.trace_path = trace_path
-        self.trace_name = short_name(trace_path)
+    def __init__(self, entry, allow_simulation, warmup=WARMUP_INSTRUCTIONS, simulation=SIMULATION_INSTRUCTIONS):
+        self.trace_name, self.trace_paths = workload_of(entry)
         self.allow_simulation = allow_simulation
         self.warmup = warmup
         self.simulation = simulation
@@ -210,7 +238,7 @@ class ChampSimProblem:
         try:
             config_path = make_config(knobs, BASE_CONFIG, GENERATED_DIR)
             binary_path = build_binary(config_path, CHAMPSIM_ROOT)
-            return run_simulation(binary_path, self.trace_path, self.warmup, self.simulation)
+            return run_simulation(binary_path, self.trace_paths, self.warmup, self.simulation)
         except SimulatorInterrupted:
             raise                       # killed from outside: not the design's fault, not cached
         except Exception:
@@ -220,24 +248,26 @@ class ChampSimProblem:
 
 # ---------------------------------------------------------------- the suite: the objective the arms search ----
 
-# The untouched chip: what ChampSim's stock config says for the knobs it names
-# (no L2 replacement policy is named there, which means LRU).
-STOCK_KNOBS = {"l2_sets": 1024, "llc_sets": 2048, "l2_prefetcher": "no", "llc_replacement": "lru", "l2_replacement": "lru"}
+# The one knob ChampSim's configuration does not name: with no replacement policy
+# given, a cache is LRU.
+UNNAMED_KNOBS = {"l2_replacement": "lru"}
 
 
 def stock_design():
-    """The untouched chip: STOCK_KNOBS plus every other knob at the value the
-    chip's own config carries, read back from the built config."""
-    profiled = build_config(STOCK_KNOBS, BASE_CONFIG)
-    stock = dict(STOCK_KNOBS)
+    """The untouched chip: every knob at the value this SoC's own configuration carries,
+    read back from the rendered config, so the search starts from the chip as it is and
+    no value is written down twice."""
+    profiled = build_config({}, BASE_CONFIG)
+    stock = {}
     for knob in SEARCH_SPACE:
-        if knob not in stock:
-            section, field = KNOB_LOCATION[knob]
-            stock[knob] = profiled[section][field]
+        section, field = KNOB_LOCATION[knob]
+        stock[knob] = profiled[section].get(field, UNNAMED_KNOBS.get(knob))
+        if stock[knob] is None:
+            raise RuntimeError("the chip's configuration does not say what {} is".format(knob))
     return stock
 
 
-def make_suite_problem(trace_paths, allow_simulation=True, warmup=WARMUP_INSTRUCTIONS, simulation=SIMULATION_INSTRUCTIONS):
+def make_suite_problem(programs, allow_simulation=True, warmup=WARMUP_INSTRUCTIONS, simulation=SIMULATION_INSTRUCTIONS):
     """One design is scored on a SUITE of workloads: the objective is the geometric
     mean of the per-workload IPC (one simulation per workload per design). This is
     how a design team scores a hierarchy; no chip is built for one program.
@@ -245,8 +275,8 @@ def make_suite_problem(trace_paths, allow_simulation=True, warmup=WARMUP_INSTRUC
     council's probes run the same problem at a cheaper rung."""
     holders = []
     names = []
-    for trace_path in trace_paths:
-        holder = ChampSimProblem(trace_path, allow_simulation, warmup, simulation)
+    for entry in workloads_for(programs):
+        holder = ChampSimProblem(entry, allow_simulation, warmup, simulation)
         holders.append(holder)
         names.append(holder.trace_name)
     stock = stock_design()
@@ -300,7 +330,8 @@ def make_suite_problem(trace_paths, allow_simulation=True, warmup=WARMUP_INSTRUC
         "objective": "ipc",
         "table_metrics": table_metrics,
         "workloads": names,
-        "chip_text": describe(),
+        "chip_text": chip.chip_text(),
+        "chip": chip.card(),
         "area_budget_kb": AREA_BUDGET_KB,
         "holders": holders,
         "fidelity": (warmup, simulation),
@@ -325,6 +356,8 @@ def measured_designs(problem):
     first_table = problem["holders"][0].sweep_table
     designs = []
     for name in first_table:
+        if not name.startswith(chip.NAME + "_"):
+            continue
         per_workload = []
         complete = True
         for holder in problem["holders"]:

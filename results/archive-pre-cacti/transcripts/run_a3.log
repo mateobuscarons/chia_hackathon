@@ -1,0 +1,494 @@
+cell aiml (a3) -> results/runs/aiml_a3.json | workloads ['llama2.c-llama2_7b.1', 'stable-diffusion.cpp-v1-5-pruned-emaonly.1', 'clip_trace_1'] | arms ['council'] | seeds 0..1 | 110 designs per run
+[council-a3-s0] round 0 | D0 | ipc=1.2466 | stock | 0 min
+[council-a3-s1] round 0 | D0 | ipc=1.2466 | stock | 0 min
+  [gemini] 12.6s
+[council-a3-s0] round 1 | D1 | ipc=1.9483 | sketch:prefetch | 0 min
+  [gemini] 15.7s
+[council-a3-s1] round 1 | D1 | ipc=1.7214 | sketch:prefetch | 0 min
+  [gemini] 8.4s
+  [gemini] 13.5s
+  [gemini] 4.6s
+  [gemini] 5.1s
+  [gemini] 5.8s
+  [gemini] 4.6s
+  [gemini] 6.9s
+  [gemini] 7.5s
+  [gemini] 7.9s
+  [gemini] 4.8s
+  [gemini] 11.1s
+  [gemini] 4.9s
+  [gemini] 5.8s
+  [gemini] 6.5s
+  [gemini] 7.1s
+  [gemini] 7.6s
+[council-a3-s1] round 2 | D2 | ipc=1.9483 | sketch:prefetch | 10 min
+[council-a3-s1] round 2 | D3 | ipc=1.7204 | sketch:geometry | 10 min
+[council-a3-s1] round 2 | D4 | ipc=1.7215 | sketch:replacement | 10 min
+[council-a3-s1] round 2 | D5 | ipc=1.9427 | sketch:prefetch+geometry | 10 min
+[council-a3-s1] round 2 | D6 | ipc=1.9517 | sketch:prefetch+replacement | 10 min
+[council-a3-s1] round 2 | D7 | ipc=1.7217 | sketch:geometry+replacement | 10 min
+[council-a3-s1] round 2 | D8 | ipc=1.9432 | sketch:joint | 10 min
+  [gemini] 6.7s
+  [gemini] 11.9s
+  [gemini] 4.6s
+  [gemini] 5.0s
+  [gemini] 6.7s
+  [gemini] 8.1s
+  [gemini] 5.7s
+  [gemini] 8.1s
+[council-a3-s0] round 2 | D2 | ipc=1.9567 | sketch:prefetch | 17 min
+[council-a3-s0] round 2 | D3 | ipc=1.9533 | sketch:geometry | 17 min
+[council-a3-s0] round 2 | D4 | ipc=1.9517 | sketch:replacement | 17 min
+[council-a3-s0] round 2 | D5 | ipc=1.9644 | sketch:prefetch+geometry | 17 min
+[council-a3-s0] round 2 | D6 | ipc=1.9586 | sketch:prefetch+replacement | 17 min
+[council-a3-s0] round 2 | D7 | ipc=1.9566 | sketch:geometry+replacement | 17 min
+[council-a3-s0] round 2 | D8 | ipc=1.9625 | sketch:joint | 17 min
+  [gemini] 6.5s
+  [gemini] 13.0s
+  [gemini] 4.6s
+  [gemini] 5.4s
+  [gemini] 6.1s
+  [gemini] 8.9s
+[council-a3-s0] round 3 | D9 | ipc=1.9292 | sketch:prefetch | 38 min
+[council-a3-s0] round 3 | D10 | ipc=1.9798 | sketch:geometry | 38 min
+[council-a3-s0] round 3 | D11 | ipc=1.9462 | sketch:prefetch+geometry | 38 min
+[council-a3-s0] round 3 | D12 | ipc=1.9292 | sketch:prefetch+replacement | 38 min
+[council-a3-s0] round 3 | D13 | ipc=1.9768 | sketch:geometry+replacement | 38 min
+[council-a3-s0] round 3 | D14 | ipc=1.9462 | sketch:joint | 38 min
+  [gemini] 6.5s
+  [gemini] 15.7s
+  [gemini] 6.6s
+  [gemini] 8.5s
+  [gemini] 11.5s
+  [gemini] 7.1s
+[council-a3-s1] round 3 | D9 | ipc=1.9706 | sketch:prefetch | 39 min
+[council-a3-s1] round 3 | D10 | ipc=1.9566 | sketch:geometry | 39 min
+[council-a3-s1] round 3 | D11 | ipc=1.9498 | sketch:replacement | 39 min
+[council-a3-s1] round 3 | D12 | ipc=1.9848 | sketch:prefetch+geometry | 39 min
+[council-a3-s1] round 3 | D13 | ipc=1.9734 | sketch:prefetch+replacement | 39 min
+[council-a3-s1] round 3 | D14 | ipc=1.9544 | sketch:geometry+replacement | 39 min
+[council-a3-s1] round 3 | D15 | ipc=1.9851 | sketch:joint | 39 min
+  [gemini] 5.7s
+  [gemini] 17.1s
+  [gemini] 4.6s
+  [gemini] 6.1s
+  [gemini] 6.4s
+  [gemini] 10.1s
+  [gemini] 504 - waiting 15s
+  [gemini] 139.2s
+  [gemini] 5.4s
+[council-a3-s0] round 4 | D15 | ipc=1.9944 | sketch:prefetch | 66 min
+[council-a3-s0] round 4 | D16 | ipc=1.9806 | sketch:geometry | 66 min
+[council-a3-s0] round 4 | D17 | ipc=1.9903 | sketch:prefetch+geometry | 66 min
+[council-a3-s0] round 4 | D18 | ipc=1.9944 | sketch:prefetch+replacement | 66 min
+[council-a3-s0] round 4 | D19 | ipc=1.9792 | sketch:geometry+replacement | 66 min
+[council-a3-s0] round 4 | D20 | ipc=1.9895 | sketch:joint | 66 min
+  [gemini] 6.6s
+  [gemini] 11.8s
+  [gemini] 5.1s
+  [gemini] 5.3s
+  [gemini] 7.3s
+  [gemini] 11.0s
+  [gemini] 5.8s
+[council-a3-s1] round 4 | D16 | ipc=1.9309 | sketch:prefetch | 70 min
+[council-a3-s1] round 4 | D17 | ipc=1.9899 | sketch:geometry | 70 min
+[council-a3-s1] round 4 | D18 | ipc=1.9813 | sketch:replacement | 70 min
+[council-a3-s1] round 4 | D19 | ipc=1.9370 | sketch:prefetch+geometry | 70 min
+[council-a3-s1] round 4 | D20 | ipc=1.9275 | sketch:prefetch+replacement | 70 min
+[council-a3-s1] round 4 | D21 | ipc=1.9455 | sketch:geometry+replacement | 70 min
+[council-a3-s1] round 4 | D22 | ipc=1.8960 | sketch:joint | 70 min
+  [gemini] 6.3s
+  [gemini] 17.5s
+  [gemini] 5.2s
+  [gemini] 7.3s
+  [gemini] 9.0s
+  [gemini] 10.5s
+[council-a3-s1] round 5 | D23 | ipc=1.9625 | sketch:prefetch | 77 min
+[council-a3-s1] round 5 | D24 | ipc=1.9944 | sketch:geometry | 77 min
+[council-a3-s1] round 5 | D25 | ipc=1.9706 | sketch:joint | 77 min
+  [gemini] 5.9s
+  [gemini] 18.0s
+  [gemini] 5.3s
+  [gemini] 6.7s
+  [gemini] 7.3s
+  [gemini] 9.2s
+[council-a3-s0] round 5 | D21 | ipc=1.9611 | sketch:prefetch | 77 min
+[council-a3-s0] round 5 | D22 | ipc=1.9917 | sketch:replacement | 77 min
+[council-a3-s0] round 5 | D23 | ipc=1.9587 | sketch:joint | 77 min
+  [gemini] 4.5s
+[council-a3-s0] round 5 | climb | the incumbent did not move
+  [gemini] 19.4s
+  [gemini] 5.1s
+  [gemini] 5.4s
+  [gemini] 7.3s
+  [gemini] 8.8s
+  [gemini] 5.5s
+[council-a3-s1] round 6 | D26 | ipc=1.9617 | sketch:prefetch | 85 min
+[council-a3-s1] round 6 | D27 | ipc=1.9895 | sketch:geometry | 85 min
+[council-a3-s1] round 6 | D28 | ipc=1.9607 | sketch:joint | 85 min
+  [gemini] 5.9s
+[council-a3-s1] round 6 | climb | the incumbent did not move
+  [gemini] 18.3s
+  [gemini] 5.2s
+  [gemini] 7.3s
+  [gemini] 8.7s
+  [gemini] 12.4s
+[council-a3-s1] round 7 | D29 | ipc=1.9353 | sketch:prefetch | 87 min
+[council-a3-s1] round 7 | climb | the incumbent did not move
+  [gemini] 13.9s
+  [gemini] 6.9s
+  [gemini] 6.9s
+  [gemini] 7.0s
+  [gemini] 7.1s
+[council-a3-s0] round 6 | D24 | ipc=1.9461 | sketch:prefetch | 100 min
+[council-a3-s0] round 6 | D25 | ipc=1.9874 | sketch:geometry | 100 min
+[council-a3-s0] round 6 | D26 | ipc=1.9949 | sketch:replacement | 100 min
+[council-a3-s0] round 6 | D27 | ipc=1.9341 | sketch:prefetch+geometry | 100 min
+[council-a3-s0] round 6 | D28 | ipc=1.9463 | sketch:prefetch+replacement | 100 min
+[council-a3-s0] round 6 | D29 | ipc=1.9891 | sketch:geometry+replacement | 100 min
+[council-a3-s0] round 6 | D30 | ipc=1.9350 | sketch:joint | 100 min
+  [gemini] 6.0s
+  [gemini] 18.6s
+  [gemini] 5.2s
+  [gemini] 6.1s
+  [gemini] 7.9s
+  [gemini] 9.4s
+[council-a3-s0] round 7 | D31 | ipc=1.9326 | sketch:prefetch | 121 min
+[council-a3-s0] round 7 | D32 | ipc=1.9916 | sketch:geometry | 121 min
+[council-a3-s0] round 7 | D33 | ipc=1.9920 | sketch:replacement | 121 min
+[council-a3-s0] round 7 | D34 | ipc=1.9954 | sketch:concurrency | 121 min
+[council-a3-s0] round 7 | D35 | ipc=1.9404 | sketch:prefetch+geometry | 121 min
+[council-a3-s0] round 7 | D36 | ipc=1.9316 | sketch:prefetch+replacement | 121 min
+[council-a3-s0] round 7 | D37 | ipc=1.9326 | sketch:prefetch+concurrency | 121 min
+[council-a3-s0] round 7 | D38 | ipc=1.9935 | sketch:geometry+replacement | 121 min
+[council-a3-s0] round 7 | D39 | ipc=1.9921 | sketch:geometry+concurrency | 121 min
+[council-a3-s0] round 7 | D40 | ipc=1.9934 | sketch:replacement+concurrency | 121 min
+[council-a3-s0] round 7 | D41 | ipc=1.9396 | sketch:joint | 121 min
+  [gemini] 8.3s
+  [gemini] 14.4s
+  [gemini] 6.1s
+  [gemini] 6.5s
+  [gemini] 8.0s
+  [gemini] 10.2s
+  [gemini] 7.4s
+[council-a3-s0] round 8 | D42 | ipc=1.9938 | sketch:geometry | 128 min
+[council-a3-s0] round 8 | D43 | ipc=2.0126 | sketch:concurrency | 128 min
+[council-a3-s0] round 8 | D44 | ipc=2.0130 | sketch:joint | 128 min
+  [gemini] 4.9s
+  [gemini] 16.9s
+  [gemini] 5.6s
+  [gemini] 6.5s
+  [gemini] 8.2s
+  [gemini] 11.8s
+[council-a3-s1] round 8 | D30 | ipc=1.9461 | sketch:prefetch | 132 min
+[council-a3-s1] round 8 | D31 | ipc=1.9932 | sketch:geometry | 132 min
+[council-a3-s1] round 8 | D32 | ipc=1.9958 | sketch:replacement | 132 min
+[council-a3-s1] round 8 | D33 | ipc=1.9950 | sketch:concurrency | 132 min
+[council-a3-s1] round 8 | D34 | ipc=1.9402 | sketch:prefetch+geometry | 132 min
+[council-a3-s1] round 8 | D35 | ipc=1.9455 | sketch:prefetch+replacement | 132 min
+[council-a3-s1] round 8 | D36 | ipc=1.9462 | sketch:prefetch+concurrency | 132 min
+[council-a3-s1] round 8 | D37 | ipc=1.9934 | sketch:geometry+replacement | 132 min
+[council-a3-s1] round 8 | D38 | ipc=1.9936 | sketch:geometry+concurrency | 132 min
+[council-a3-s1] round 8 | D39 | ipc=1.9940 | sketch:replacement+concurrency | 132 min
+[council-a3-s1] round 8 | D40 | ipc=1.9409 | sketch:joint | 132 min
+  [gemini] 8.3s
+  [gemini] 18.7s
+  [gemini] 5.1s
+  [gemini] 7.6s
+  [gemini] 9.7s
+  [gemini] 9.8s
+[council-a3-s1] round 9 | D41 | ipc=1.9457 | sketch:joint | 138 min
+  [gemini] 6.0s
+[council-a3-s1] round 9 | climb | the incumbent did not move
+  [gemini] 11.4s
+  [gemini] 6.1s
+  [gemini] 8.3s
+  [gemini] 9.0s
+  [gemini] 9.4s
+  [gemini] 16.5s
+[council-a3-s1] round 10 | climb | the incumbent did not move
+  [gemini] 14.5s
+  [gemini] 5.1s
+  [gemini] 5.9s
+  [gemini] 7.1s
+  [gemini] 8.8s
+[council-a3-s0] round 9 | D45 | ipc=1.9552 | sketch:prefetch | 140 min
+[council-a3-s0] round 9 | D46 | ipc=2.0024 | sketch:concurrency | 140 min
+[council-a3-s0] round 9 | D47 | ipc=1.9505 | sketch:joint | 140 min
+  [gemini] 4.4s
+[council-a3-s0] round 9 | climb | the incumbent did not move
+  [gemini] 11.4s
+  [gemini] 5.6s
+  [gemini] 6.2s
+  [gemini] 8.8s
+  [gemini] 9.7s
+[council-a3-s0] round 10 | D48 | ipc=1.9975 | sketch:replacement | 147 min
+[council-a3-s0] round 10 | climb | the incumbent did not move
+  [gemini] 16.5s
+  [gemini] 4.3s
+  [gemini] 5.5s
+  [gemini] 5.7s
+  [gemini] 9.7s
+[council-a3-s1] round 11 | D42 | ipc=1.9790 | sketch:prefetch | 180 min
+[council-a3-s1] round 11 | D43 | ipc=1.9869 | sketch:geometry | 180 min
+[council-a3-s1] round 11 | D44 | ipc=1.8508 | sketch:replacement | 180 min
+[council-a3-s1] round 11 | D45 | ipc=1.9892 | sketch:concurrency | 180 min
+[council-a3-s1] round 11 | D46 | ipc=1.9692 | sketch:prefetch+geometry | 180 min
+[council-a3-s1] round 11 | D47 | ipc=1.8991 | sketch:prefetch+replacement | 180 min
+[council-a3-s1] round 11 | D48 | ipc=1.9623 | sketch:prefetch+concurrency | 180 min
+[council-a3-s1] round 11 | D49 | ipc=1.9471 | sketch:geometry+replacement | 180 min
+[council-a3-s1] round 11 | D50 | ipc=1.9820 | sketch:geometry+concurrency | 180 min
+[council-a3-s1] round 11 | D51 | ipc=1.8654 | sketch:replacement+concurrency | 180 min
+[council-a3-s1] round 11 | D52 | ipc=1.9504 | sketch:joint | 180 min
+  [gemini] 7.2s
+[council-a3-s1] round 11 | jump | the incumbent did not move
+  [gemini] 13.3s
+  [gemini] 5.5s
+  [gemini] 5.6s
+  [gemini] 6.1s
+  [gemini] 7.9s
+[council-a3-s0] round 11 | D49 | ipc=1.9768 | sketch:prefetch | 183 min
+[council-a3-s0] round 11 | D50 | ipc=2.0055 | sketch:geometry | 183 min
+[council-a3-s0] round 11 | D51 | ipc=2.0097 | sketch:replacement | 183 min
+[council-a3-s0] round 11 | D52 | ipc=1.9976 | sketch:concurrency | 183 min
+[council-a3-s0] round 11 | D53 | ipc=1.9682 | sketch:prefetch+geometry | 183 min
+[council-a3-s0] round 11 | D54 | ipc=1.9764 | sketch:prefetch+replacement | 183 min
+[council-a3-s0] round 11 | D55 | ipc=1.9679 | sketch:prefetch+concurrency | 183 min
+[council-a3-s0] round 11 | D56 | ipc=1.9984 | sketch:geometry+replacement | 183 min
+[council-a3-s0] round 11 | D57 | ipc=1.9895 | sketch:geometry+concurrency | 183 min
+[council-a3-s0] round 11 | D58 | ipc=1.9935 | sketch:replacement+concurrency | 183 min
+[council-a3-s0] round 11 | D59 | ipc=1.9649 | sketch:joint | 183 min
+  [gemini] 4.7s
+[council-a3-s0] round 11 | jump | the incumbent did not move
+  [gemini] 20.5s
+  [gemini] 5.5s
+  [gemini] 5.8s
+  [gemini] 5.9s
+  [gemini] 6.8s
+  [gemini] 6.1s
+[council-a3-s1] round 12 | D53 | ipc=1.9321 | sketch:prefetch | 196 min
+[council-a3-s1] round 12 | D54 | ipc=1.5173 | sketch:geometry | 196 min
+[council-a3-s1] round 12 | D55 | ipc=1.9949 | sketch:replacement | 196 min
+[council-a3-s1] round 12 | D56 | ipc=2.0097 | sketch:concurrency | 196 min
+[council-a3-s1] round 12 | D57 | ipc=1.5187 | sketch:prefetch+geometry | 196 min
+[council-a3-s1] round 12 | D58 | ipc=1.9326 | sketch:prefetch+replacement | 196 min
+[council-a3-s1] round 12 | D59 | ipc=1.9324 | sketch:prefetch+concurrency | 196 min
+[council-a3-s1] round 12 | D60 | ipc=1.5178 | sketch:geometry+replacement | 196 min
+[council-a3-s1] round 12 | D61 | ipc=1.5183 | sketch:geometry+concurrency | 196 min
+[council-a3-s1] round 12 | D62 | ipc=2.0126 | sketch:replacement+concurrency | 196 min
+[council-a3-s1] round 12 | D63 | ipc=1.5181 | sketch:joint | 196 min
+  [gemini] 9.3s
+  [gemini] 17.1s
+  [gemini] 4.2s
+  [gemini] 5.7s
+  [gemini] 6.8s
+  [gemini] 8.5s
+  [gemini] 19.9s
+[council-a3-s1] round 13 | D64 | ipc=1.9552 | sketch:prefetch | 197 min
+[council-a3-s1] round 13 | climb | the incumbent did not move
+  [gemini] 14.0s
+  [gemini] 5.0s
+  [gemini] 5.6s
+  [gemini] 7.0s
+  [gemini] 8.4s
+  [gemini] 15.4s
+[council-a3-s1] round 14 | climb | the incumbent did not move
+  [gemini] 12.6s
+  [gemini] 5.4s
+  [gemini] 5.4s
+  [gemini] 7.1s
+  [gemini] 10.1s
+[council-a3-s0] round 12 | D60 | ipc=1.9372 | sketch:prefetch | 198 min
+[council-a3-s0] round 12 | D61 | ipc=1.5173 | sketch:geometry | 198 min
+[council-a3-s0] round 12 | D62 | ipc=2.0129 | sketch:replacement | 198 min
+[council-a3-s0] round 12 | D63 | ipc=1.4826 | sketch:prefetch+geometry | 198 min
+[council-a3-s0] round 12 | D64 | ipc=1.9357 | sketch:prefetch+replacement | 198 min
+[council-a3-s0] round 12 | D65 | ipc=1.5173 | sketch:geometry+replacement | 198 min
+[council-a3-s0] round 12 | D66 | ipc=1.4819 | sketch:joint | 198 min
+  [gemini] 5.2s
+  [gemini] 21.2s
+  [gemini] 429 - waiting 15s
+  [gemini] 4.3s
+  [gemini] 4.9s
+  [gemini] 9.9s
+  [gemini] 22.9s
+[council-a3-s0] round 13 | D67 | ipc=2.0067 | sketch:geometry | 205 min
+[council-a3-s0] round 13 | climb | the incumbent did not move
+  [gemini] 21.9s
+  [gemini] 3.7s
+  [gemini] 5.6s
+  [gemini] 7.7s
+  [gemini] 8.0s
+  [gemini] 19.3s
+[council-a3-s0] round 14 | D68 | ipc=1.8995 | sketch:prefetch | 211 min
+[council-a3-s0] round 14 | climb | the incumbent did not move
+  [gemini] 25.1s
+  [gemini] 5.5s
+  [gemini] 7.8s
+  [gemini] 10.1s
+  [gemini] 10.2s
+[council-a3-s1] round 15 | D65 | ipc=1.9768 | sketch:prefetch | 214 min
+[council-a3-s1] round 15 | D66 | ipc=2.0055 | sketch:geometry | 214 min
+[council-a3-s1] round 15 | D67 | ipc=2.0120 | sketch:replacement | 214 min
+[council-a3-s1] round 15 | D68 | ipc=1.9954 | sketch:concurrency | 214 min
+[council-a3-s1] round 15 | D69 | ipc=1.9682 | sketch:prefetch+geometry | 214 min
+[council-a3-s1] round 15 | D70 | ipc=1.9746 | sketch:prefetch+replacement | 214 min
+[council-a3-s1] round 15 | D71 | ipc=1.9710 | sketch:prefetch+concurrency | 214 min
+[council-a3-s1] round 15 | D72 | ipc=2.0073 | sketch:geometry+replacement | 214 min
+[council-a3-s1] round 15 | D73 | ipc=1.9824 | sketch:geometry+concurrency | 214 min
+[council-a3-s1] round 15 | D74 | ipc=1.9934 | sketch:replacement+concurrency | 214 min
+[council-a3-s1] round 15 | D75 | ipc=1.9643 | sketch:joint | 214 min
+  [gemini] 4.6s
+[council-a3-s1] round 15 | jump | the incumbent did not move
+  [gemini] 30.4s
+  [gemini] 429 - waiting 15s
+  [gemini] 5.0s
+  [gemini] 5.2s
+  [gemini] 6.1s
+  [gemini] 26.3s
+[council-a3-s1] round 16 | D76 | ipc=1.9372 | sketch:prefetch | 235 min
+[council-a3-s1] round 16 | D77 | ipc=1.9848 | sketch:geometry | 235 min
+[council-a3-s1] round 16 | D78 | ipc=2.0094 | sketch:replacement | 235 min
+[council-a3-s1] round 16 | D79 | ipc=2.0024 | sketch:concurrency | 235 min
+[council-a3-s1] round 16 | D80 | ipc=1.9082 | sketch:prefetch+geometry | 235 min
+[council-a3-s1] round 16 | D81 | ipc=1.9346 | sketch:prefetch+replacement | 235 min
+[council-a3-s1] round 16 | D82 | ipc=1.9338 | sketch:prefetch+concurrency | 235 min
+[council-a3-s1] round 16 | D83 | ipc=1.9784 | sketch:geometry+replacement | 235 min
+[council-a3-s1] round 16 | D84 | ipc=1.9664 | sketch:geometry+concurrency | 235 min
+[council-a3-s1] round 16 | D85 | ipc=1.9976 | sketch:replacement+concurrency | 235 min
+[council-a3-s1] round 16 | D86 | ipc=1.9049 | sketch:joint | 235 min
+  [gemini] 7.2s
+[council-a3-s1] round 16 | jump | the incumbent did not move
+  [gemini] 22.0s
+  [gemini] 5.2s
+  [gemini] 6.4s
+  [gemini] 7.3s
+  [gemini] 7.4s
+[council-a3-s0] round 15 | D69 | ipc=1.9610 | sketch:prefetch | 239 min
+[council-a3-s0] round 15 | D70 | ipc=2.0059 | sketch:geometry | 239 min
+[council-a3-s0] round 15 | D71 | ipc=1.9587 | sketch:replacement | 239 min
+[council-a3-s0] round 15 | D72 | ipc=1.9950 | sketch:concurrency | 239 min
+[council-a3-s0] round 15 | D73 | ipc=1.9633 | sketch:prefetch+geometry | 239 min
+[council-a3-s0] round 15 | D74 | ipc=1.9230 | sketch:prefetch+replacement | 239 min
+[council-a3-s0] round 15 | D75 | ipc=1.9601 | sketch:prefetch+concurrency | 239 min
+[council-a3-s0] round 15 | D76 | ipc=1.9898 | sketch:geometry+replacement | 239 min
+[council-a3-s0] round 15 | D77 | ipc=1.9892 | sketch:geometry+concurrency | 239 min
+[council-a3-s0] round 15 | D78 | ipc=1.9303 | sketch:replacement+concurrency | 239 min
+[council-a3-s0] round 15 | D79 | ipc=1.9513 | sketch:joint | 239 min
+  [gemini] 6.4s
+[council-a3-s0] round 15 | jump | the incumbent did not move
+  [gemini] 18.1s
+  [gemini] 4.9s
+  [gemini] 6.1s
+  [gemini] 6.1s
+  [gemini] 9.0s
+[council-a3-s1] round 17 | D87 | ipc=1.9329 | sketch:prefetch | 241 min
+[council-a3-s1] round 17 | D88 | ipc=2.0130 | sketch:geometry | 241 min
+[council-a3-s1] round 17 | D89 | ipc=2.0129 | sketch:replacement | 241 min
+[council-a3-s1] round 17 | D90 | ipc=1.9976 | sketch:concurrency | 241 min
+[council-a3-s1] round 17 | D91 | ipc=1.9268 | sketch:prefetch+geometry | 241 min
+[council-a3-s1] round 17 | D92 | ipc=1.9323 | sketch:prefetch+replacement | 241 min
+[council-a3-s1] round 17 | D93 | ipc=1.9223 | sketch:prefetch+concurrency | 241 min
+[council-a3-s1] round 17 | D94 | ipc=2.0145 | sketch:geometry+replacement | 241 min
+[council-a3-s1] round 17 | D95 | ipc=2.0023 | sketch:geometry+concurrency | 241 min
+[council-a3-s1] round 17 | D96 | ipc=1.9953 | sketch:replacement+concurrency | 241 min
+[council-a3-s1] round 17 | D97 | ipc=1.9188 | sketch:joint | 241 min
+  [gemini] 6.2s
+  [gemini] 16.0s
+  [gemini] 4.3s
+  [gemini] 6.2s
+  [gemini] 10.6s
+  [gemini] 10.9s
+  [gemini] 22.5s
+[council-a3-s1] round 18 | D98 | ipc=1.9508 | sketch:prefetch | 252 min
+[council-a3-s1] round 18 | D99 | ipc=1.9934 | sketch:geometry | 252 min
+[council-a3-s1] round 18 | D100 | ipc=1.9292 | sketch:joint | 252 min
+  [gemini] 5.2s
+[council-a3-s1] round 18 | climb | the incumbent did not move
+  [gemini] 18.6s
+  [gemini] 4.8s
+  [gemini] 4.9s
+  [gemini] 6.4s
+  [gemini] 9.0s
+  [gemini] 17.1s
+  [gemini] 5.1s
+[council-a3-s1] round 19 | climb | the incumbent did not move
+  [gemini] 13.4s
+  [gemini] 4.8s
+  [gemini] 7.2s
+  [gemini] 7.2s
+  [gemini] 16.3s
+[council-a3-s0] round 16 | D80 | ipc=1.9323 | sketch:prefetch | 257 min
+[council-a3-s0] round 16 | D81 | ipc=1.9844 | sketch:geometry | 257 min
+[council-a3-s0] round 16 | D82 | ipc=2.0103 | sketch:replacement | 257 min
+[council-a3-s0] round 16 | D83 | ipc=2.0007 | sketch:concurrency | 257 min
+[council-a3-s0] round 16 | D84 | ipc=1.9029 | sketch:prefetch+geometry | 257 min
+[council-a3-s0] round 16 | D85 | ipc=1.9308 | sketch:prefetch+replacement | 257 min
+[council-a3-s0] round 16 | D86 | ipc=1.9301 | sketch:prefetch+concurrency | 257 min
+[council-a3-s0] round 16 | D87 | ipc=1.9758 | sketch:geometry+replacement | 257 min
+[council-a3-s0] round 16 | D88 | ipc=1.9672 | sketch:geometry+concurrency | 257 min
+[council-a3-s0] round 16 | D89 | ipc=2.0027 | sketch:replacement+concurrency | 257 min
+[council-a3-s0] round 16 | D90 | ipc=1.9047 | sketch:joint | 257 min
+  [gemini] 6.8s
+[council-a3-s0] round 16 | jump | the incumbent did not move
+  [gemini] 20.4s
+  [gemini] 6.0s
+  [gemini] 6.2s
+  [gemini] 6.4s
+  [gemini] 7.4s
+[council-a3-s1] round 20 | D101 | ipc=1.9613 | sketch:prefetch | 279 min
+[council-a3-s1] round 20 | D102 | ipc=2.0078 | sketch:geometry | 279 min
+[council-a3-s1] round 20 | D103 | ipc=2.0128 | sketch:replacement | 279 min
+[council-a3-s1] round 20 | D104 | ipc=2.0028 | sketch:concurrency | 279 min
+[council-a3-s1] round 20 | D105 | ipc=1.9573 | sketch:prefetch+geometry | 279 min
+[council-a3-s1] round 20 | D106 | ipc=1.9609 | sketch:prefetch+replacement | 279 min
+[council-a3-s1] round 20 | D107 | ipc=1.9602 | sketch:prefetch+concurrency | 279 min
+[council-a3-s1] round 20 | D108 | ipc=2.0069 | sketch:geometry+replacement | 279 min
+[council-a3-s1] round 20 | D109 | ipc=1.9998 | sketch:geometry+concurrency | 279 min
+[council-a3-s1] round 20 | D110 | ipc=2.0028 | sketch:replacement+concurrency | 279 min
+[council-a3-s1] round 20 | D111 | ipc=1.9581 | sketch:joint | 279 min
+  [gemini] 4.9s
+[council-a3-s1] round 20 | jump | the incumbent did not move
+[council-a3-s1] 111 designs evaluated, best D94 ipc=2.0145
+[council-a3-s0] round 17 | D91 | ipc=1.9694 | sketch:prefetch | 279 min
+[council-a3-s0] round 17 | D92 | ipc=2.0066 | sketch:geometry | 279 min
+[council-a3-s0] round 17 | D93 | ipc=2.0128 | sketch:replacement | 279 min
+[council-a3-s0] round 17 | D94 | ipc=1.9953 | sketch:concurrency | 279 min
+[council-a3-s0] round 17 | D95 | ipc=1.9616 | sketch:prefetch+geometry | 279 min
+[council-a3-s0] round 17 | D96 | ipc=1.9688 | sketch:prefetch+replacement | 279 min
+[council-a3-s0] round 17 | D97 | ipc=1.9606 | sketch:prefetch+concurrency | 279 min
+[council-a3-s0] round 17 | D98 | ipc=2.0069 | sketch:geometry+replacement | 279 min
+[council-a3-s0] round 17 | D99 | ipc=1.9941 | sketch:geometry+concurrency | 279 min
+[council-a3-s0] round 17 | D100 | ipc=1.9966 | sketch:replacement+concurrency | 279 min
+[council-a3-s0] round 17 | D101 | ipc=1.9527 | sketch:joint | 279 min
+  [gemini] 6.4s
+[council-a3-s0] round 17 | jump | the incumbent did not move
+  [gemini] 24.1s
+  [gemini] 5.3s
+  [gemini] 6.5s
+  [gemini] 7.0s
+  [gemini] 7.8s
+  [gemini] 6.0s
+[council-a3-s0] round 18 | D102 | ipc=1.9352 | sketch:prefetch | 286 min
+[council-a3-s0] round 18 | D103 | ipc=2.0145 | sketch:geometry | 286 min
+[council-a3-s0] round 18 | D104 | ipc=1.9544 | sketch:replacement | 286 min
+[council-a3-s0] round 18 | D105 | ipc=1.9299 | sketch:prefetch+geometry | 286 min
+[council-a3-s0] round 18 | D106 | ipc=1.9177 | sketch:prefetch+replacement | 286 min
+[council-a3-s0] round 18 | D107 | ipc=2.0062 | sketch:geometry+replacement | 286 min
+[council-a3-s0] round 18 | D108 | ipc=1.9267 | sketch:joint | 286 min
+  [gemini] 6.3s
+  [gemini] 28.3s
+  [gemini] 4.9s
+  [gemini] 6.4s
+  [gemini] 8.5s
+  [gemini] 9.8s
+  [gemini] 13.6s
+[council-a3-s0] round 19 | D109 | ipc=1.9508 | sketch:prefetch | 287 min
+[council-a3-s0] round 19 | D110 | ipc=1.9934 | sketch:geometry | 287 min
+[council-a3-s0] round 19 | D111 | ipc=1.9292 | sketch:joint | 287 min
+  [gemini] 4.9s
+[council-a3-s0] round 19 | climb | the incumbent did not move
+[council-a3-s0] 111 designs evaluated, best D103 ipc=2.0145
+== council seed 0: best 2.0145 over 111 designs
+== council seed 1: best 2.0145 over 111 designs
+done in 4.8 h, 0 failed

@@ -21,7 +21,7 @@ metric at that arm, which has happened once and cost every arm five points.
 Env: SEEDS (default 2), FIRST_SEED, BUDGET (default 60), BO_BATCH (designs per forest
 round, default 1), PARALLEL_RUNS, SIM_THREADS,
 ANALYST_MODEL, LOOP_WARMUP / LOOP_SIM (the run's fidelity), PROBE_WARMUP / PROBE_SIM (the
-council's sketch rung).
+council's sketch rung), PAIRS / GEOM_LADDER (the council's two mechanisms, on unless set to 0).
 """
 
 import json
@@ -35,7 +35,10 @@ import numpy
 from sklearn.ensemble import RandomForestRegressor
 
 from loop import analyst
-from loop.suite import SIMULATION_INSTRUCTIONS, WARMUP_INSTRUCTIONS, make_suite_problem, measured_designs, short_name
+from loop import chip
+from loop import socs
+from loop.suite import (SIMULATION_INSTRUCTIONS, WARMUP_INSTRUCTIONS, make_suite_problem, measured_designs,
+                        workload_of, workloads_for)
 from loop.space import SEARCH_SPACE, random_feasible_designs, typed_knobs
 
 TRACE = {"mcf": "traces/605.mcf_s-665B.champsimtrace.xz",
@@ -44,7 +47,9 @@ TRACE = {"mcf": "traces/605.mcf_s-665B.champsimtrace.xz",
          "sd": "traces/stable-diffusion.cpp-v1-5-pruned-emaonly.1.champsimtrace.gz",
          "clip": "traces/clip_trace_1.champsimtrace.gz"}
 
-# The suite each cell tests.
+# The suite each cell tests: the programs, heaviest first. How they are run is the
+# chip's business - on a multi-core SoC `suite.workloads_for` makes the per-core mixes
+# from this list, so one cell runs on any SoC.
 CELLS = {
     # ML inference (DPC4 ai-ml, 200 MB prefixes): the suite.
     "aiml": [TRACE["llama2"], TRACE["sd"], TRACE["clip"]],
@@ -69,8 +74,10 @@ REPORT_DIR = "results/runs"
 
 
 def report_path(cell_name, tag):
+    """One report per (SoC, cell, tag): the name says which chip it was measured on, so a
+    report is never read for another chip's."""
     os.makedirs(REPORT_DIR, exist_ok=True)
-    return os.path.join(REPORT_DIR, "{}_{}.json".format(cell_name, tag))
+    return os.path.join(REPORT_DIR, "{}_{}_{}.json".format(socs.NAME, cell_name, tag))
 
 
 # ---------------------------------------------------------------- the surrogate ----
@@ -219,6 +226,9 @@ def measure_batch(problem, knobs_list, tag):
 
 # ---------------------------------------------------------------- the forest arms ----
 
+BO_ROUNDS = int(os.environ.get("BO_ROUNDS", "0"))    # cap the forest by rounds; 0 = by designs
+
+
 def forest_search(problem, budget, batch, seed, tag, warm_up=WARM_UP_DESIGNS):
     """`budget` designs bought in batches of `batch`. Both forest arms and the
     ceiling go through here, so the settings they disagree on are arguments rather
@@ -278,7 +288,7 @@ def forest_search(problem, budget, batch, seed, tag, warm_up=WARM_UP_DESIGNS):
         buy(opening, "warm-up", 0)
 
     round_number = 0
-    while len(history) - 1 < budget:
+    while len(history) - 1 < budget and (not BO_ROUNDS or round_number < BO_ROUNDS):
         round_number += 1
         for name, knobs in neighbours(best_knobs, problem).items():
             if name not in candidates and name not in broken:
@@ -297,7 +307,7 @@ def forest_search(problem, budget, batch, seed, tag, warm_up=WARM_UP_DESIGNS):
 def run_one(arm, cell_name, seed, budget, tag_prefix):
     """One (arm, seed) run; returns only what the report keeps."""
     problem = make_suite_problem(CELLS[cell_name])
-    tag = "{}-{}-s{}".format(arm, tag_prefix, seed)
+    tag = "{}-{}-{}-s{}".format(socs.NAME, arm, tag_prefix, seed)
     if arm == "bo":
         # BO_BATCH: designs measured at once per round, so the forest can spend a round's
         # wall clock on several simulations the way the council's sketch wave does. The
@@ -337,6 +347,14 @@ def compact(history, problem):
 
 # ---------------------------------------------------------------- the cell ----
 
+def council_flags():
+    """The mechanisms the council is running with, recorded in every report."""
+    from loop import council          # imported here: council imports this module
+    return {"pairs": council.PAIR_SKETCHES, "geom_ladder": council.GEOM_LADDER,
+            "chip_view": council.CHIP_VIEW, "sweep": council.SWEEP,
+            "rounds": council.MAX_ROUNDS, "bo_rounds": BO_ROUNDS}
+
+
 def run_cell(cell_name, tag, arms=None):
     if arms is None:
         arms = ARMS
@@ -346,15 +364,19 @@ def run_cell(cell_name, tag, arms=None):
     if cell_name == "smoke":
         budget = SMOKE_BUDGET
     workloads = []
-    for trace_path in CELLS[cell_name]:
-        workloads.append(short_name(trace_path))
+    for entry in workloads_for(CELLS[cell_name]):
+        workloads.append(workload_of(entry)[0])
     output_path = report_path(cell_name, tag)
     report = {"cell": cell_name, "tag": tag, "workloads": workloads, "arms": arms, "seeds": seeds,
               "first_seed": first_seed, "budget": budget,
               "bo_batch": int(os.environ.get("BO_BATCH", "1")),
               "fidelity": [WARMUP_INSTRUCTIONS, SIMULATION_INSTRUCTIONS],
               "probe_fidelity": [int(os.environ["PROBE_WARMUP"]), int(os.environ["PROBE_SIM"])] if os.environ.get("PROBE_WARMUP") else None,
-              "model": analyst.MODEL, "runs": {}, "failed": []}
+              "model": analyst.MODEL,
+              "soc": socs.NAME, "chip": chip.NAME, "cores": socs.CORES,
+              "area_budget_kb": socs.AREA_BUDGET_KB, "card": chip.card(),
+              "flags": council_flags(),
+              "runs": {}, "failed": []}
     for arm in arms:
         report["runs"][arm] = {}
     print("cell {} ({}) -> {} | workloads {} | arms {} | seeds {}..{} | {} designs per run".format(
@@ -441,9 +463,99 @@ def score(report_path_):
         print(mean_line)
         if len(runs) > 1:
             print(spread_line)
+    by_round(report, stock, best_known)
     if len(report.get("failed", [])) > 0:
         print()
         print("failed runs:", json.dumps(report["failed"]))
+
+
+# The rounds a table prints, and the levels it reports rounds-to.
+ROUND_LADDER = [1, 2, 3, 4, 5, 6, 8, 10, 12, 14, 16, 20, 25, 30, 40, 50, 60, 75]
+LEVELS = [90.0, 95.0, 96.0, 99.0, 99.9]
+
+
+def by_round(report, stock, best_known):
+    """The same shares on the axis the arms are compared on: the simulations of a round
+    run at once, so a round is the unit of time - a wave plus its composition for the
+    council, one batch of BO_BATCH for the forest. A round that measured nothing still
+    cost a round."""
+    shares = {}
+    for arm in report["arms"]:
+        runs = report["runs"].get(arm, {})
+        if len(runs) == 0:
+            continue
+        shares[arm] = []
+        for seed in sorted(runs):
+            curve = best_by_round(runs[seed]["designs"])
+            shares[arm].append([100.0 * (value - stock) / (best_known - stock) for value in curve])
+    if not shares:
+        return
+    longest = max(len(curve) for arm in shares for curve in shares[arm])
+    ladder = [number for number in ROUND_LADDER if number < longest] or [longest - 1]
+
+    def read(curve, number):
+        return curve[min(number, len(curve) - 1)]
+
+    print()
+    print("share of the stock-to-best-known gap reached after N rounds (mean over seeds; min..max below)")
+    header = "{:<14s} {:>5s}".format("arm", "seeds")
+    for number in ladder:
+        header += " {:>7s}".format("R{}".format(number))
+    print(header)
+    for arm in shares:
+        mean_line = "{:<14s} {:>5d}".format(arm, len(shares[arm]))
+        spread_line = "{:<14s} {:>5s}".format("", "")
+        for number in ladder:
+            values = [read(curve, number) for curve in shares[arm]]
+            mean_line += " {:>6.0f}%".format(sum(values) / len(values))
+            spread_line += " {:>3.0f}..{:<3.0f}".format(min(values), max(values))
+        print(mean_line)
+        if len(shares[arm]) > 1:
+            print(spread_line)
+    print()
+    print("rounds to reach a share of the gap (the seeds' mean curve; each seed below, x = never)")
+    header = "{:<14s} {:>5s}".format("arm", "seeds")
+    for level in LEVELS:
+        header += " {:>8s}".format("{:g}%".format(level))
+    print(header)
+    for arm in shares:
+        rounds_here = max(len(curve) for curve in shares[arm])
+        mean_curve = [sum(read(curve, number) for curve in shares[arm]) / len(shares[arm])
+                      for number in range(rounds_here)]
+        mean_line = "{:<14s} {:>5d}".format(arm, len(shares[arm]))
+        spread_line = "{:<14s} {:>5s}".format("", "")
+        for level in LEVELS:
+            crossing = rounds_to(mean_curve, level)
+            mean_line += " {:>8s}".format("-" if crossing is None else str(crossing))
+            per_seed = [rounds_to(curve, level) for curve in shares[arm]]
+            spread_line += " {:>8s}".format(",".join("x" if v is None else str(v) for v in per_seed))
+        print(mean_line)
+        if len(shares[arm]) > 1:
+            print(spread_line)
+
+
+def rounds_to(shares, level):
+    """The first round at which this seed stood at `level` of the gap, or None."""
+    for number, share in enumerate(shares):
+        if share >= level:
+            return number
+    return None
+
+
+def best_by_round(designs):
+    """Best measured after each round, indexed by the round number itself: a round that
+    measured nothing carries the previous best rather than shifting the axis."""
+    best_of = {}
+    for row in designs:
+        if row["round"] not in best_of or row["ipc"] > best_of[row["round"]]:
+            best_of[row["round"]] = row["ipc"]
+    curve = []
+    best = None
+    for number in range(max(best_of) + 1):
+        if number in best_of and (best is None or best_of[number] > best):
+            best = best_of[number]
+        curve.append(best)
+    return curve
 
 
 def best_so_far(designs):
@@ -481,6 +593,10 @@ def ceiling(traces, how_many, batch):
 if __name__ == "__main__":
     if sys.argv[1] == "score":
         score(sys.argv[2])
+    elif sys.argv[1] == "preview":
+        # Every prompt of an opening round on this SoC and cell, without a model call.
+        from loop import council
+        council.preview(make_suite_problem(CELLS[sys.argv[2]]))
     elif sys.argv[1] == "ceiling":
         ceiling(sys.argv[4:], int(sys.argv[2]), int(sys.argv[3]))
     else:

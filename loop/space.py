@@ -13,10 +13,8 @@ sampled (`random_feasible_designs`) or checked one at a time (`in_space` +
 
 import random
 
-CHIP = "C_server"
-
-# Hard area budget for L2 + LLC data capacity, in KB. A design over budget is not a candidate.
-AREA_BUDGET_KB = 4608
+from loop import chip                         # the chip this run tunes: its name, cores and area
+from loop.socs import AREA_BUDGET_KB
 
 SEARCH_SPACE = {
     "l1d_sets": [32, 64, 128],
@@ -70,29 +68,14 @@ def knobs_changed(knobs, reference_knobs):
 
 
 def cache_area_kb(knobs):
-    """Area proxy: data capacity of L2 plus LLC, in KB, at 64-byte blocks. The L1D
-    and the MSHRs carry no area here (a known simplification)."""
+    """Area proxy: data capacity of L2 plus LLC, in KB, at 64-byte blocks, every
+    instance of a level counted - a private level is built once per core, so on a
+    four-core chip an L2 costs four times its capacity. The L1D and the MSHRs carry no
+    area here (a known simplification). `chip.area_mm2` gives the silicon beside it."""
     block_bytes = 64
-    l2_bytes = int(knobs["l2_sets"]) * int(knobs["l2_ways"]) * block_bytes
-    llc_bytes = int(knobs["llc_sets"]) * int(knobs["llc_ways"]) * block_bytes
+    l2_bytes = int(knobs["l2_sets"]) * int(knobs["l2_ways"]) * block_bytes * chip.instances("L2C")
+    llc_bytes = int(knobs["llc_sets"]) * int(knobs["llc_ways"]) * block_bytes * chip.instances("LLC")
     return (l2_bytes + llc_bytes) / 1024.0
-
-
-def fit_to_budget(knobs):
-    """A design read onto the area budget: shrink the LLC one step at a time, then the L2,
-    until it fits."""
-    fitted = dict(knobs)
-    for knob in ["llc_sets", "llc_ways", "l2_sets", "l2_ways"]:
-        while not within_budget(fitted):
-            values = SEARCH_SPACE[knob]
-            position = None
-            for index, value in enumerate(values):
-                if str(value) == str(fitted[knob]):
-                    position = index
-            if position is None or position == 0:
-                break
-            fitted[knob] = values[position - 1]
-    return fitted
 
 
 def within_budget(knobs):
@@ -121,11 +104,14 @@ def random_feasible_designs(how_many, seed=0):
 
 
 def config_name(knobs):
-    """Stable, filesystem-safe name for one design: the chip and a sorted
-    knob-value listing. The result tables and the binary cache are keyed by it, and
-    the name carries the whole design, so nothing has to store both."""
+    """Stable, filesystem-safe name for one design: the chip, its revision and a
+    sorted knob-value listing. The result tables and the binary cache are keyed by it,
+    and the name carries the whole design, so nothing has to store both. The revision
+    covers everything about the chip that is not a knob - the clock, the node, the
+    profile - so a row or a binary from a chip whose latencies have changed is never
+    served for this one."""
     # No "=" in names: make would read the target as a variable assignment.
     parts = []
     for knob in sorted(knobs.keys()):
         parts.append("{}-{}".format(knob, knobs[knob]))
-    return CHIP + "_" + "_".join(parts)
+    return chip.NAME + "_" + "_".join(parts)
