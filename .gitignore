@@ -11,10 +11,13 @@ champsim_bin/
 # Environment, secrets, traces and generated inputs
 .venv/
 .env
+# Personal communication/working-style instructions, not part of the published repo
+CLAUDE.local.md
 traces/
 configs/generated/
 loop/__pycache__/
 
+competiton.md 
 # Per-machine, regenerated on demand. The CACTI cache (results/cacti_*nm.json) is committed:
 # a machine without a CACTI build reads it and never shells out.
 # cost accounting, one file per machine
@@ -24,3 +27,5 @@ results/transcripts/
 # gate artifacts, not results
 results/runs/*smoke*.json
 results/**/*.lock
+results/vm2/transcripts/
+results/vm2/pull.log

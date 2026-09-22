@@ -27,7 +27,7 @@ from loop import chip                         # the chip this run tunes, as numb
 from loop.simulate import (ALL_CACHES, KNOB_LOCATION, METRICS_VERSION, SimulatorInterrupted, build_binary,
                            build_config, make_config, run_simulation)
 from loop.socs import CORES
-from loop.space import AREA_BUDGET_KB, SEARCH_SPACE, config_name, in_space, typed_knobs, within_budget
+from loop.space import AREA_BUDGET_KB, POWER_BUDGET_W, SEARCH_SPACE, budget_text, config_name, in_space, silicon_mm2, typed_knobs, watts, within_budget
 
 CHAMPSIM_ROOT = "champsim"
 BASE_CONFIG = "champsim/champsim_config.json"
@@ -72,8 +72,13 @@ def workloads_for(programs):
     cell lists its heaviest program first."""
     if CORES == 1:
         return list(programs)
-    mixes = [("het", [programs[index % len(programs)] for index in range(CORES)]),
-             ("hom", [programs[0]] * CORES)]
+    mixes = [("het", [programs[index % len(programs)] for index in range(CORES)])]
+    # The homogeneous mix exists to give a worst case for the shared level when the
+    # heterogeneous one cannot: with fewer programs than cores some core repeats a
+    # program anyway. A cell that fills every core with a different program already is
+    # the worst case, and a second mix would only double what every design costs.
+    if len(programs) < CORES:
+        mixes.append(("hom", [programs[0]] * CORES))
     # The name keys the result table, so it has to say which traces the mix is: two cells
     # on the same chip both have a heterogeneous mix, and a row of one must never be read
     # for the other. A cell of one program makes the two mixes the same traces; the name
@@ -267,6 +272,46 @@ def stock_design():
     return stock
 
 
+def shrink_ladder(stock):
+    """The chip's own hierarchy, then the same design with the last level cut a rung at a
+    time: sets first, then ways. Capacity is what a last level is for, and halving it
+    costs less of what the level does than halving its associativity."""
+    ladder = [dict(stock)]
+    current = dict(stock)
+    for knob in ["llc_sets", "llc_ways"]:
+        for value in sorted(SEARCH_SPACE[knob], reverse=True):
+            if value >= int(current[knob]):
+                continue
+            current = dict(current)
+            current[knob] = value
+            ladder.append(current)
+    return ladder
+
+
+def shrunk_to_fit(stock, drawn=None):
+    """The chip's hierarchy when it still fits the caps; otherwise the first rung down
+    the ladder that does - the obvious engineering answer, and the one this project
+    measures everything against. A cap can move after a chip is under design, and the
+    design that was legal under the old one may not be: the reference is then the shrunk
+    form of it, never an illegal design.
+
+    Silicon and leakage are decided by the shape, so they are checked here. Power is
+    SPENT, not provisioned, and shrinking on leakage alone under-shrinks: a shape that
+    leaks little enough can still draw too much once it runs. `drawn` reads what a rung
+    measured where the tables already hold it, and None where they do not - an unmeasured
+    rung is taken on its shape alone and violates like any other design if it turns out
+    to draw too much."""
+    for design in shrink_ladder(stock):
+        if not within_budget(typed_knobs(design)):
+            continue
+        if drawn is not None and POWER_BUDGET_W is not None:
+            spent = drawn(design)
+            if spent is not None and spent > POWER_BUDGET_W:
+                continue
+        return design
+    raise RuntimeError("no shrink of the last level fits " + budget_text(typed_knobs(stock)))
+
+
 def make_suite_problem(programs, allow_simulation=True, warmup=WARMUP_INSTRUCTIONS, simulation=SIMULATION_INSTRUCTIONS):
     """One design is scored on a SUITE of workloads: the objective is the geometric
     mean of the per-workload IPC (one simulation per workload per design). This is
@@ -279,7 +324,20 @@ def make_suite_problem(programs, allow_simulation=True, warmup=WARMUP_INSTRUCTIO
         holder = ChampSimProblem(entry, allow_simulation, warmup, simulation)
         holders.append(holder)
         names.append(holder.trace_name)
-    stock = stock_design()
+    def drawn(knobs):
+        """What a design measured in watts over this suite, or None where the tables do
+        not hold every workload of it yet."""
+        name = config_name(typed_knobs(knobs))
+        metrics = {}
+        for holder in holders:
+            row = holder.sweep_table.get(name)
+            if row is None or row["metrics"] is None:
+                return None
+            for key in row["metrics"]:
+                metrics["{}:{}".format(holder.trace_name, key)] = row["metrics"][key]
+        return watts(typed_knobs(knobs), metrics, names)
+
+    stock = shrunk_to_fit(stock_design(), drawn)
 
     def is_candidate(knobs):
         """Any design the loop may run: in the space, inside the budget, not crashed anywhere."""
@@ -307,7 +365,7 @@ def make_suite_problem(programs, allow_simulation=True, warmup=WARMUP_INSTRUCTIO
             per_workload = []
             for holder_index in range(len(holders)):
                 per_workload.append(per_workload_waiters[holder_index][index]())
-            results.append(aggregate_suite(per_workload, names))
+            results.append(aggregate_suite(per_workload, names, knobs_list[index]))
         return results
 
     def evaluate(knobs):
@@ -338,8 +396,9 @@ def make_suite_problem(programs, allow_simulation=True, warmup=WARMUP_INSTRUCTIO
     }
 
 
-def aggregate_suite(per_workload_metrics, names):
-    """Geometric-mean IPC over the suite; per-workload values kept under "<workload>:<metric>"."""
+def aggregate_suite(per_workload_metrics, names, knobs):
+    """Geometric-mean IPC over the suite, the design's silicon and its power; per-workload
+    values kept under "<workload>:<metric>"."""
     combined = {}
     log_sum = 0.0
     for name, metrics in zip(names, per_workload_metrics):
@@ -347,6 +406,8 @@ def aggregate_suite(per_workload_metrics, names):
         for metric in metrics:
             combined[name + ":" + metric] = metrics[metric]
     combined["ipc"] = math.exp(log_sum / len(per_workload_metrics))
+    combined["mm2"] = silicon_mm2(knobs)
+    combined["watts"] = watts(knobs, combined, names)
     return combined
 
 
@@ -369,5 +430,5 @@ def measured_designs(problem):
         if not complete:
             continue
         designs.append({"name": name, "knobs": first_table[name]["knobs"],
-                        "metrics": aggregate_suite(per_workload, problem["workloads"])})
+                        "metrics": aggregate_suite(per_workload, problem["workloads"], first_table[name]["knobs"])})
     return designs

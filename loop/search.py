@@ -39,13 +39,18 @@ from loop import chip
 from loop import socs
 from loop.suite import (SIMULATION_INSTRUCTIONS, WARMUP_INSTRUCTIONS, make_suite_problem, measured_designs,
                         workload_of, workloads_for)
-from loop.space import SEARCH_SPACE, random_feasible_designs, typed_knobs
+from loop.space import SEARCH_SPACE, random_feasible_designs, typed_knobs, violations
 
 TRACE = {"mcf": "traces/605.mcf_s-665B.champsimtrace.xz",
          "lbm": "traces/619.lbm_s-2676B.champsimtrace.xz",
          "llama2": "traces/llama2.c-llama2_7b.1.champsimtrace.gz",
          "sd": "traces/stable-diffusion.cpp-v1-5-pruned-emaonly.1.champsimtrace.gz",
-         "clip": "traces/clip_trace_1.champsimtrace.gz"}
+         "clip": "traces/clip_trace_1.champsimtrace.gz",
+         "dc1": "traces/whiskey_0000.champsim.gz",
+         "dc2": "traces/merced_0000.champsim.gz",
+         "dc3": "traces/bravo.a_0000.champsim.gz",
+         "sd2": "traces/stable-diffusion.cpp-v2-1_768-nonema-pruned.1.champsimtrace.gz",
+         "whisper": "traces/whisper_trace_1.champsimtrace.gz"}
 
 # The suite each cell tests: the programs, heaviest first. How they are run is the
 # chip's business - on a multi-core SoC `suite.workloads_for` makes the per-core mixes
@@ -58,8 +63,21 @@ CELLS = {
     "llama2": [TRACE["llama2"]],
     # The gate before any launch: every arm, one round, two cheap workloads.
     "smoke": [TRACE["mcf"], TRACE["lbm"]],
+    # The generation step: the workload the previous chip was built for, kept, beside the
+    # one that arrived after it shipped. A design has to serve both.
+    "gen": [TRACE["llama2"], TRACE["dc1"]],
+    # Four tenants on a shared machine, one per core: the class the chip is sold for
+    # beside three of the services that share the machine with it. One hierarchy has to
+    # serve all four, and none of them may come out slower than it was.
+    "tenants": [TRACE["llama2"], TRACE["dc1"], TRACE["dc2"], TRACE["dc3"]],
+    # An inference server: four models of four kinds on four cores - text generation, image
+    # generation, image-text embedding, speech. None of them misses the instruction cache and
+    # none walks the page table often, so everything they stall on is something these knobs
+    # can move. Two of them reach the shared level hard and two never reach it at all, which
+    # is the whole argument over where the silicon goes.
+    "infer": [TRACE["llama2"], TRACE["sd2"], TRACE["clip"], TRACE["whisper"]],
 }
-ARMS = ["bo", "council"]
+ARMS = ["random", "council"]
 
 BUDGET = int(os.environ.get("BUDGET", "60"))
 SMOKE_BUDGET = 2          # the gate measures this many designs per arm, whatever BUDGET says
@@ -267,11 +285,12 @@ def forest_search(problem, budget, batch, seed, tag, warm_up=WARM_UP_DESIGNS):
             name = problem["name_of"](knobs)
             candidates.pop(name, None)
             entry = {"index": len(history), "round": round_number, "name": name, "knobs": knobs,
-                     "metrics": metrics, "source": source, "hypothesis": None}
+                     "metrics": metrics, "source": source, "hypothesis": None,
+                     "violations": violations(metrics, problem["workloads"], history[0]["metrics"])}
             history.append(entry)
             measured_knobs.append(knobs)
             measured_values.append(metrics[objective])
-            if metrics[objective] > best:
+            if metrics[objective] > best and not entry["violations"]:
                 best = metrics[objective]
                 best_knobs = knobs
             print("[{}] round {} | D{} | {}={:.4f} | best {:.4f} | {} | {:.0f} min".format(
@@ -302,6 +321,34 @@ def forest_search(problem, budget, batch, seed, tag, warm_up=WARM_UP_DESIGNS):
     return {"designs": history, "rounds": []}
 
 
+def random_search(problem, budget, batch, seed, tag):
+    """Uniform draws from the feasible set, `batch` a round, no model and no memory: the
+    lowest rung of the ladder every other arm is read against."""
+    started = time.time()
+    stock_metrics = problem["evaluate"](problem["stock"])
+    history = [{"index": 0, "round": 0, "name": problem["name_of"](problem["stock"]), "knobs": problem["stock"],
+                "metrics": stock_metrics, "source": "stock", "hypothesis": None, "violations": []}]
+    # Drawn once, in order, so a seed is the same sequence whatever the batch.
+    pool = random_feasible_designs(budget + 20, seed=seed)
+    stock_name = problem["name_of"](problem["stock"])
+    round_number = 0
+    while len(history) - 1 < budget and (not BO_ROUNDS or round_number < BO_ROUNDS):
+        round_number += 1
+        knobs_list = []
+        while len(knobs_list) < min(batch, budget - (len(history) - 1)) and pool:
+            knobs = pool.pop(0)
+            if problem["name_of"](knobs) != stock_name:
+                knobs_list.append(knobs)
+        knobs_list, metrics_list, dropped = measure_batch(problem, knobs_list, tag)
+        for knobs, metrics in zip(knobs_list, metrics_list):
+            history.append({"index": len(history), "round": round_number, "name": problem["name_of"](knobs),
+                            "knobs": knobs, "metrics": metrics, "source": "random", "hypothesis": None,
+                            "violations": violations(metrics, problem["workloads"], stock_metrics)})
+        print("[{}] round {} | {} designs | best {:.4f} | {:.0f} min".format(
+            tag, round_number, len(history) - 1, best_so_far(history)[-1], (time.time() - started) / 60), flush=True)
+    return {"designs": history, "rounds": []}
+
+
 # ---------------------------------------------------------------- one run ----
 
 def run_one(arm, cell_name, seed, budget, tag_prefix):
@@ -326,6 +373,8 @@ def run_one(arm, cell_name, seed, budget, tag_prefix):
             probe = make_suite_problem(CELLS[cell_name], warmup=int(os.environ["PROBE_WARMUP"]),
                                        simulation=int(os.environ["PROBE_SIM"]))
         result = council.search(problem, budget, seed, tag, probe)
+    elif arm == "random":
+        result = random_search(problem, budget, int(os.environ.get("BO_BATCH", "1")), seed, tag)
     else:
         raise ValueError("unknown arm " + arm)
     result["designs"] = compact(result["designs"], problem)
@@ -341,7 +390,9 @@ def compact(history, problem):
                                       "LLC_mpki": entry["metrics"][workload + ":LLC_mpki"]}
         rows.append({"index": entry["index"], "round": entry["round"], "name": entry["name"], "knobs": entry["knobs"],
                      "source": entry["source"], "hypothesis": entry.get("hypothesis"),
-                     "ipc": entry["metrics"]["ipc"], "per_workload": per_workload})
+                     "ipc": entry["metrics"]["ipc"], "mm2": entry["metrics"].get("mm2"),
+                     "watts": entry["metrics"].get("watts"), "violations": entry.get("violations", []),
+                     "per_workload": per_workload})
     return rows
 
 
@@ -352,6 +403,13 @@ def council_flags():
     from loop import council          # imported here: council imports this module
     return {"pairs": council.PAIR_SKETCHES, "geom_ladder": council.GEOM_LADDER,
             "chip_view": council.CHIP_VIEW, "sweep": council.SWEEP,
+            "openings": council.OPENINGS, "soft_caps": council.SOFT_CAPS,
+            "hold_jump": council.HOLD_JUMP,
+            "memory": council.MEMORY, "memory_jump": council.MEMORY_JUMP,
+            # The caps in force for this run. They can be moved after a chip is under
+            # design, so a report that does not say which ones it ran under cannot be
+            # read against another.
+            "area_cap_mm2": socs.AREA_BUDGET_MM2, "power_cap_w": socs.POWER_BUDGET_W,
             "rounds": council.MAX_ROUNDS, "bo_rounds": BO_ROUNDS}
 
 
@@ -396,7 +454,7 @@ def run_cell(cell_name, tag, arms=None):
             print("!! FAILED {} seed {}: {}".format(arm, seed, repr(error)[-200:]), flush=True)
             continue
         report["runs"][arm][str(seed)] = result
-        best = max(row["ipc"] for row in result["designs"])
+        best = best_so_far(result["designs"])[-1]
         print("== {} seed {}: best {:.4f} over {} designs".format(arm, seed, best, len(result["designs"]) - 1), flush=True)
         write_report(report, output_path)
     report["wall_seconds"] = time.time() - started
@@ -422,10 +480,16 @@ def score(report_path_):
     problem = make_suite_problem(CELLS[report["cell"]], allow_simulation=False)
     known = measured_designs(problem)
     stock = None
-    best_known = None
+    stock_metrics = None
     for design in known:
         if design["name"] == problem["name_of"](problem["stock"]):
             stock = design["metrics"]["ipc"]
+            stock_metrics = design["metrics"]
+    best_known = None
+    for design in known:
+        # The best known is the best FEASIBLE design: one over a cap is not a target.
+        if violations(design["metrics"], problem["workloads"], stock_metrics):
+            continue
         if best_known is None or design["metrics"]["ipc"] > best_known:
             best_known = design["metrics"]["ipc"]
     budget = report["budget"]
@@ -547,6 +611,8 @@ def best_by_round(designs):
     measured nothing carries the previous best rather than shifting the axis."""
     best_of = {}
     for row in designs:
+        if row.get("violations"):
+            continue        # measured, never stood on
         if row["round"] not in best_of or row["ipc"] > best_of[row["round"]]:
             best_of[row["round"]] = row["ipc"]
     curve = []
@@ -562,8 +628,10 @@ def best_so_far(designs):
     curve = []
     best = None
     for row in designs:
-        if best is None or row["ipc"] > best:
-            best = row["ipc"]
+        feasible = not row.get("violations")
+        value = row["ipc"] if "ipc" in row else row["metrics"]["ipc"]
+        if feasible and (best is None or value > best):
+            best = value
         curve.append(best)
     return curve
 

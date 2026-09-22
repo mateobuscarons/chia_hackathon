@@ -11,7 +11,7 @@ import time
 from google import genai
 
 
-GCP_PROJECT = "project-c23a6080-f5d0-4871-9cb"
+GCP_PROJECT = os.environ.get("GCP_PROJECT", "project-c23a6080-f5d0-4871-9cb")   # the project billed for the calls
 # ANALYST_MODEL picks the model, ANALYST_LOCATION the Vertex endpoint serving it. The
 # 2.5 models serve from us-central1; every Gemini 3.x model 404s there and serves from
 # "global" only, so a 3.x model needs ANALYST_LOCATION=global.

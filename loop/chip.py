@@ -124,6 +124,8 @@ def card():
             (memory["tRP"] + memory["tRCD"] + memory["tCAS"]) * controller_ns * gigahertz,
         "dram_row_hit_cycles": memory["tCAS"] * controller_ns * gigahertz,
         "area_budget_kb": socs.AREA_BUDGET_KB,
+        "area_budget_mm2": socs.AREA_BUDGET_MM2,
+        "power_budget_w": socs.POWER_BUDGET_W,
         "sharing": SHARING,
     }
     facts["dram_peak_per_core"] = facts["dram_peak_bytes_per_cycle"] / socs.CORES
@@ -175,14 +177,30 @@ def chip_text():
         "Levels: {}, one of each.".format(", ".join(private + shared)) if facts["cores"] == 1 else
         "Levels: {} private, one per core; {} shared by all {} cores.".format(
             " and ".join(private), ", ".join(shared), facts["cores"]),
-        "Area: {} KB of L2 + LLC data, a private level counted once per core.".format(facts["area_budget_kb"]),
+        budget_text(facts),
     ])
+
+
+def budget_text(facts):
+    """The budget line of the card: silicon and power where the chip caps them, else capacity."""
+    if facts["area_budget_mm2"] is None:
+        return "Area: {} KB of L2 + LLC data, a private level counted once per core.".format(facts["area_budget_kb"])
+    text = "Budget: {} mm2 of cache silicon over the three levels, checked before a design is measured".format(
+        facts["area_budget_mm2"])
+    if facts["power_budget_w"] is not None:
+        text += ";\n        {} W of cache and off-chip power over the suite, checked after.".format(facts["power_budget_w"])
+    else:
+        text += "."
+    return text
 
 
 # ---------------------------------------------------------------- the caches, from CACTI ----
 
 _ACCESS_TIME = re.compile(r"Access time \(ns\):\s*([\d.eE+\-]+)")
 _DIMENSIONS = re.compile(r"Cache height x width \(mm\):\s*([\d.eE+\-]+)\s*x\s*([\d.eE+\-]+)")
+_READ_NJ = re.compile(r"Total dynamic read energy per access \(nJ\):\s*([\d.eE+\-]+)")
+_WRITE_NJ = re.compile(r"Total dynamic write energy per access \(nJ\):\s*([\d.eE+\-]+)")
+_LEAK_MW = re.compile(r"Total leakage power of a bank \(mW\):\s*([\d.eE+\-]+)")
 _ladder = {}
 
 
@@ -212,7 +230,8 @@ def _cacti_config(size_bytes, ways, mode, cacti_level):
 
 
 def _run_cacti(size_bytes, ways, mode, cacti_level):
-    """(access time in ns, area in mm2) for one cache, or None if CACTI cannot build it."""
+    """(access time ns, area mm2, read nJ, write nJ, leakage mW) for one cache, or None
+    if CACTI cannot build it."""
     work_dir = tempfile.mkdtemp(prefix="cacti_")
     config_path = os.path.join(work_dir, "cache.cfg")
     with open(config_path, "w") as config_file:
@@ -225,9 +244,13 @@ def _run_cacti(size_bytes, ways, mode, cacti_level):
         return None
     access = _ACCESS_TIME.search(finished.stdout)
     dimensions = _DIMENSIONS.search(finished.stdout)
-    if access is None or dimensions is None:
+    read = _READ_NJ.search(finished.stdout)
+    write = _WRITE_NJ.search(finished.stdout)
+    leak = _LEAK_MW.search(finished.stdout)
+    if None in (access, dimensions, read, write, leak):
         return None
-    return float(access.group(1)), float(dimensions.group(1)) * float(dimensions.group(2))
+    return (float(access.group(1)), float(dimensions.group(1)) * float(dimensions.group(2)),
+            float(read.group(1)), float(write.group(1)), float(leak.group(1)))
 
 
 def _characterise(level, sets, ways):
@@ -269,11 +292,16 @@ def _characterised(level, sets, ways):
             pass
         if key in _ladder:
             return _ladder[key]
-    result = _characterise(level, sets, ways)
+    _store(key, _characterise(level, sets, ways))
+    return _ladder[key]
+
+
+def _store(key, result):
+    """Keep one characterisation in memory and on disk."""
     if result is None:
-        raise RuntimeError("CACTI could not characterise {} {}x{} at {} nm".format(
-            level, sets, ways, socs.PROCESS_NM))
+        raise RuntimeError("CACTI could not characterise {} at {} nm".format(key, socs.PROCESS_NM))
     _ladder[key] = list(result)
+    path = _cacti_cache_path()
     # Several processes characterise at once on the first run of a chip: merge under a
     # lock rather than overwrite, so no one's entries are lost.
     with open(path + ".lock", "w") as lock_file:
@@ -291,7 +319,22 @@ def _characterised(level, sets, ways):
             json.dump(stored, cache_file, indent=1, sort_keys=True)
         os.replace(temporary, path)
         fcntl.flock(lock_file, fcntl.LOCK_UN)
-    return _ladder[key]
+
+
+def leakage_w(level, sets, ways):
+    """What one level leaks whether or not it hits, every instance counted, in watts."""
+    return energy(level, sets, ways)[2] * instances(level) / 1000.0
+
+
+def energy(level, sets, ways):
+    """(read nJ per access, write nJ per access, leakage mW) of one instance of a level.
+    An entry cached before energy was read carries two fields and is characterised again."""
+    row = _characterised(level, sets, ways)
+    if len(row) < 5:
+        key = "{}:{}:{}:{}".format(level, int(sets), int(ways), ACCESS_MODE[level])
+        _store(key, _characterise(level, sets, ways))
+        row = _ladder[key]
+    return row[2], row[3], row[4]
 
 
 def latency(level, sets, ways):

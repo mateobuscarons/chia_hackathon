@@ -44,7 +44,8 @@ from concurrent.futures import ThreadPoolExecutor
 from loop import analyst
 from loop import chip
 from loop import search as engine
-from loop.space import SEARCH_SPACE, cache_area_kb, config_name, knobs_changed, typed_knobs, within_budget
+from loop.socs import CORES, REGRESSION_TOLERANCE
+from loop.space import SEARCH_SPACE, budget_text, cache_area_kb, config_name, knobs_changed, power_split, random_feasible_designs, typed_knobs, violations, within_budget
 
 # CHIP_VIEW off reverts what the council READS about the chip to the form it had before the
 # chip was derived: the override-diff chip line, the misses-per-kilo-instruction bottleneck
@@ -184,6 +185,45 @@ SWEEP_CAP = 8
 MAX_ROUNDS = int(os.environ.get("ROUNDS", "0"))
 PAIR_SKETCHES = os.environ.get("PAIRS", "1") == "1"
 GEOM_LADDER = os.environ.get("GEOM_LADDER", "1") == "1"
+# Two answers to a stock that sits on the edge of the feasible region, where every one-knob move
+# breaks a cap and the incumbent never moves (the generation step's first run, g1):
+#   OPENINGS=N   round 1 also measures N random feasible designs; the council climbs from the best.
+#   SOFT_CAPS=1  a refused design may be the incumbent when it gains; the council is told, and the
+#                best feasible design is still the answer the report and the curves stand on.
+OPENINGS = int(os.environ.get("OPENINGS", "0"))
+SOFT_CAPS = os.environ.get("SOFT_CAPS", "0") == "1"
+# A climb round in which every specialist holds measures nothing; HOLD_JUMP=1 makes it the jump
+# round at once instead of spending the round and jumping the next (g2: 8 of 18 rounds held).
+HOLD_JUMP = os.environ.get("HOLD_JUMP", "1") == "1"
+
+# MEMORY=1 lets the analyst read what this chip measured under an earlier budget, at the one
+# round where the loop is otherwise guessing: the opening. MEMORY_JUMP=1 adds the jump rounds,
+# the other place it guesses. Climb rounds never read it - they already stand on measurements
+# taken this run, so memory would add least there and cost a block every round.
+MEMORY = os.environ.get("MEMORY", "0") == "1"
+MEMORY_JUMP = os.environ.get("MEMORY_JUMP", "0") == "1"
+
+MEMORY_HEADING = """
+## What this chip measured under the earlier budget
+Experiments run on this chip before the budget changed, with the reason recorded at the time
+where one was recorded for that move. They are past measurements under a different rule, not
+this run's: read them as experience, and never cite one as something measured here. Only moves
+that can be built from the current design, and whose result fits the budget above, are listed."""
+
+
+def memory_section(problem, incumbent_entry):
+    """The memory block for one prompt, or nothing at all when nothing past fits. Imported
+    here rather than at the top: `loop.memory` reads this module's derived views."""
+    from loop import memory
+    state = memory.situation(incumbent_entry["knobs"], incumbent_entry["metrics"],
+                             problem["workloads"])
+    if state is None:
+        return []
+    found = memory.fetch(state, incumbent_entry["knobs"], list(SEARCH_SPACE))
+    if not found:
+        return []
+    return [MEMORY_HEADING] + memory.lines(found)
+
 
 # The knob prefix names the level it sits at, and the level has a shape.
 LEVEL_OF = {"l1d": "L1D", "l2": "L2C", "llc": "LLC"}
@@ -288,14 +328,16 @@ def latency_ladder(levels, current):
         for sets, ways in feasible_shapes(level, current):
             silicon = chip.area_mm2(level, sets, ways)
             cost = (chip.latency(level, sets, ways),
-                    "{:.2f}".format(silicon) if silicon < 1 else "{:.1f}".format(silicon))
+                    "{:.2f}".format(silicon) if silicon < 1 else "{:.1f}".format(silicon),
+                    " {:.2f} nJ leaks {:.2f} W".format(chip.energy(level, sets, ways)[0], chip.leakage_w(level, sets, ways))
+                    if chip.card()["power_budget_w"] is not None else "")
             by_capacity.setdefault(sets * ways * 64 // 1024, {}).setdefault(cost, set()).add(ways)
         cells = []
         for kilobytes in sorted(by_capacity):
-            for (cycles, area), widths in sorted(by_capacity[kilobytes].items()):
+            for (cycles, area, energy), widths in sorted(by_capacity[kilobytes].items()):
                 at = "" if len(by_capacity[kilobytes]) == 1 else " at {} ways".format(
                     " or ".join(str(width) for width in sorted(widths)))
-                cells.append("{} KB{} {} cy {} mm2".format(kilobytes, at, cycles, area))
+                cells.append("{} KB{} {} cy {} mm2{}".format(kilobytes, at, cycles, area, energy))
         lines.append("  {}: {}".format(level, " | ".join(cells)))
     return "\n".join(lines)
 
@@ -340,16 +382,33 @@ def chip_line(problem):
     return problem["chip_text"] if CHIP_VIEW else chip.chip_text_diff()
 
 
-def area_line(knobs, problem):
-    """What the design spends: the budgeted capacity, and the silicon the three levels
-    take on this chip with every instance of a private level counted."""
+def cost_line(entry, problem):
+    """What the design spends: the budgeted quantity, and on a capped chip the measured
+    power against its cap, split by where it goes."""
+    knobs = entry["knobs"]
     if not CHIP_VIEW:
         return "  area:   {:.0f} of {} KB of the budget in use by L2 + LLC".format(
             cache_area_kb(knobs), problem["area_budget_kb"])
-    silicon = sum(chip.area_mm2(level, knobs[SHAPE_OF[level][0]], knobs[SHAPE_OF[level][1]])
-                  for level in ALL_LEVELS)
-    return "  area:   {:.0f} of the chip's {} KB in L2 + LLC; the three levels take {:.1f} mm2".format(
-        cache_area_kb(knobs), problem["area_budget_kb"], silicon)
+    card = chip.card()
+    if card["area_budget_mm2"] is None:
+        silicon = sum(chip.area_mm2(level, knobs[SHAPE_OF[level][0]], knobs[SHAPE_OF[level][1]])
+                      for level in ALL_LEVELS)
+        return "  area:   {}; the three levels take {:.2f} mm2".format(budget_text(knobs), silicon)
+    split = power_split(knobs, entry["metrics"], problem["workloads"])
+    cap = " of {} W".format(card["power_budget_w"]) if card["power_budget_w"] is not None else " W"
+    return "  cost:   {:.2f} of {} mm2 | {:.2f}{}: {}".format(
+        entry["metrics"]["mm2"], card["area_budget_mm2"], sum(split.values()), cap,
+        ", ".join("{} {:.2f}".format(part, split[part]) for part in split))
+
+
+def refused_lines(entry):
+    """What the prompts say under a current design that breaks a cap (SOFT_CAPS): it is never
+    the answer, and the round is for bringing it back inside."""
+    if not entry.get("violations"):
+        return []
+    return ["  REFUSED: " + "; ".join(entry["violations"]) + ". A refused design is never the answer: "
+            "the round's design must cut what it breaks, and a move that does is worth more than one "
+            "that gains speed."]
 
 
 def labels_for(workloads):
@@ -437,14 +496,21 @@ def measured_view(history, concern_knobs, objective, incumbent):
     return "\n".join(lines) if lines else "  nothing measured yet"
 
 
+def violation_note(entry):
+    """" | refused: ..." for a design that broke a cap, else nothing."""
+    if not entry.get("violations"):
+        return ""
+    return " | refused: " + "; ".join(entry["violations"])
+
+
 def recent(history, problem, how_many=6):
     """The team's shared record: the last few designs and what they scored."""
     lines = []
     for entry in history[-how_many:]:
         changed = knobs_changed(entry["knobs"], problem["stock"])
         text = ", ".join("{}={}".format(knob, changed[knob][1]) for knob in changed) or "stock"
-        lines.append("  D{} {}={:.4f}  {}".format(
-            entry["index"], problem["objective"], entry["metrics"][problem["objective"]], text))
+        lines.append("  D{} {}={:.4f}  {}{}".format(
+            entry["index"], problem["objective"], entry["metrics"][problem["objective"]], text, violation_note(entry)))
     return "\n".join(lines)
 
 
@@ -486,7 +552,7 @@ def moves_ledger(history, objective):
                 line += ", parts alone {}, together {:+.4f}, interaction {:+.4f}".format(
                     ", ".join("{} {:+.4f}".format(name, delta) for name, delta in probes["parts"].items()),
                     probes["joint"], probes["interaction"])
-        lines.append(line)
+        lines.append(line + violation_note(entry))
     return "\n".join(lines) if lines else "  no move yet"
 
 
@@ -515,8 +581,10 @@ def value_ledger(history, knobs, workloads, objective):
         level = LEVEL_OF[knob.split("_")[0]]
         seen = {}
         for entry in history:
-            stats = seen.setdefault(str(entry["knobs"][knob]), {"n": 0, "cov": [], "acc": [], "best": None})
+            stats = seen.setdefault(str(entry["knobs"][knob]), {"n": 0, "cov": [], "acc": [], "best": None, "watts": []})
             stats["n"] += 1
+            if entry["metrics"].get("watts") is not None:
+                stats["watts"].append(entry["metrics"]["watts"])
             if knob.endswith("_prefetcher"):
                 for workload in workloads:
                     coverage = entry["metrics"].get("{}:{}_pf_coverage".format(workload, level))
@@ -533,6 +601,8 @@ def value_ledger(history, knobs, workloads, objective):
             if stats["cov"]:
                 cell += ", cov {:.2f} acc {:.2f}".format(
                     sum(stats["cov"]) / len(stats["cov"]), sum(stats["acc"]) / len(stats["acc"]))
+            if stats["watts"] and chip.card()["power_budget_w"] is not None:
+                cell += ", mean {:.2f} W".format(sum(stats["watts"]) / len(stats["watts"]))
             cells.append(cell)
         lines.append("  {}: {}".format(knob, " | ".join(cells)))
     return "\n".join(lines)
@@ -651,6 +721,10 @@ def derived_view(entry, workloads, levels=ALL_LEVELS):
             cells.append("memory time " + " ".join(
                 ["{} hits {:.0f}%".format(level, 100 * shares[level]) for level in ALL_LEVELS]
                 + ["DRAM {:.0f}%".format(100 * shares["DRAM"])]))
+        if card["power_budget_w"] is not None:
+            split = power_split(entry["knobs"], metrics, [workload])
+            total = sum(split.values())
+            cells.append("power " + " ".join("{} {:.0f}%".format(part, 100 * split[part] / total) for part in split))
         traffic = off_chip_bytes_per_cycle(entry, workload)
         if traffic:
             peak = card["dram_peak_bytes_per_cycle"]
@@ -686,10 +760,33 @@ def workload_view(entry, history, workloads):
         behind = ("at the best this run has measured for it" if values[workload] >= best - 1e-9
                   else "{:.0f}% below the best this run has measured for it".format(
                       100.0 * (best - values[workload]) / best))
-        cells.append("{} ipc {:.3f}{}, {}".format(
+        floor = ""
+        if REGRESSION_TOLERANCE is not None and history:
+            # The floor under this workload: the stock's IPC on it, which no design may go below.
+            floor_value = history[0]["metrics"][workload + ":ipc"] * (1.0 - REGRESSION_TOLERANCE)
+            floor = ", floor {:.3f} ({:+.1f}%)".format(floor_value, 100.0 * (values[workload] / floor_value - 1.0))
+        cells.append("{} ipc {:.3f}{}, {}{}".format(
             labels[workload], values[workload],
-            " (the lowest; the objective follows it)" if workload == lowest else "", behind))
-    return "  " + " | ".join(cells)
+            " (the lowest; the objective follows it)" if workload == lowest else "", behind, floor))
+    lines = ["  " + " | ".join(cells)]
+    # On a chip with several cores each core runs its own program and each has its own
+    # floor. The mix's mean hides a core that was starved for the others' benefit, and a
+    # starved core is what a refusal names - so it is shown here, before a proposal.
+    if CORES > 1 and REGRESSION_TOLERANCE is not None and history:
+        for workload in present:
+            parts = []
+            for core in range(CORES):
+                key = "{}:core{}:ipc".format(workload, core)
+                measured = entry["metrics"].get(key)
+                stock = history[0]["metrics"].get(key)
+                if measured is None or stock is None:
+                    continue
+                floor_value = stock * (1.0 - REGRESSION_TOLERANCE)
+                parts.append("core {} {:.3f} against its floor {:.3f} ({:+.1f}%)".format(
+                    core, measured, floor_value, 100.0 * (measured / floor_value - 1.0)))
+            if parts:
+                lines.append("  {} per core: ".format(labels[workload]) + " | ".join(parts))
+    return "\n".join(lines)
 
 
 def last_round_section(problem, history, incumbent, levels):
@@ -717,6 +814,22 @@ def knob_section(current):
               latency_ladder(ALL_LEVELS, current)]
     return lines
 
+
+# One principle each where power changes the decision; read only where the chip caps power,
+# because only there does the prompt carry the power split it refers to.
+POWER_PRINCIPLES = {
+    "prefetch": "A prefetch that goes unused pays its level's energy per access and, past the last "
+                "level, the off-chip cost of the line; useless issues show in the power split as "
+                "well as in the bandwidth.",
+    "geometry": "Every access to a level pays that level's energy, and every instance leaks for the "
+                "whole run: a level with a low hit ratio spends power as well as latency for "
+                "nothing, and a large level leaks whether or not it hits.",
+}
+
+OVER_BUDGET_KEY = """
+- "over_budget": an object {"cost": one of silicon, power, "driver": one sentence naming the level
+  or the traffic that holds most of it, "number": its share or its watts}: the cost nearest its cap
+  in the cost line, whatever the objective says."""
 
 # ---------------------------------------------------------------- the diagnosis ----
 
@@ -747,7 +860,7 @@ Return JSON with exactly these keys:
   latency-heavy, prefetch-uncovered, prefetch-polluting, bandwidth-bound, fine; "number": the one
   figure from the report or the derived view that says so}. {ranking}
 - "bottleneck": an object {"level": one of L1D, L2C, LLC, DRAM, "cause": one sentence naming the
-  mechanism, "evidence": the numbers that show it}.{dram}
+  mechanism, "evidence": the numbers that show it}.{dram}{budget}
 - "learned": a list of up to six strings. Each states one finding with its numbers: the knob or
   level, what moved, the change in the objective with its sign and the design ids, and the counter
   that explains it - of the form "L2 halved: +0.002 (D3 vs D1); L2 hit ratio unchanged at 0.28,
@@ -770,8 +883,7 @@ every move the stock report's evidence already supports, across as many concerns
 reaches, and leave every other knob at its stock value. The specialists refine from it one concern
 at a time.
 
-The design must fit the chip's area budget - L2 plus LLC capacity, a private level counted once
-per core - or it is not measured at all.
+The design must fit the chip's budget as the Chip section states it, or it is not measured at all.
 
 Add to the JSON:
 - "opening": an object with every knob and one allowed value each.
@@ -818,6 +930,9 @@ def sheet_text(sheet):
         lines.append("  {}:".format(key) + ("" if sheet[key] else " none"))
         lines += ["    - " + item for item in sheet[key]]
     lines.append("  hypothesis: " + sheet["hypothesis"])
+    if sheet.get("over_budget"):
+        over = sheet["over_budget"]
+        lines.append("  nearest cap: {} - {} ({})".format(over["cost"], over["driver"], over["number"]))
     if sheet.get("counterfactual"):
         counter = sheet["counterfactual"]
         lines.append("  counterfactual bottleneck at {}: {} | evidence: {} | would move together: {}".format(
@@ -864,8 +979,9 @@ def diagnosis_prompt(problem, history, incumbent_entry, opening=False, previous=
     parts += ["",
               current_heading(incumbent_entry, objective),
               "  knobs:  " + assignment(incumbent_entry["knobs"], list(SEARCH_SPACE)),
-              area_line(incumbent_entry["knobs"], problem),
-              level_report(incumbent_entry, ALL_LEVELS, problem["workloads"]),
+              cost_line(incumbent_entry, problem)]
+    parts += refused_lines(incumbent_entry)
+    parts += [level_report(incumbent_entry, ALL_LEVELS, problem["workloads"]),
               ("  derived from the counters and this chip:" if CHIP_VIEW else "  derived from the counters:"),
               derived_view(incumbent_entry, problem["workloads"])]
     if CHIP_VIEW:
@@ -893,8 +1009,11 @@ def diagnosis_prompt(problem, history, incumbent_entry, opening=False, previous=
               "## The team's recent designs",
               recent(history, problem)]
     parts += state_section(state)
+    if MEMORY and (opening or (jump and MEMORY_JUMP)):
+        parts += memory_section(problem, incumbent_entry)
     task = DIAGNOSIS_TASK.replace("{ranking}", RANK_BY_TIME if CHIP_VIEW else RANK_BY_MISSES)
     task = task.replace("{dram}", DRAM_IS_A_TIER if CHIP_VIEW else "")
+    task = task.replace("{budget}", OVER_BUDGET_KEY if chip.card()["power_budget_w"] is not None else "")
     if jump:
         counts = {}
         for record in rounds:
@@ -949,10 +1068,16 @@ def diagnose(problem, history, incumbent_entry, tag, opening=False, previous=Non
     if jump and isinstance(answer.get("counterfactual"), dict):
         sheet["counterfactual"] = {key: str(answer["counterfactual"].get(key, ""))[:300]
                                    for key in ["level", "cause", "evidence", "would_change"]}
+    if isinstance(answer.get("over_budget"), dict):
+        sheet["over_budget"] = {key: str(answer["over_budget"].get(key, ""))[:300]
+                                for key in ["cost", "driver", "number"]}
     note(tag, "-> sheet:\n" + sheet_text(sheet))
     if opening or turn:
         sheet["opening"] = answer.get("opening")
-        sheet["opening_reasoning"] = str(answer.get("opening_reasoning", ""))[:600]
+        reasoning = answer.get("opening_reasoning", "")
+        if isinstance(reasoning, list):
+            reasoning = " ".join(str(item) for item in reasoning)
+        sheet["opening_reasoning"] = str(reasoning)[:600]
     if jump and SWEEP and not turn:
         sheet["restructure"] = answer.get("restructure")
         sheet["restructure_reasoning"] = str(answer.get("restructure_reasoning", ""))[:600]
@@ -979,8 +1104,7 @@ def opening_design(sheet, problem, tag, base=None, key="opening"):
         design[knob] = value
     design = typed_knobs(design)
     if not within_budget(design):
-        note(tag, "-> the {} design needs {:.0f} KB of the chip's {} KB, dropped".format(
-            what, cache_area_kb(design), problem["area_budget_kb"]))
+        note(tag, "-> the {} design needs {}, dropped".format(what, budget_text(design)))
         return None
     if not knobs_changed(design, base):
         note(tag, "-> the {} design is the current one".format(what))
@@ -1049,6 +1173,8 @@ def specialist_prompt(problem, name, history, incumbent, incumbent_entry, sheet,
              "",
              "## Principles"]
     parts += ["- " + line for line in concern["principles"]]
+    if name in POWER_PRINCIPLES and chip.card()["power_budget_w"] is not None:
+        parts.append("- " + POWER_PRINCIPLES[name])
     parts += ["",
               "## Chip", chip_line(problem),
               "Objective: maximise {}, the geometric mean of IPC over {}.".format(
@@ -1075,8 +1201,9 @@ def specialist_prompt(problem, name, history, incumbent, incumbent_entry, sheet,
     parts += ["",
               "## The current design (the best this run has measured)",
               "  yours:  " + assignment(incumbent, concern["knobs"]),
-              area_line(incumbent, problem),
-              level_report(incumbent_entry, concern["levels"], problem["workloads"]),
+              cost_line(incumbent_entry, problem)]
+    parts += refused_lines(incumbent_entry)
+    parts += [level_report(incumbent_entry, concern["levels"], problem["workloads"]),
               ("  derived from the counters and this chip:" if CHIP_VIEW else "  derived from the counters:"),
               derived_view(incumbent_entry, problem["workloads"], concern["levels"])]
     if CHIP_VIEW:
@@ -1146,15 +1273,13 @@ def specialist(problem, name, history, incumbent, incumbent_entry, tag, sheet, l
             proposed["reasoning"]))
         candidate = with_parts(incumbent, [proposed["knobs"]])
         if not within_budget(candidate):
-            over = cache_area_kb(candidate) - problem["area_budget_kb"]
             if asked_for_area:
-                log.append("-> still {:.0f} KB over the chip's budget; taken as a hold".format(over))
+                log.append("-> still over the chip's budget ({}); taken as a hold".format(budget_text(candidate)))
                 return None
             asked_for_area = True
-            log.append("-> {:.0f} KB over the chip's budget; asked once more".format(over))
-            prompt_text += ("\n\n## Once more\nYour proposal needs {:.0f} KB of L2 plus LLC capacity, "
-                            "{:.0f} KB more than this chip has. Propose one that fits.".format(
-                                cache_area_kb(candidate), over))
+            log.append("-> over the chip's budget ({}); asked once more".format(budget_text(candidate)))
+            prompt_text += ("\n\n## Once more\nYour proposal needs {}, more than this chip has. "
+                            "Propose one that fits.".format(budget_text(candidate)))
             continue
         if len(levels) > 1 and not asked_once_more:
             # The task asks for one level a round; ask once more, then take what comes.
@@ -1593,16 +1718,19 @@ def search(problem, budget, seed, tag, probe_problem=None):
     def record(knobs, metrics, source, round_number, hypothesis, against, rung):
         entry = {"index": len(history), "round": round_number, "name": problem["name_of"](knobs),
                  "knobs": knobs, "metrics": metrics, "source": source, "hypothesis": hypothesis,
-                 "rung": list(rung), "against": None, "baseline": None, "moved": {}}
+                 "rung": list(rung), "against": None, "baseline": None, "moved": {},
+                 # The stock is the first design recorded and the reference for the floors.
+                 "violations": violations(metrics, problem["workloads"], history[0]["metrics"]) if history else []}
         if against is not None:
             entry["against"] = against["index"]
             entry["baseline"] = against["metrics"][objective]
             entry["moved"] = knobs_changed(knobs, against["knobs"])
         history.append(entry)
         by_name[(entry["name"], tuple(rung))] = entry
-        note(tag, "\n======== D{} [{}] {}={:.4f} | {} ========".format(
+        note(tag, "\n======== D{} [{}] {}={:.4f} | {}{} ========".format(
             entry["index"], source, objective, metrics[objective],
-            ", ".join("{}={}".format(knob, knobs[knob]) for knob in sorted(knobs_changed(knobs, problem["stock"]))) or "stock"))
+            ", ".join("{}={}".format(knob, knobs[knob]) for knob in sorted(knobs_changed(knobs, problem["stock"]))) or "stock",
+            violation_note(entry)))
         print("[{}] round {} | D{} | {}={:.4f} | {} | {:.0f} min".format(
             tag, round_number, entry["index"], objective, metrics[objective], source, (time.time() - started) / 60), flush=True)
         return entry
@@ -1630,7 +1758,9 @@ def search(problem, budget, seed, tag, probe_problem=None):
         return [entry for entry in history if not entry["source"].startswith("sketch:")]
 
     def incumbent_of():
-        return max((entry for entry in committed_designs() if tuple(entry["rung"]) == fidelity),
+        # A design that breaks a cap is measured, read and recorded; it is never stood on.
+        return max((entry for entry in committed_designs()
+                    if tuple(entry["rung"]) == fidelity and (SOFT_CAPS or not entry.get("violations"))),
                    key=lambda entry: entry["metrics"][objective])
 
     def commit(incumbent_entry, proposals, sheet, source, round_number, state=None, combine=True):
@@ -1733,6 +1863,9 @@ def search(problem, budget, seed, tag, probe_problem=None):
         proposals = {name: {"knobs": part, "reasoning": sheet["opening_reasoning"]}
                      for name, part in parts_of(opening, problem["stock"]).items()}
         commit(stock_entry, proposals, sheet, "council:opening", 1)
+    if OPENINGS:
+        # Several feasible starts beside the analyst's opening, drawn as the random arm draws.
+        measure(problem, random_feasible_designs(OPENINGS, seed=seed), "opening:random", 1, stock_entry)
 
     # A round that improves nothing costs its sketches, so the budget ends the search, or the
     # cap on rounds. A stalled search keeps jumping, its refused list growing.
@@ -1807,8 +1940,7 @@ def search(problem, budget, seed, tag, probe_problem=None):
                 if not moved:
                     continue
                 if not within_budget(design):
-                    note(tag, "-> {}'s design needs {:.0f} KB of the chip's {} KB; taken as a hold".format(
-                        name, cache_area_kb(design), problem["area_budget_kb"]))
+                    note(tag, "-> {}'s design needs {}; taken as a hold".format(name, budget_text(design)))
                     continue
                 if not is_candidate(design):
                     note(tag, "-> {}'s design is one the simulator could not measure before; taken as a hold".format(name))
@@ -1818,6 +1950,13 @@ def search(problem, budget, seed, tag, probe_problem=None):
                     note(tag, "-> {} proposed {}; taken as a hold".format(name, why))
                     continue
                 proposals[name] = answers[name]
+        if not proposals and mode == "climb" and HOLD_JUMP:
+            # Nothing to sketch: the round measures instead of waiting a round to do so.
+            note(tag, "-> every specialist held; this round is the jump round")
+            print("[{}] round {} | climb | every specialist held; jumping now".format(tag, round_number), flush=True)
+            stalled = STALL_ROUNDS
+            round_number -= 1
+            continue
         if not proposals:
             # Holds can wait on one another; the analyst, who reads every level, takes the turn
             # with one design of its own. Its parts are held to the same refused list.
