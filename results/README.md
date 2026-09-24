@@ -1,8 +1,6 @@
 # What is in `results/`
 
-Every number in the paper comes from a file here; `CLAUDE.md` section 4 names the file behind each.
-The full record of the project, every run, table and transcript behind earlier versions, is on the
-`experiments` branch. This folder holds what the paper cites.
+Every number in the paper comes from a file here; `CLAUDE.md` section 4 names the file behind each. This folder holds what the paper cites.
 
 ```
 ledgers/lean/<run>.jsonl          one ledger per run and seed (the CHIA ledger block's rows): the

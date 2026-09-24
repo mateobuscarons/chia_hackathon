@@ -323,10 +323,9 @@ loop (section 6), the demo, the paper draft (4 pages).
 - [ ] Paper: author names/affiliation (placeholders); the AI-assistance line (the call for papers
       requires one; the user asked to remove it: pending their word); the BO arm question; final read.
 - [x] Prune done: `loop/` is `council_loop/`, forest arms and unused chips and cells gone, results cut to
-      the cited files (58 MB); the raw state is commit e76f80f on branch `experiments`. Prompts identical.
+      the cited files (58 MB). Prompts identical.
 - [ ] README with the protocol, the demo, install/check, the run commands; HotCRP highlights (section 1).
-- [ ] Side branch `experiments` (raw state, made without touching the tree) -> commit main -> release tag
-      `frozen-council` -> push; each on the user's word. The repository is public.
+- [x] Main committed and pushed (e73c493, b14bc2e). [ ] Release tag `frozen-council`, on the user's word.
 - [ ] PRs: fixes only, eight items in `upstream/README.md` (the blocks are not proposed upstream).
 - [ ] Regenerate `results/report/*/gating.md` with the mean targets (`council_loop/report.py` takes the target).
 - [ ] Optional: 5M/25M council, caps off, 3 seeds (paid VM, ~4 h, ~15 USD).

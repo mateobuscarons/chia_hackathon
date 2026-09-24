@@ -38,9 +38,6 @@ paper/                   the paper (bash paper/build.sh)
 upstream/                the fixes and findings that go to CHIA and ChampSim
 ```
 
-The full record of the project, every run, table and transcript of earlier versions, is on the
-`experiments` branch.
-
 ## The blocks, in one line each
 
 | block | module | what it does |
