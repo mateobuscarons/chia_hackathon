@@ -1,18 +1,18 @@
 # Upstream clones and setup, not our code: ChampSim (and its spare trees for parallel builds),
 # CACTI, the chia clone kept for the upstream patches.
-champsim/
-champsim_[0-9]*/
-cacti/
-chia/
+/champsim/
+/champsim_[0-9]*/
+/cacti/
+/chia/
 # Compiled ChampSim binaries, one per design: a build cache, rebuilt on demand
-champsim_bin/
+/champsim_bin/
 
 # Environment, secrets, traces and generated inputs
 .venv/
 .env
 CLAUDE.local.md
-traces/
-configs/
+/traces/
+/configs/
 __pycache__/
 .pytest_cache/
 competiton.md
