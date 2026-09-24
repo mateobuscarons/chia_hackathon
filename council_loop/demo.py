@@ -161,6 +161,14 @@ def ledger_section():
         for n in (20, 40, 60, 100, 500, 1000):
             points.append("{:.3f} ({})".format(sum(curve[n] for curve in curves) / len(curves), n))
         print("          random's mean best-so-far after N designs: " + ", ".join(points))
+        bo_pattern = "next_llama2_bo_cap_bo_s*.jsonl" if regime == "caps on" else "nocap_llama2_nocap_bo_bo_s*.jsonl"
+        bo_books = []
+        for path in sorted(glob.glob(os.path.join(LEDGERS, bo_pattern))):
+            bo_books.append(ledger.Ledger(path, "ipc"))
+        if bo_books:
+            to_target = " / ".join(str(book.evaluations_to(facts["target"])) for book in bo_books)
+            at_sixty = " / ".join("{:.3f}".format(book.best_so_far()[60]) for book in bo_books)
+            print("          Bayesian optimisation (forest, same waves, {} seeds): designs to target {}; best at 60 designs {}".format(len(bo_books), to_target, at_sixty))
     print("from: results/ledgers/lean/*.jsonl; speedup = random's 1000 designs / the council's mean designs to random's mean final\n")
 
 

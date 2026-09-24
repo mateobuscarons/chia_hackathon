@@ -61,11 +61,10 @@ Everything reproduces from the repository with one command and no key.
 % =====================================================================
 \section{Introduction}
 A cache hierarchy is usually set by sweeps and experience: one level at a time, one knob at a
-time, and the rest held. The knobs do not behave that way. A larger last level costs power that a
-smaller second level could have saved, a prefetcher that helps one level floods the next, and a
-cap on silicon or power turns every gain into a trade. Each design costs a simulation, a minute
-at low fidelity and ten at full, so the currency of the search is the number of designs
-measured, not the hours.
+time, the rest held. The knobs do not behave that way. A larger last level costs power a smaller
+second level could have saved, a prefetcher that helps one level floods the next, and a cap on
+silicon or power turns every gain into a trade. Each design costs a simulation, so the currency
+of the search is the number of designs measured.
 
 CHIA \cite{chia} is a framework for building loops in which agents propose and tools measure,
 every step a task on a cluster with a profiler recording it. We built such a loop for this
@@ -134,7 +133,7 @@ temperature 0.7 with a thinking budget of 4096 tokens. % CLAUDE.md 3
 
 \begin{figure}[!t]
 \centering
-\scalebox{0.96}{\input{fig-loop}}
+\scalebox{0.9}{\input{fig-loop}}
 \caption{One round of the council. Violet: model calls; blue: apparatus; green: the decider's
 two gates. Everything lands in one profiler log per run.}
 \label{fig:loop}
@@ -150,8 +149,7 @@ token, the USD and the caller. CHIA's build node writes one prefetcher at one le
 from a whole configuration. CHIA's run node keeps a subset of the simulator's record that the
 analyst reads past, so a 7-line patch returns the whole of it and the loop's parse gives
 identical numbers. % remeasure_check: 103 metrics equal
-Every design measured is one ledger row, with who proposed it, why, what it scored and which cap
-it broke, and one \texttt{candidate} event in the log.
+Every design measured is one ledger row and one \texttt{candidate} event in the log.
 
 \textbf{Protocol.} The budget unit is a design: wall time at this fidelity shows no advantage
 either way, since the model's minute a round offsets fewer rounds. Random search draws 1000 feasible designs, three
@@ -210,11 +208,21 @@ which level to shrink. Without the caps the landscape is smooth, and the surroga
 is the better guesser. The caps decide who wins, not whether the search wins, and a ledger that
 records who won tells the two apart per problem.
 
+\textbf{Against Bayesian optimisation.} We also ran a standard Bayesian optimisation, a
+random-forest surrogate with expected improvement and the same waves of five, two seeds per
+regime. It needs as many designs as the council to reach random's 1000-design quality. Without the
+caps it ends 1\% above the council's final IPC; under the caps it ends 2.5\% below, and half
+to two thirds of its designs came back refused by the power cap, against a third of the
+council's.
+% results/ledgers/lean/next_llama2_bo_cap_bo_s*, nocap_llama2_nocap_bo_bo_s*; best at 60 designs
+That is the pattern above once more: a surrogate guesses well on a smooth landscape, and where
+the cap turns a faster design into a refused one, an agent that reads the counters does better.
+
 % =====================================================================
 \section{Cheaper at the Same IPC}\label{sec:gates}
-\textbf{What the instruments told us.} A run's model bill is 1.6 to 1.7 USD, and forty cents
-of it is not the point. The share is what scales: more seeds, longer runs at full fidelity,
-bigger loops, and every loop in which most optional calls end in a hold. The recipe above is the
+\textbf{What the instruments told us.} A run's model bill is 1.6 to 1.7 USD; the share saved
+is what scales, with more seeds, full fidelity, bigger loops, and every loop in which most
+optional calls end in a hold. The recipe above is the
 sixth version of the council, and the ledger chose most of what is in it. Its rows showed that
 four rules of earlier versions never paid and that one setting stalled half the seeds, and the
 recipe changed accordingly. % CLAUDE.md 3, 4.2, 4.11
@@ -228,8 +236,8 @@ Two levers were left: the calls that end in a hold, and the briefing every call 
 not a second agent. TypeSafe's Jev \cite{typesafe} answers a typed yes-or-no question with a
 probability, at 0.042 USD per million input tokens; a round of four questions costs about a
 tenth of a cent and returns in a second. % CLAUDE.md 3, 4.3
-Two gates use it. The call gate asks, per specialist and round, whether the analyst's sheet gives
-evidence for moving that concern's knobs; Listing~\ref{lst:gate} is the whole of it. The context
+The call gate asks, per specialist and round, whether the analyst's sheet gives evidence for
+moving that concern's knobs; Listing~\ref{lst:gate} is the whole of it. The context
 gate asks, per section of a briefing, whether the task needs it, from the caller's one-line
 description of the section, and rates the task's difficulty, which sets the thinking budget. Both
 have two modes. In shadow every call is still made and the verdict is recorded beside what the call
@@ -289,10 +297,9 @@ less model spend & \multicolumn{2}{c}{22\%} & \multicolumn{2}{c}{30\%} \\
 \textbf{What the shadow showed, and what applying it saved.} Table~\ref{tab:gate}: over the 304
 specialist calls of the eight shadow runs, a threshold of 0.4 would have skipped 40\%, 92 holds
 and 29 proposals, of which two gained more than 0.005 IPC; of the 20 gains above 0.005 among all
-304 calls, 18 carried a verdict of 0.4 or more. The verdicts are legible per concern: concurrency
-held 83\% of the time and was 83\% skippable, geometry held 25\% and was 3\%. The context gate
-drops 16 to 17\% of the briefing tokens once shown a description per section; shown the sections'
-first characters instead, it had rated the evidence unneeded, a negative we kept. % CLAUDE.md 4.3, 4.11
+304 calls, 18 carried a verdict of 0.4 or more. The context gate drops 16 to 17\% of the
+briefing tokens once shown a description per section; shown the sections' first characters
+instead, it had rated the evidence unneeded, a negative we kept. % CLAUDE.md 4.3, 4.11
 Applied together, with a specialist's thinking capped when its task is not rated hard, the council
 consulted 2.4 to 2.8 specialists a round instead of four and reached the same final IPC for 22\%
 less model spend under the caps and 30\% without (Fig.~\ref{fig:curves}), the decider's cost
@@ -304,8 +311,7 @@ since thinking and answer lengths vary by more than that. % results/vm2/results/
 \section{The Blocks Travel}\label{sec:blocks}
 Everything the loop needed is a module and a test in CHIA's tree (Table~\ref{tab:blocks}),
 installed into the released package by one script; the tests pass inside it, and the CLI's new
-format sums a log CHIA's own Vertex node wrote. A block holds no domain: the state, the question
-and the section descriptions are the caller's.
+format sums a log CHIA's own Vertex node wrote.
 
 \begin{table}[!t]
 \caption{The blocks, what each reads or records, and where each was proven. Modules under \texttt{chia/trace}, \texttt{chia/models} and \texttt{chia/simulators}}
@@ -355,8 +361,7 @@ which an agent reads a GitHub issue and decides whether it is a bug with one cle
 that is not a bug is set aside after that turn, so it costs the turn. We re-ran the turn under the
 blocks: the paper's own prompt, the 16 issues of its Table~5, CHIA's Vertex node under CHIA's
 profiler, and the call gate asking the decider ``does this issue report a defect?'' before the
-turn, at 0.65. Answers vary between passes, so each arm ran more than once and
-Table~\ref{tab:circt} gives the means. The gate skipped the same three of the five non-bugs in
+turn, at 0.65. Table~\ref{tab:circt} gives means over passes, since answers vary. The gate skipped the same three of the five non-bugs in
 both gated passes and none of the eleven bugs, so the paper's seven issues proceed to reproduction
 as before; turns and tokens fell 19\%, the decider's 16 decisions cost 0.0008 USD. % circt README; demo 1
 The saving is bounded by the share of non-bugs in the stream, five of sixteen here; what the gate
@@ -395,8 +400,7 @@ Mac does not have. % UPSTREAM.md
 \section{What the Instruments Found}\label{sec:found}
 \textbf{The model alone does not search.} Without the statistician, the repairs and the fills,
 the specialists ran out of proposals at 25 to 28 designs and the runs ended at IPC 1.15 to 1.17
-in both regimes. The model diagnoses and writes coupled designs; the surrogate, the fill and the
-repair find the escapes. % CLAUDE.md 4.5
+in both regimes. % CLAUDE.md 4.5
 \textbf{Grounding is a gauge, not a filter.} Asked whether the sheet supports each of 377
 proposals, the decider's verdict did not predict which gained, so it measures prompt discipline
 and must not skip anything. % results/audit/grounding.jsonl; CLAUDE.md 4.10
@@ -408,10 +412,8 @@ why the gate asks the narrower question. % CLAUDE.md 4.11
 \textbf{Artifact.} \texttt{python3 council\_loop/demo.py} replays every table of this paper from
 the shipped records in under a second with no key, no cluster and no simulator; \texttt{check.sh}
 installs the released CHIA into a clean environment, copies the blocks in, applies the two patches
-and runs the 33 tests inside the package. The fixes go upstream as pull requests and issues: the
-three Vertex-node findings, the run node's partial record, \texttt{nproc}, and a profiler note;
-the blocks stay in this repository in CHIA's layout. The release is tagged after the fact; it is
-the recipe the runs used, not a pre-registration. All of it is at
+and runs the 33 tests inside the package. The fixes go upstream; the blocks stay in this
+repository in CHIA's layout. The release tag \texttt{frozen-council} is the version the runs used. All of it is at
 \url{https://github.com/mateobuscarons/chia_hackathon}.
 
 \textbf{Related work.} AgentDSE \cite{agentdse} and the CHIA studies \cite{chia} search
@@ -425,8 +427,8 @@ decider \cite{typesafe} at the loop level, with a shadow mode that prices it bef
 \textbf{Limitations.} Four seeds per arm and regime bound the quality claim; the shadow
 counterfactual, 304 calls, is the larger sample. One trace at 1M/2M instructions carries the
 search, with a 40-design check at 5M/25M. The caps are ours, taken from the stock chip's own draw
-rather than from a product. The target is the mean of three random seeds; against the strongest
-seed the council needs 44 designs under caps and 46 without. % CLAUDE.md 4.1, 4.2
+rather than from a product. Against the strongest random seed instead of the mean, the council needs 44 and 46
+designs. % CLAUDE.md 4.1, 4.2
 
 \section*{Acknowledgements}
 We thank the CHIA developers and the A\textsuperscript{3} hackathon organisers. Claude

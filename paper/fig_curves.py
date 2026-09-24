@@ -69,7 +69,7 @@ for arm in ARMS:
         per_seed.append(cumulative)
     spend[arm] = mean_curve(per_seed, BUDGET)
 
-figure, (top, bottom) = pyplot.subplots(2, 1, figsize=(3.45, 2.75), sharex=True, gridspec_kw={"height_ratios": [1.25, 1]})
+figure, (top, bottom) = pyplot.subplots(2, 1, figsize=(3.45, 2.55), sharex=True, gridspec_kw={"height_ratios": [1.25, 1]})
 styles = {"council": ("#2F6FAF", 1.3), "council, gates applied": ("#6B4FA0", 1.8), "random": ("#9A9AA0", 1.3)}
 for arm in ARMS:
     top.step(range(BUDGET + 1), best[arm], where="post", color=styles[arm][0], linewidth=styles[arm][1], label=arm)
