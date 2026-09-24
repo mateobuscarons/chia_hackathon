@@ -1,6 +1,6 @@
 # What is in `results/`
 
-Every number in the paper comes from a file here; `CLAUDE.md` section 4 names the file behind each. This folder holds what the paper cites.
+Every number in the paper comes from a file here: `python3 council_loop/demo.py` prints each table with the file behind it, and the paper's source names the file beside each number. This folder holds what the paper cites.
 
 ```
 ledgers/lean/<run>.jsonl          one ledger per run and seed (the CHIA ledger block's rows): the

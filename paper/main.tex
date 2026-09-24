@@ -47,12 +47,12 @@ under area and power constraints of 4.0\,mm$^2$ and 1.0\,W, with a council of Ge
 built as a CHIA loop: an analyst that diagnoses the current design, four specialists that each
 propose one move, a statistician with a Gaussian process, and a repair that shrinks a design that
 violated the power constraint. The council reaches the quality that random search attains after
-1000 designs in 39 to 44 designs, 23 to 25 times fewer simulations. % CLAUDE.md 4.1, 4.2
+1000 designs in 39 to 44 designs, 23 to 25 times fewer simulations. % results/ledgers/lean/*lean20* (council), *random* (random); council_loop/demo.py section 3
 CHIA provided the nodes, the cluster and the profiler; we added what the loop needed and CHIA
 lacked: a Gemini node that bills thinking tokens, a ChampSim node that builds a whole hierarchy,
 an evaluation ledger, a spend view over the profiler log, and two gates in which a cheap
 calibrated decider judges which agent calls and which briefing sections are worth paying for.
-Applied, the gates reach the same final IPC for 22 to 30\% less model spend. % CLAUDE.md 4.3
+Applied, the gates reach the same final IPC for 22 to 30\% results/report/lean20*/gating.md; council_loop/demo.py section 2
 The blocks travel: on CHIA's own CIRCT loop, the call gate cuts the assess stage from 16 to 13
 agent turns while sending the same issues forward. % results/audit/circt_assess/README.md
 Every table reproduces from the repository with one command and no API key.
@@ -71,7 +71,7 @@ with every step a task on a cluster and a profiler recording it. We built such a
 problem: a council of agents that reads the simulator's counters, diagnoses where the time and
 the power go, proposes designs and has them measured five at a time. Against random search over
 the same feasible space, the council reaches the quality that random search attains after 1000
-designs in 39 to 44 designs, both under the constraints and without them. % CLAUDE.md 4.1, 4.2
+designs in 39 to 44 designs, both under the constraints and without them. % results/ledgers/lean/*lean20*, *random*; council_loop/demo.py section 3
 
 Such loops are usually judged by that result alone, which says nothing about what the loop
 cost or where. The CHIA paper \cite{chia} names the gap: ``data collection and profiling of both
@@ -83,7 +83,7 @@ node and model, a ledger that scores every candidate the way search methods are 
 gates in which a cheap calibrated decider answers one yes-or-no question before an optional agent
 call or for each section of a briefing. Run in shadow, the gates only record; this showed that
 57\% of the specialists' calls ended in a hold, and which of them a decider could have foreseen.
-Applied, the gates gave the same final IPC for 22 to 30\% less model spend. % CLAUDE.md 4.3
+Applied, the gates gave the same final IPC for 22 to 30\% results/vm2/results/skip_gate.jsonl; results/report/lean20*/gating.md
 
 Sections~\ref{sec:problem} to \ref{sec:artifact} follow that order: the design problem, the
 council as a CHIA loop, the result against random search, the cost and the gates, the blocks on
@@ -92,7 +92,7 @@ CHIA's own CIRCT loop, what the instruments found, and the artifact.
 % =====================================================================
 \section{The Design Problem}\label{sec:problem}
 The chip is ChampSim's \cite{champsim} stock core widened to 6-wide issue with a 384-entry
-reorder buffer, at 3.8\,GHz in 22\,nm, with DDR5-4800 over two channels. % loop/socs.py; CLAUDE.md 3
+reorder buffer, at 3.8\,GHz in 22\,nm, with DDR5-4800 over two channels. % council_loop/socs.py (next)
 The search moves 13 knobs: the sets and ways of the L1D, L2 and LLC on per-level ladders, the
 prefetcher of each level, the replacement policy of the L2 and LLC, and the miss-handling depth of
 both, 6.6 million designs in all. Two constraints make this a design problem rather than a sweep:
@@ -115,7 +115,7 @@ The workload is the llama2 inference trace of the ChampSim ML suite, simulated a
 80\%). % results/vm2/results/fidelity_llama2.json
 We chose the most demanding of six ML traces deliberately, the one with the most headroom over
 the stock and the deepest coupling between knobs, so that the council is tested where a sweep
-fails. % CLAUDE.md 4.9
+fails. % council_loop/search.py gate, run over the six traces
 
 % =====================================================================
 \section{The Council as a CHIA Loop}\label{sec:council}
@@ -130,7 +130,7 @@ last round by the power constraint and shrunk to fit, the specialists' moves, an
 single-knob moves at the level the sheet blames, to fill what is left. The incumbent is the best
 feasible design measured, whoever proposed it, and a move already measured against it counts as
 a hold. One model serves every call, Gemini~3.1~Pro on Vertex at temperature 0.7 with a thinking
-budget of 4096 tokens. % CLAUDE.md 3
+budget of 4096 tokens. % council_loop/council.py, council_loop/analyst.py
 
 \begin{figure}[!t]
 \centering
@@ -159,7 +159,7 @@ feasible designs over three seeds; the council runs 60 designs, or 20 without a 
 with four seeds per arm and regime. The target is the mean over random's seeds of its best after
 1000 designs; a seed that spends its budget under the target counts at the budget, 60 designs,
 with its final IPC beside it. Every arm is scored from the same ledger rows, random's
-being rebuilt from its seed and the result table. % CLAUDE.md 3
+being rebuilt from its seed and the result table. % council_loop/search.py, council_loop/ledgers.py
 
 % =====================================================================
 \section{Against Random Search}\label{sec:random}
@@ -179,7 +179,7 @@ proposed the new incumbents}
 \cmidrule(lr){5-7}
  & \textbf{IPC} & \textbf{to the target} & \textbf{simulations} & model & statistician & fills \\
 \midrule
-% CLAUDE.md 4.1, 4.2, 4.4; council_loop/demo.py section 3
+% results/ledgers/lean/*lean20* (source field), *random*; council_loop/demo.py section 3
 constrained & 1.4329 & 44 & 23$\times$ & 62\% & 25\% & 13\% \\
 unconstrained & 1.5001 & 39 & 25$\times$ & 40\% & 36\% & 24\% \\
 \bottomrule
@@ -198,13 +198,13 @@ mean.}
 \textbf{The result.} Random search (Table~\ref{tab:random}, Fig.~\ref{fig:curves}) climbs early,
 because a fifth of the feasible space beats the halved stock, and then stalls. The council passes
 random's 1000-design quality at 44 designs under the constraints and at 39 without. Fifteen of
-its sixteen runs end above that quality; the remaining one ends at 1.497 against 1.5001. % CLAUDE.md 4.1, 4.2
+its sixteen runs end above that quality; the remaining one ends at 1.497 against 1.5001. % results/ledgers/lean/*lean20*, *random*; council_loop/demo.py section 3
 
 \textbf{Who found the improvements.} The ledger records who proposed every new best design, and
 the answer differs between the two regimes. Under the constraints, the model produced most of
 them: its whole designs and its repairs of refused gains account for 62\% of the new bests, the
 statistician for 25\% and the single-knob fills for 13\%. Unconstrained, the statistician led
-with 36\%, the single-knob fills took 24\%, and the model 40\%. % CLAUDE.md 4.4
+with 36\% results/ledgers/lean/*lean20*, the source field of each new best
 
 \textbf{Why.} A constraint makes the objective discontinuous. A design can be faster and still be
 refused, and a surrogate fitted to IPC does not see that wall, whereas a model that reads the
@@ -229,16 +229,16 @@ turns a faster design into an infeasible one, an agent that reads the counters d
 share saved, with more seeds, full fidelity, bigger loops, and every loop in which most optional
 calls end in a hold. The recipe above is the sixth version of the council, and the ledger
 determined most of what it contains: its rows showed that four rules of earlier versions never
-paid and that one setting stalled half the seeds. % CLAUDE.md 3, 4.2, 4.11
+paid and that one setting stalled half the seeds. % council_loop/council.py; results/ledgers/lean/ (the 10-opening runs)
 The per-call rows, priced by the spend block, showed what the bill was made of: input 49\%,
-thinking 37\%, answers 14\%, and the analyst 44\% of it. % CLAUDE.md 4.7
+thinking 37\% results/vm2/results/llm_calls.jsonl, priced by the spend block
 The specialists' rows showed that 57\% of their calls ended in a hold. % results/vm2/results/skip_gate.jsonl
 Two levers therefore remained: the calls that end in a hold, and the briefing every call carries.
 
 \textbf{The gate.} A gate in front of a call needs a verdict that is cheap, fast and calibrated,
 not a second agent. TypeSafe's Jev \cite{typesafe} answers a typed yes-or-no question with a
 probability, at \$0.042 per million input tokens; a round of four questions costs about a tenth
-of a cent and returns within a second. % CLAUDE.md 3, 4.3
+of a cent and returns within a second. % council_loop/council.py (thresholds); results/vm2/results/skip_gate.jsonl
 The call gate asks, per specialist and round, whether the analyst's sheet gives evidence for
 moving that concern's knobs; Listing~\ref{lst:gate} is the whole of it. The context gate asks,
 per section of a briefing, whether the task needs it, judging from the caller's one-line
@@ -288,7 +288,7 @@ threshold & skipped & holds & proposals & gains lost \\
 \cmidrule(lr){2-3}\cmidrule(lr){4-5}
  & all calls & gated & all calls & gated \\
 \midrule
-% CLAUDE.md 4.1, 4.2, 4.3; council_loop/demo.py section 2
+% results/vm2/results/skip_gate.jsonl, llm_calls.jsonl; results/report/lean20*/; council_loop/demo.py section 2
 model spend per run (\$) & 1.63 & 1.27 & 1.71 & 1.20 \\
 model calls per run & 47.2 & 34.0 & 49.8 & 31.0 \\
 final IPC, mean of seeds & 1.512 & 1.537 & 1.521 & 1.513 \\
@@ -302,7 +302,7 @@ specialist calls of the eight shadow runs, a threshold of 0.4 would have skipped
 and 29 proposals, of which two gained more than 0.005 IPC; of the 20 gains above 0.005
 among all 304 calls, 18 carried a verdict of 0.4 or more. The context gate drops 16 to 17\% of
 the briefing tokens once shown a description per section; shown the sections' first characters
-instead, it had rated the evidence unneeded, a negative result we report. % CLAUDE.md 4.3, 4.11
+instead, it had rated the evidence unneeded, a negative result we report. % results/vm2/results/skip_gate.jsonl, context_gate.jsonl; results/report/lean20*/gating.md
 Applied together, with a specialist's thinking budget reduced when its task is not rated hard,
 the council consulted 2.4 to 2.8 specialists a round instead of four and reached the same final
 IPC for 22\% less model spend under the constraints and 30\% without (Fig.~\ref{fig:curves}), the
@@ -406,12 +406,12 @@ node's raw record, which had kept the first DRAM channel only and no merged miss
 \section{What the Instruments Found}\label{sec:found}
 \textbf{The model alone does not search.} Without the statistician, the repairs and the fills,
 the specialists ran out of proposals at 25 to 28 designs, and the runs ended at IPC 1.15 to 1.17
-in both regimes. % CLAUDE.md 4.5
+in both regimes. % results/ledgers/lean/*bare*
 \textbf{Grounding is a gauge, not a filter.} Asked whether the sheet supports each of 377
 proposals, the decider's verdict did not predict which of them gained, so it measures prompt
-discipline and should not be used to skip calls. % results/audit/grounding.jsonl; CLAUDE.md 4.10
+discipline and should not be used to skip calls. % results/audit/grounding.jsonl; council_loop/audit.py
 \textbf{The decider cannot judge ``one clear fix''} (10 of 11 CIRCT bugs were rated unclear),
-which is why the gate asks the narrower question. % CLAUDE.md 4.11
+which is why the gate asks the narrower question. % results/audit/circt_assess/
 
 % =====================================================================
 \section{Artifact, Related Work and Limitations}\label{sec:artifact}
@@ -435,7 +435,7 @@ decider \cite{typesafe} at the loop level, with a shadow mode that prices it bef
 counterfactual, 304 calls, is the larger sample. One trace at 1M/2M instructions carries the
 search, with a 40-design check at 5M/25M. The constraints are ours, taken from the stock chip's
 own draw rather than from a product. Against the strongest random seed instead of the mean, the
-council needs 44 and 46 designs. % CLAUDE.md 4.1, 4.2
+council needs 44 and 46 designs. % results/report/lean20/caps_off_vs_random1000.md; results/ledgers/lean/*random*
 
 \section*{Acknowledgements}
 We thank Agustin Nahuel Coppari Hollmann (UC Berkeley) for support, the CHIA developers and
