@@ -58,7 +58,8 @@ cd council_loop/chia_blocks && ../../.venv/bin/python -m pytest -q chia && bash 
 ```
 
 `check.sh` builds a clean environment with the released CHIA, installs the blocks, runs the 33
-tests inside the package and prints the spend view over the shipped CIRCT logs.
+tests inside the package and prints the spend view over the shipped CIRCT logs. It needs Python 3.10 on the
+PATH (for example `uv python install 3.10`).
 
 ## Running the loop
 
