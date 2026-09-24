@@ -80,7 +80,7 @@ top.tick_params(labelsize=7)
 top.legend(fontsize=6.5, frameon=False, loc="lower right")
 for arm in spend:
     bottom.step(range(BUDGET + 1), spend[arm], where="post", color=styles[arm][0], linewidth=styles[arm][1])
-bottom.set_ylabel("model USD, cumulative", fontsize=7.5)
+bottom.set_ylabel("model spend (\\$)", fontsize=7.5)
 bottom.set_xlabel("designs measured", fontsize=7.5)
 bottom.tick_params(labelsize=7)
 for axis in (top, bottom):

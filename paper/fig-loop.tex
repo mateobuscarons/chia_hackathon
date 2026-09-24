@@ -1,44 +1,36 @@
-% fig-loop.tex -- single-column figure: one round of the council. Two bands (agents, apparatus)
-% and the log beneath. Violet: model calls. Blue: tools. Green: the decider's gates. Grey: the log.
-\begin{tikzpicture}[x=1cm,y=1cm, font=\sffamily\fontsize{7}{8}\selectfont,
-  box/.style={draw, line width=0.5pt, rounded corners=2pt, align=center, inner sep=3pt, minimum height=0.7cm},
-  agent/.style={box, draw=agB, fill=agF},
-  tool/.style={box, draw=rbB, fill=rbF!40},
-  gate/.style={box, draw=hgB, fill=white, font=\sffamily\fontsize{6.5}{7.5}\selectfont, text=hgB!80!black},
-  band/.style={draw=#1, line width=0.4pt, rounded corners=4pt, inner xsep=5pt, inner ysep=4pt, fill=none},
-  bandlabel/.style={anchor=south west, font=\sffamily\fontsize{6.2}{7}\selectfont, inner sep=0pt, yshift=1.5pt},
-  arr/.style={-{Latex[length=3pt,width=2.6pt]}, line width=0.5pt, draw=black!70},
+% fig-loop.tex -- single-column figure: one round of the council. The agents in a dashed group (violet,
+% tasks of the Gemini node), the decider's gate as a diamond (green), the apparatus beneath (blue, CHIA's
+% ChampSim nodes and the ledger); the round closes from the ledger back to the agents.
+\begin{tikzpicture}[x=1cm,y=1cm, font=\sffamily\fontsize{6.8}{7.8}\selectfont,
+  box/.style={draw=black!80, line width=0.4pt, align=center, inner sep=3pt, minimum height=0.6cm},
+  agent/.style={box, fill=agB!10},
+  tool/.style={box, fill=rbB!14},
+  gate/.style={diamond, aspect=2.2, draw=black!80, line width=0.4pt, fill=hgB!12, inner sep=0pt,
+               minimum width=1.35cm, minimum height=0.6cm},
+  group/.style={draw=black!50, dashed, line width=0.4pt, rounded corners=2pt, inner xsep=6pt, inner ysep=5pt},
+  grouplabel/.style={font=\sffamily\fontsize{6.2}{7}\selectfont, text=black!60, anchor=south west, inner sep=1pt},
+  arr/.style={-{Latex[length=3pt,width=2.6pt]}, line width=0.5pt, draw=black!80},
+  lab/.style={font=\sffamily\fontsize{6.2}{7}\selectfont\itshape, text=black!60, inner sep=1.5pt, align=center},
   ]
-% ---- agents
-\node[agent] (stat) at (0.95,3.70) {statistician\\(GP)};
-\node[agent] (anal) at (2.95,3.70) {analyst\\sheet, one design};
-\node[gate]  (gate) at (4.85,3.70) {context gate\\call gate};
-\node[agent] (spec) at (6.95,3.70) {four specialists\\a move, or hold};
+% ---- the agents
+\node[agent] (stat) at (1.00,3.0) {statistician\\GP top pick};
+\node[agent] (anal) at (3.33,3.0) {analyst\\sheet + design};
+\node[gate]  (gate) at (5.54,3.0) {decider};
+\node[agent] (spec) at (7.63,3.0) {specialists\\move or hold};
 \draw[arr] (stat) -- (anal);
-\draw[arr] (anal) -- (gate);
-\draw[arr] (gate) -- (spec);
-% ---- apparatus
-\node[tool] (wave) at (0.95,2.05) {wave of\\five designs};
-\node[tool] (bld)  at (2.95,2.05) {build\\config node};
-\node[tool] (sim)  at (4.85,2.05) {simulate\\run node};
-\node[tool] (led)  at (6.95,2.05) {ledger row\\who, why, score};
-\draw[arr] (wave) -- (bld);
-\draw[arr] (bld) -- (sim);
-\draw[arr] (sim) -- (led);
-% ---- bands, behind the boxes
+\draw[arr] (anal) -- node[lab, above] {sheet} (gate);
+\draw[arr] (gate) -- node[lab, above] {call} node[lab, below] {skip} (spec);
 \begin{scope}[on background layer]
-  \node[band=agB!60, fit=(stat)(anal)(gate)(spec)] (agents) {};
-  \node[band=rbB!60, fit=(wave)(bld)(sim)(led)] (tools) {};
+  \node[group, fit=(stat)(anal)(gate)(spec)] (agents) {};
 \end{scope}
-\node[bandlabel, text=agB] at (agents.north west) {model calls: tasks of the Gemini node};
-\node[bandlabel, text=rbB] at (tools.north west) {apparatus: CHIA tasks};
-% ---- the round
-\draw[arr] (agents.south -| anal) -- (tools.north -| anal);
-\draw[arr] (agents.south -| spec) -- (tools.north -| spec);
-\draw[arr] (led.east) -- ++(0.3,0) |- (spec.east);
-\node[font=\sffamily\fontsize{6.2}{7}\selectfont, text=black!70, rotate=90] at (8.35,2.88) {next round};
+\node[grouplabel] at (agents.north west) {agents: model calls through the Gemini node};
+% ---- the apparatus, and the round
+\node[tool] (sim) at (6.6,1.55) {build, simulate\\CHIA ChampSim nodes};
+\node[tool] (led) at (1.9,1.55) {ledger row\\who, why, IPC, violations};
+\draw[arr] (agents.south -| sim) -- node[lab, right] {wave of five designs} (sim);
+\draw[arr] (sim) -- node[lab, above] {counters, power} (led);
+\draw[arr] (led) -- node[lab, left] {next round} (agents.south -| led);
 % ---- the log
-\node[draw=dsB, fill=dsF!50, line width=0.4pt, rounded corners=2pt, align=center, inner sep=4pt, text width=7.9cm] (log) at (4.05,0.55)
-  {\textbf{one profiler log per run}: every box writes its event here, calls with tokens and USD, candidates, gate verdicts\\
-   read by the spend view, the ledger report and the gate readout};
+\node[draw=black!50, fill=black!6, line width=0.4pt, align=center, inner sep=3.5pt, text width=8.1cm] at (4.3,0.7)
+  {\textbf{one profiler log per run}: every box above is a CHIA task and logs here};
 \end{tikzpicture}
