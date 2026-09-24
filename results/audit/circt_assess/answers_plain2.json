@@ -1,0 +1,66 @@
+{
+ "2266": {
+  "success": true,
+  "text": "DECISION: NOT_A_BUG\nREASON: The `-verilog` flag is designed for internal compiler lit tests, which is why it uses an output splitter (indicated by the `// ----- 8< ----- FILE ...` markers) to dump multiple files into a single text stream. A core maintainer explicitly clarified that it is not intended to produce valid Verilog for general use, meaning the current behavior is actually working as intended."
+ },
+ "2669": {
+  "success": true,
+  "text": "DECISION: NOT_A_BUG\nREASON: The reporter explicitly states that the generated output is semantically correct. Modifying the compiler to emit more idiomatic or aesthetically pleasing Verilog without explicit padding is a feature request / output quality enhancement, not a bug."
+ },
+ "4354": {
+  "success": true,
+  "text": "BUG: When multiple `ForceNameAnnotation`s target instances in the same module with the same name, CIRCT silently accepts them and later uniquifies the names by appending suffixes during Verilog emission.\nEXPECTED: CIRCT should emit a diagnostic error during lowering (e.g., in `LowerToHW`) when `ForceNameAnnotation`s cause a name collision within the same module.\nDECISION: CLEAR"
+ },
+ "4396": {
+  "success": true,
+  "text": "DECISION: NOT_A_BUG\nREASON: This issue is a feature request / enhancement for the FIRRTL optimizer (canonicalizer/folder). The compiler produces correct output, but could produce more optimal output by folding binary operations with zero-width operands into constants."
+ },
+ "4649": {
+  "success": true,
+  "text": "DECISION: UNCLEAR\nREASON: The correct behavior is not definitively clear. The reporter points out the failure but leaves the proper resolution open, noting that the expected semantics of `ProbeOp` with non-passive types are unsettled (\"Depending what we want ProbeOp for\"). It is ambiguous whether the fix should restrict `ProbeOp` to passive types via the verifier, properly lower/expand it in `LowerTypes`, or just emit a nicer error for unhandled operations during type lowering."
+ },
+ "5626": {
+  "success": true,
+  "text": "DECISION: UNCLEAR\nREASON: The concrete reproducer provided in the original issue was already fixed by a previous PR. The only remaining issue mentioned in the comments is a general claim that \"some places in LowerToHW fail to use the moduleNamespace\", but no specific reproducer or operation is provided for this outstanding defect, making it impossible to reliably reproduce or verify a fix."
+ },
+ "5789": {
+  "success": true,
+  "text": "PART A \u2014 Is this actually a BUG?\nYes. As explicitly stated in the instructions, a \"missing or incorrect verifier\" is a bug, especially since allowing invalid IR to be constructed leads to crashes in downstream passes. \n\nPART B \u2014 Are BOTH of these CLEAR?\n1. The bug is clear: CIRCT does not verify that `InnerSymAttr` configurations on module ports make sense for the port's type (e.g., assigning a symbol to fieldID 5 on a 1-bit integer port).\n2. The expected behavior is clear: The verifier should be updated (likely via `HWModuleLike` or similar port-verification hooks) to check `InnerSymAttr` on ports and reject the IR if the inner symbol is invalid for the given port type, exactly like the existing checks in `InnerSymbolOpInterface::verify`.\n\nBUG: The verifier fails to check the validity of inner symbols attached to module ports, allowing malformed IR (e.g., out-of-bounds field IDs) that causes downstream passes to crash.\nEXPECTED: The verifier must be updated to validate inner symbols on ports against their corresponding port types and emit an error for invalid configurations.\nDECISION: CLEAR"
+ },
+ "6226": {
+  "success": true,
+  "text": "This issue describes a clear parser bug where `hw.module` ports fail to parse if they use an alphabetic SSA name alongside an explicit string \"true name\" attribute, despite numeric SSA names working correctly. The correct behavior is that the custom assembly parser should handle valid alphabetic SSA names just as it handles numeric ones.\n\nBUG: The `hw.module` custom parser fails to parse a port definition when it uses an alphabetic SSA name (like `%b`) together with a string true name.\nEXPECTED: The parser should successfully parse port definitions with an alphabetic SSA name and an explicit string true name, matching the behavior of numeric SSA names.\nDECISION: CLEAR"
+ },
+ "6740": {
+  "success": true,
+  "text": "BUG: `firrtl-to-hw` lowers `firrtl.invalidvalue : !firrtl.clock` using an `hw.bitcast` from `i1` to `!seq.clock`, which produces illegal IR because `!seq.clock` does not have a known hardware bitwidth.\nEXPECTED: The pipeline should successfully lower the operation into valid IR, e.g. by using `seq.to_clock` instead of `hw.bitcast` in `FIRRTLToHW`, or by explicitly handling clock invalidation in an earlier pass like `SFCCompat`.\nDECISION: CLEAR"
+ },
+ "7127": {
+  "success": true,
+  "text": "DECISION: NOT_A_BUG\nREASON: This is a design proposal or enhancement request rather than a bug. The reporter is opening a discussion on whether the `DropConst` pass should be enhanced to preserve type aliases (stripped of their `const` bits) when it mutates types, explicitly acknowledging that the current behavior of dropping the alias is also arguably correct."
+ },
+ "7388": {
+  "success": true,
+  "text": "BUG: Lowering a `firrtl.enumcreate` operation with a 0-width payload crashes the compiler because a null value is passed to the `hw.union_create` builder.\nEXPECTED: The compiler should successfully lower the 0-width enum payload to the HW dialect without crashing.\nDECISION: CLEAR"
+ },
+ "7531": {
+  "success": true,
+  "text": "DECISION: UNCLEAR\nREASON: While the bug is clear (`circt-opt -canonicalize` asserts on the provided MLIR), the correct resolution is unclear. The maintainers suggest that the root cause lies in an earlier pipeline pass generating these unreachable blocks, but the reproducer for that earlier state is not provided, leaving it ambiguous whether the fix should target the verifier, the canonicalizer, or an unspecified earlier pass."
+ },
+ "7949": {
+  "success": true,
+  "text": "BUG: The `--lower-dc-to-hw` pass generates invalid IR (such as `esi.wrap.vr` with multiple uses) when lowering valid `dc` dialect programs that have already run through fork/sink materialization.\nEXPECTED: The pass should successfully lower the valid DC IR to valid HW/ESI IR without triggering verifier errors about multiple uses.\nDECISION: CLEAR"
+ },
+ "8508": {
+  "success": true,
+  "text": "This is a bug, but the expected behavior is unclear.\n\nDECISION: UNCLEAR\nREASON: The bug is clear (an assertion failure or illegal IR occurs when `InjectDUTHierarchy` processes an `extmodule`), but the correct behavior is not. As the reporter notes, designating a blackbox/extmodule as the DUT is unusual. It is ambiguous whether the pass should be extended to support `extmodule`s (which would require fixing the cast and ensuring the generated wrapper module name does not conflict with the `defname`), or if the tool should cleanly reject this arguably invalid input with a proper diagnostic error."
+ },
+ "10104": {
+  "success": true,
+  "text": "PART A \u2014 Is this actually a BUG?\nYes, this is a bug. A compiler pass (`firrtl-expand-whens`) is transforming a valid MLIR input into an invalid MLIR state that fails the verifier due to an SSA dominance error. \n\nPART B \u2014 Are BOTH of these CLEAR?\n1. THE BUG: `firrtl-expand-whens` incorrectly handles multiple `firrtl.layerblock` regions containing intrinsic operations inside a `firrtl.when` block, leading to an operation using an SSA value that does not dominate it.\n2. THE CORRECT BEHAVIOR: The pass should correctly expand the `when` operation, properly cloning or mapping SSA values inside the `layerblock` operations, and output valid MLIR that preserves the original circuit semantics without failing the dominance verifier.\n\nBUG: The `firrtl-expand-whens` pass produces invalid MLIR with a dominance error when processing multiple `firrtl.layerblock`s containing intrinsics inside a `firrtl.when`.\nEXPECTED: The pass should correctly expand the `when` logic without breaking SSA dominance rules or producing invalid MLIR.\nDECISION: CLEAR"
+ },
+ "10571": {
+  "success": true,
+  "text": "DECISION: UNCLEAR\nREASON: The bug is clear: `HWAggregateToComb` fails to legalize `comb.mux` on `hw.union` types because it marks muxes of aggregates illegal but lacks a pattern to handle unions. However, the correct behavior is unclear. It is not obvious if the pass should be extended to lower union muxes (e.g., by bitcasting the union to a flat integer, muxing that, and bitcasting back), or if it should simply exempt `hw.union` from being lowered and allow the `comb.mux` to remain in the IR for downstream handling or SystemVerilog emission."
+ }
+}

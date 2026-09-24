@@ -1,0 +1,54 @@
+{
+ "2266": {
+  "success": true,
+  "text": "DECISION: NOT_A_BUG\nREASON: A CIRCT maintainer explicitly noted that the `-verilog` flag is only intended for internal testing and is not expected to produce valid Verilog. The concatenation of multiple files (including the `.f` file) into a single stream is a known artifact of this testing option, and the planned resolution is to hide the flag rather than change the output format."
+ },
+ "4354": {
+  "success": true,
+  "text": "BUG: LowerToHW silently allows multiple `ForceNameAnnotation`s to set instances in the same module to the same name, which are then unexpectedly uniquified during Verilog emission instead of honoring the forced names.\nEXPECTED: LowerToHW should emit a diagnostic error when `ForceNameAnnotation`s would result in duplicate forced names for instances within the same module.\nDECISION: CLEAR"
+ },
+ "4649": {
+  "success": true,
+  "text": "PART A \u2014 Is this actually a BUG?\nYes, it is a bug. `LowerTypes` produces invalid IR (a bitcast with a non-passive type), leading to a compilation failure/crash.\n\nPART B \u2014 Are BOTH of these CLEAR?\n1. THE BUG: Yes. Passing a non-passive type to `firrtl.probe` causes `LowerTypes` to generate a `firrtl.bitcast` to a non-passive type, which is invalid and crashes.\n2. THE CORRECT BEHAVIOR: No. The reporter explicitly notes that the semantics and intended use of `ProbeOp` are unsettled (\"Depending what we want ProbeOp for...\"). Consequently, it is ambiguous whether the correct resolution is to restrict `ProbeOp` in the verifier to only accept passive types, correctly lower non-passive probes by expanding them, or explicitly emit a diagnostic error in `LowerTypes` for operations it cannot handle.\n\nDECISION: UNCLEAR\nREASON: The correct behavior is ambiguous because the intended design and semantics of `ProbeOp` are explicitly unsettled. A maintainer could reasonably resolve this by either restricting `ProbeOp` to passive types in the verifier, implementing aggregate expansion for it in `LowerTypes`, or emitting a clean diagnostic in `LowerTypes` for unhandled foreign operations."
+ },
+ "5626": {
+  "success": true,
+  "text": "This issue's primary reproducer and the problem mentioned in the title have already been fixed by a previous pull request. The only remaining part of the issue is a vague comment that \"there are some places in LowerToHW where we fail to use the moduleNamespace at all\". Without a concrete reproducer or specific code pointers for these remaining cases, it is not possible to reproduce the issue or verify a fix. \n\nDECISION: UNCLEAR\nREASON: The main bug reported has already been fixed. The remaining outstanding issue is a vague statement about \"some places in LowerToHW\" not using the namespace, but lacks a specific reproducer, input IR, or detailed explanation of the expected correct behavior for those unlisted cases."
+ },
+ "5789": {
+  "success": true,
+  "text": "BUG: Verification is missing for `InnerSymAttr` attributes on module ports, allowing invalid field IDs that can cause downstream crashes.\nEXPECTED: The verifier should be extended to check `InnerSymAttr` on ports and reject those with field IDs that are invalid for the corresponding port type.\nDECISION: CLEAR"
+ },
+ "6226": {
+  "success": true,
+  "text": "PART A \u2014 Is this actually a BUG?\nYes. The `hw.module` parser fails to accept a syntactically valid port declaration when it mixes an alphabetic SSA name (`%b`) and an explicit string literal true name (`\"space here\"`).\n\nPART B \u2014 Are BOTH of these CLEAR?\n1. **The Bug:** Concretely, parsing the construct `hw.module @Bar3(in %b \"space here\" : i1)` produces a parse error, whereas using a numeric SSA name (`%0 \"space here\"`) or omitting the string literal (`%a`) parses fine.\n2. **The Expected Behavior:** The parser should be updated to correctly parse and accept an alphabetic SSA name alongside a string literal true name, ensuring uniform parsing behavior regardless of the SSA name type.\n\nBUG: The `hw.module` parser fails to parse a port declaration that combines an alphabetic SSA name (like `%b`) with a string literal true name.\nEXPECTED: The parser should successfully parse and accept mixed alphabetic SSA names and string literal true names in port declarations.\nDECISION: CLEAR"
+ },
+ "6740": {
+  "success": true,
+  "text": "DECISION: UNCLEAR\nREASON: While the bug is clear (lowering generates an illegal `hw.bitcast` to `!seq.clock`), the correct behavior is unsettled. It is unclear whether the fix should be in `LowerToHW` to properly handle invalid clocks (and what specific HW/Seq ops should replace the bitcast), or if the fix should be in `SFCCompat` to ensure invalid clocks are converted to zero constants before reaching this pass, or both."
+ },
+ "7388": {
+  "success": true,
+  "text": "BUG: `circt-opt --lower-firrtl-to-hw` crashes in `FIRRTLLowering::visitExpr(circt::firrtl::FEnumCreateOp)` when lowering an enum variant containing a zero-width integer.\nEXPECTED: The pass should successfully lower the zero-width `firrtl.enumcreate` operation to a valid `hw.union_create` operation without crashing, adhering to the standard zero-width type conversion rules.\nDECISION: CLEAR"
+ },
+ "7531": {
+  "success": true,
+  "text": "DECISION: UNCLEAR\nREASON: The expected behavior and resolution approach are unclear. Maintainers are discussing several different paths to resolve this (rejecting comb cycles in the verifier, fixing the canonicalizer crash directly, or finding and fixing the upstream pass in `circt-verilog` that produces these unreachable blocks), and the original unreduced IR and pass pipeline needed for the \"root cause\" fix are not provided."
+ },
+ "7949": {
+  "success": true,
+  "text": "BUG: The `--lower-dc-to-hw` pass generates invalid IR containing `esi.wrap.vr` operations with multiple uses when lowering valid DC programs, violating the ESI dialect verifier.\nEXPECTED: The pass should successfully lower valid DC programs (that have materialized forks/sinks) to valid HW/ESI IR without generating multi-use channel violations.\nDECISION: CLEAR"
+ },
+ "8508": {
+  "success": true,
+  "text": "This is a bug, but the expected behavior is unclear.\n\nThe bug is clear: running the `InjectDUTHierarchy` pass on a circuit where the marked DUT is an `extmodule` (blackbox) causes an assertion failure (when assertions are enabled) or generates an illegal circuit due to a name conflict (when assertions are disabled). \n\nHowever, the correct behavior is unclear because the input is highly unusual (as the reporter notes, \"this circuit is weird as the DUT is a blackbox\"). Because a blackbox has no internal hierarchy, it is ambiguous how the pass *should* handle it. A maintainer could reasonably resolve this in several materially different ways:\n1. **Reject with a diagnostic:** Emit a clear error stating that `InjectDUTHierarchy` cannot target an `extmodule`.\n2. **Silently ignore:** Recognize that it's a blackbox and gracefully do nothing.\n3. **Extend to support it:** Actually create a wrapper, which would require a design decision on how to resolve the resulting name conflict between the new wrapper module and the `defname` of the blackbox without breaking Verilog emission or external linkage.\n\nSince the issue doesn't specify which of these resolutions is intended by the FIRRTL/CIRCT spec, it cannot be safely picked up by an automated agent.\n\nDECISION: UNCLEAR\nREASON: The bug (a crash/illegal IR when the DUT is an `extmodule`) is clear, but the expected behavior is ambiguous. It is not specified whether the pass should cleanly reject the input with a diagnostic error, silently ignore the external module, or be extended to successfully wrap it (which would require a design decision on how to handle the resulting `defname` conflict)."
+ },
+ "10104": {
+  "success": true,
+  "text": "PART A \u2014 Is this actually a BUG?\nYes, this is a bug. Producing an MLIR dominance error (verification failure) on valid input after running a built-in pass (`firrtl-expand-whens`) is a compiler defect.\n\nPART B \u2014 Are BOTH of these CLEAR?\n1. The bug is clear: running the `firrtl-expand-whens` pass on a `firrtl.when` containing multiple `firrtl.layerblock`s that use `firrtl.int.ltl.implication` causes operations to be rewritten or cloned in a way that breaks SSA dominance rules.\n2. The correct behavior is clear: the compiler must successfully lower/expand the `firrtl.when` operation containing these blocks without creating invalid MLIR or breaking dominance constraints.\n\nBUG: The `firrtl-expand-whens` pass produces invalid MLIR (a dominance error) when processing a `when` block containing multiple `layerblock`s with `int.ltl.implication` intrinsics.\nEXPECTED: The pass should correctly expand the `when` block and its nested regions without violating SSA dominance constraints.\nDECISION: CLEAR"
+ },
+ "10571": {
+  "success": true,
+  "text": "This is a valid bug report of a legalization failure, but the proper way to resolve it is a design decision that is not specified in the issue.\n\nSpecifically, it is unclear how the `aggregate-to-comb` pass is intended to handle unions. For structs and arrays, the pass can decompose the aggregate. Because the fields of a hardware union overlap and only one is \"active\", a union cannot be structurally decomposed in the same way. A maintainer could reasonably resolve this in two materially different ways:\n1. **Extend the pass to support unions** by inserting an `hw.bitcast` to convert the union to an integer, performing a `comb.mux` on the integers, and bitcasting the result back to the `hw.union` type.\n2. **Ignore unions in this pass** by updating the conversion target's legality check so that `comb.mux` is not marked illegal when operating on `hw.union` types, leaving the operation as-is.\n\nBecause both approaches are defensible and it is ambiguous which aligns better with the intended scope of the `aggregate-to-comb` pass, the correct behavior is unsettled.\n\nDECISION: UNCLEAR\nREASON: It is clear that `hw-aggregate-to-comb` fails to legalize `comb.mux` on `hw.union` types, but the correct resolution is ambiguous. It is not obvious whether the pass should be extended to lower unions (e.g., by bitcasting them to integers, muxing, and bitcasting back) or if it should simply skip them and treat `comb.mux` on unions as legal since they cannot be structurally decomposed like structs."
+ }
+}

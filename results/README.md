@@ -1,56 +1,33 @@
 # What is in `results/`
 
-Every artifact says which chip it came from. A chip is `<name>-<revision>`, where the revision
-is a hash of everything about the SoC that is not a design knob - the clock, the process node,
-the profile, the core count, the area budget (`loop/chip.py:revision`). **A design measured on
-one revision is never read back for another**, so changing an SoC starts a clean dataset instead
-of silently mixing two machines.
+Every number in the paper comes from a file here; `CLAUDE.md` section 4 names the file behind each.
+The full record of the project, every run, table and transcript behind earlier versions, is on the
+`experiments` branch. This folder holds what the paper cites.
 
 ```
-runs/<soc>_<cell>_<tag>.json   one report per search: every design, its round, its knobs, its
-                               IPC, and for the council every round's sketches. This is what
-                               `python -m loop.search score <path>` reads.
-transcripts/<soc>-<arm>-<tag>-s<seed>.log
-                               every prompt and every answer of one run, in order. Large, and
-                               gitignored: the numbers live in the report, this is for reading
-                               what the council actually said. `<soc>-stdout-<tag>.log` is the
-                               run's console output.
-tables/<workload>[_w<W>M_s<S>M].json
-                               the simulation cache and the dataset: one row per (design,
-                               workload), keyed by the design's full name. Every batch reads it
-                               before simulating and appends under a file lock, so parallel runs
-                               and later sessions share one cache.
-cacti_<node>nm.json            CACTI's characterisation of every cache shape at one process
-                               node: access time, area, read and write energy per access,
-                               leakage. Computed once, then read. Ship this to a machine without
-                               a CACTI build and it needs none.
-gate/                          the generation step's gate (`gate.py`, 79 designs, no model call):
-                               `gate_next.json` holds every design with its IPC, mm2 and watts.
-                               Its rows carry the chip's earlier name `F_next-35e4`.
-vm2/                           what the short-term account's VM measured, pulled every 10 min by
-                               `vm2/pull_g1.sh`: `tables/` (the dataset), `runs/`, `transcripts/`.
-                               Kept apart from `tables/` because a table belongs to the machine
-                               that measured it.
-llm_usage*.json                running model cost, per machine.
+ledgers/lean/<run>.jsonl          one ledger per run and seed (the CHIA ledger block's rows): the
+                                  council's four arms, the random arms rebuilt from their seeds, the
+                                  ablation. `python3 council_loop/demo.py` scores them.
+ledgers/<tag>.jsonl               a ledger written live by the CHIA-driven loop, one per run.
+profiles/<tag>/ChiaProfileCollector.log
+                                  the loop's own CHIA profiler log, one per run: every model call
+                                  with tokens and USD, every build, run, candidate and gate event.
+                                  `chia viz-profile --format spend results/profiles/<tag>` sums it.
+report/lean20*/                   the gating tables and per-run money figures, from `council_loop/report.py`.
+audit/circt_assess/               CHIA's CIRCT assess stage under the blocks: the issues, one profiler
+                                  log per pass, the verdicts against the paper's.
+audit/grounding*.jsonl            the grounding audit: the decider's reading of every proposal's evidence.
+vm2/results/                      what the cluster VM measured for the runs above: the llama2 result
+                                  tables at 1M/2M and 5M/25M (the simulation cache and dataset), the run
+                                  reports, the per-call rows (`llm_calls.jsonl`), the gate rows
+                                  (`skip_gate.jsonl`, `context_gate.jsonl`), the fidelity check.
+runs/, llm_calls.jsonl, skip_gate.jsonl, context_gate.jsonl
+                                  the same records for the runs made on this machine (the smoke of the
+                                  CHIA-driven loop).
+cacti_22nm.json                   CACTI 7's characterisation of every cache shape at 22 nm: access time,
+                                  area, energies, leakage. Read, never recomputed, on a machine without CACTI.
 ```
 
-**A table belongs to the machine that measured it.** The same ChampSim commit and byte-identical
-traces give IPC 0.9184 on the Mac and 0.9144 on the VM - the compiler and standard library
-differ, which is enough for a simulator that iterates an unordered container. The offset is the
-size of the deltas the council reasons about, so one cell is measured on one machine and rows are
-never merged across platforms.
-
-## The results that are live
-
-| report | chip | what it is |
-|---|---|---|
-| `runs/server_llama2_x1.json` | `C_server-bf61` | the first cell on the CACTI chips: council vs tuned forest, 2 seeds, council to 28 rounds and forest to 29. The council reaches 99.9 % of the gap at round 19; both arms find the same best design, the council at round 10 and the forest at round 26. |
-| `runs/server_llama2_cv1.json` / `cv0.json` | `C_server-bf61` | the `CHIP_VIEW` ablation, 2 seeds x 8 rounds, council only, measured on the Mac so the two are comparable. `cv1` is the loop as it stands, `cv0` reverts what the council reads and keeps the machine. `cv1` leads at every round. |
-| `runs/mobile_aiml_m2.json` | `A_mobile-a868` | the mobile cell, both arms, council to 20 rounds and forest to 50. **The council loses**: it never reaches 90 % of the gap, the forest reaches 100 %. Reconstructed from `transcripts/mobile-stdout-m2.log` - the run was stopped before `run_cell` wrote its report, so the per-design knobs are in the transcripts and `vm_tables/`, not here. See the open problem in `CLAUDE.md`. |
-
-| `runs/next_gen_g1.json` (in `vm2/runs/` while it runs) | `F_next-af8a` | the generation step: council vs random search under the 4 mm² / 1.0 W / no-regression caps, 2 seeds, 20 rounds, from the shrunk baseline (0.7539). |
-| `runs/mobile_aiml_m4.json`, `runs/quad_aiml_q2*.json` | `A_mobile-a868`, `D_quad-063f` | the sweep jump round on mobile (95 % at R20) and the quad cell (council 100 %, forest 98 %, random 97 %). Summaries in `CLAUDE.md`. |
-
-`vm_tables/` holds the VM's rows for these cells, pruned to the current chips: 694 mobile designs
-measured on all three aiml workloads and 550 server llama2 designs. They are kept apart from
-`tables/` because a table belongs to the machine that measured it.
+A result table belongs to the machine that measured it: ChampSim's IPC differs between compilers and
+standard libraries on the same design, so every table in the paper comes from one VM and rows are
+never merged across machines.

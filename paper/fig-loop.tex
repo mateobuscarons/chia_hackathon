@@ -1,0 +1,44 @@
+% fig-loop.tex -- single-column figure: one round of the council. Two bands (agents, apparatus)
+% and the log beneath. Violet: model calls. Blue: tools. Green: the decider's gates. Grey: the log.
+\begin{tikzpicture}[x=1cm,y=1cm, font=\sffamily\fontsize{7}{8}\selectfont,
+  box/.style={draw, line width=0.5pt, rounded corners=2pt, align=center, inner sep=3pt, minimum height=0.7cm},
+  agent/.style={box, draw=agB, fill=agF},
+  tool/.style={box, draw=rbB, fill=rbF!40},
+  gate/.style={box, draw=hgB, fill=white, font=\sffamily\fontsize{6.5}{7.5}\selectfont, text=hgB!80!black},
+  band/.style={draw=#1, line width=0.4pt, rounded corners=4pt, inner xsep=5pt, inner ysep=4pt, fill=none},
+  bandlabel/.style={anchor=south west, font=\sffamily\fontsize{6.2}{7}\selectfont, inner sep=0pt, yshift=1.5pt},
+  arr/.style={-{Latex[length=3pt,width=2.6pt]}, line width=0.5pt, draw=black!70},
+  ]
+% ---- agents
+\node[agent] (stat) at (0.95,3.70) {statistician\\(GP)};
+\node[agent] (anal) at (2.95,3.70) {analyst\\sheet, one design};
+\node[gate]  (gate) at (4.85,3.70) {context gate\\call gate};
+\node[agent] (spec) at (6.95,3.70) {four specialists\\a move, or hold};
+\draw[arr] (stat) -- (anal);
+\draw[arr] (anal) -- (gate);
+\draw[arr] (gate) -- (spec);
+% ---- apparatus
+\node[tool] (wave) at (0.95,2.05) {wave of\\five designs};
+\node[tool] (bld)  at (2.95,2.05) {build\\config node};
+\node[tool] (sim)  at (4.85,2.05) {simulate\\run node};
+\node[tool] (led)  at (6.95,2.05) {ledger row\\who, why, score};
+\draw[arr] (wave) -- (bld);
+\draw[arr] (bld) -- (sim);
+\draw[arr] (sim) -- (led);
+% ---- bands, behind the boxes
+\begin{scope}[on background layer]
+  \node[band=agB!60, fit=(stat)(anal)(gate)(spec)] (agents) {};
+  \node[band=rbB!60, fit=(wave)(bld)(sim)(led)] (tools) {};
+\end{scope}
+\node[bandlabel, text=agB] at (agents.north west) {model calls: tasks of the Gemini node};
+\node[bandlabel, text=rbB] at (tools.north west) {apparatus: CHIA tasks};
+% ---- the round
+\draw[arr] (agents.south -| anal) -- (tools.north -| anal);
+\draw[arr] (agents.south -| spec) -- (tools.north -| spec);
+\draw[arr] (led.east) -- ++(0.3,0) |- (spec.east);
+\node[font=\sffamily\fontsize{6.2}{7}\selectfont, text=black!70, rotate=90] at (8.35,2.88) {next round};
+% ---- the log
+\node[draw=dsB, fill=dsF!50, line width=0.4pt, rounded corners=2pt, align=center, inner sep=4pt, text width=7.9cm] (log) at (4.05,0.55)
+  {\textbf{one profiler log per run}: every box writes its event here, calls with tokens and USD, candidates, gate verdicts\\
+   read by the spend view, the ledger report and the gate readout};
+\end{tikzpicture}

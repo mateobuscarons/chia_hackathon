@@ -1,0 +1,54 @@
+{
+ "2266": {
+  "success": true,
+  "text": "Based on the maintainer's comment, the `-verilog` flag is an internal testing option not intended to produce valid Verilog for general use, and there are plans to hide it entirely. Since users are expected to use other options (like `-split-verilog`) for compliant output, this is a known limitation of a developer tool rather than a bug in the compiler's actual Verilog emission pipeline.\n\nDECISION: NOT_A_BUG\nREASON: A maintainer explicitly stated that the `-verilog` flag is only intended for writing test cases and is not expected to produce valid Verilog. The planned resolution is to hide the flag rather than fix its output to be compliant, meaning this is a known limitation of an internal tool and not a bug."
+ },
+ "4354": {
+  "success": true,
+  "text": "BUG: `LowerToHW` silently permits duplicate instance names caused by `ForceNameAnnotation`, leading to unintended uniquing during Verilog emission that defeats the purpose of the annotation.\nEXPECTED: `LowerToHW` should emit a diagnostic error if a `ForceNameAnnotation` attempts to assign a name that is not unique within the module's scope.\nDECISION: CLEAR"
+ },
+ "4649": {
+  "success": true,
+  "text": "The issue reports a crash or poor diagnostic in `firrtl-lower-types` when encountering a `firrtl.probe` (or other unhandled operation) with a non-passive type. While this is clearly a bug, the correct way to resolve it is explicitly left open by the reporter.\n\nThe author floats several materially-different resolutions: \n1. Restricting the `firrtl.probe` verifier to only accept passive types.\n2. Emitting a nicer diagnostic in `LowerTypes` when it cannot lower an operation with a non-passive type.\n3. Extending `LowerTypes` to handle these by converting to passive or expanding to scalar elements.\n\nBecause the intended semantics of `ProbeOp` with non-passive types are unsettled and multiple different components (verifier vs. `LowerTypes` pass) could defensibly be changed to reject or support this input, the correct behavior is not clear enough for an automated fix.\n\nDECISION: UNCLEAR\nREASON: The correct behavior is unclear. The reporter explicitly floats several different ways to resolve the issue (restricting `ProbeOp` to passive types in the verifier, expanding to scalar elements, or just emitting a nicer diagnostic in `LowerTypes` for unhandled ops) without settling on a definitive design choice."
+ },
+ "5626": {
+  "success": true,
+  "text": "DECISION: UNCLEAR\nREASON: The concrete bug and reproducer provided in the original issue description were already fixed in a previous pull request. The remaining issue mentioned in the comments (\"some places in LowerToHW where we fail to use the moduleNamespace\") is vague and lacks a reproducer or specific examples, making it unclear what exactly needs to be fixed or how to test it."
+ },
+ "5789": {
+  "success": true,
+  "text": "BUG: The verifier does not check if `InnerSymAttr` field IDs on module ports are valid for the port's type, allowing invalid IR that causes crashes in later passes.\nEXPECTED: The verifier (likely via `HWModuleLike` or `InnerSymbolTable` trait) should validate port inner symbols against their respective port types and emit a diagnostic error for out-of-bounds or invalid field IDs.\nDECISION: CLEAR"
+ },
+ "6226": {
+  "success": true,
+  "text": "BUG: The `hw.module` custom parser fails to parse port definitions that use a string SSA name (e.g., `%b`) alongside an explicitly provided true name (e.g., `\"space here\"`).\nEXPECTED: The custom parser should successfully parse port definitions combining string-based SSA names and explicitly quoted true names, producing valid IR without errors.\nDECISION: CLEAR"
+ },
+ "6740": {
+  "success": true,
+  "text": "PART A \u2014 Is this actually a BUG?\nYes. The `firrtl-to-hw` pass translates valid FIRRTL input (`firrtl.invalidvalue : !firrtl.clock`) into illegal MLIR (`hw.bitcast` from `i1` to `!seq.clock`), resulting in a verification failure.\n\nPART B \u2014 Are BOTH of these CLEAR?\n1. The bug: `FIRRTLToHW` assumes it can unconditionally use `hw.bitcast` to adapt a generated integer 0 constant to the target type, but `hw.bitcast` does not support `!seq.clock` because it lacks a known hardware bitwidth.\n2. The correct behavior: The `firrtl-to-hw` lowering of `invalidvalue` should gracefully handle clock types and emit valid MLIR, such as by using `seq.to_clock` instead of `hw.bitcast` to adapt an `i1` constant to a `!seq.clock`.\n\nBUG: The `firrtl-to-hw` pass generates an illegal `hw.bitcast` operation when translating a `firrtl.invalidvalue` of type `!firrtl.clock`.\nEXPECTED: The pass should generate valid MLIR, using an appropriate operation like `seq.to_clock` to cast the constant zero to a clock type instead of `hw.bitcast`.\nDECISION: CLEAR"
+ },
+ "7388": {
+  "success": true,
+  "text": "PART A: This is a bug (a crash in the compiler when lowering `firrtl.enumcreate` to `hw.union_create`).\n\nPART B: The bug is a null pointer dereference during `hw::UnionCreateOp` construction, likely because the `uint<0>` payload converts to a null value (or is stripped) during type conversion. The correct behavior is for `LowerToHW` to handle zero-width enum payloads gracefully without crashing, successfully emitting valid HW dialect IR.\n\nBUG: Lowering a `firrtl.enumcreate` with a zero-width payload crashes due to a null pointer dereference when creating the corresponding `hw.union_create` operation.\nEXPECTED: The `LowerToHW` pass should successfully compile the operation, handling zero-width enum payloads gracefully without crashing and producing valid HW dialect IR.\nDECISION: CLEAR"
+ },
+ "7531": {
+  "success": true,
+  "text": "DECISION: UNCLEAR\nREASON: While the crash in the canonicalizer is clear, the correct resolution is ambiguous. The maintainer suggests fixing whichever earlier pass in the `circt-verilog` pipeline leaves behind these unreachable blocks with no predecessors, but the issue does not provide the original pipeline or specify which pass is at fault, making it unclear what code should actually be modified."
+ },
+ "7949": {
+  "success": true,
+  "text": "BUG: The `lower-dc-to-hw` pass generates invalid IR that fails verification because it creates `esi.wrap.vr` operations with multiple uses instead of adhering to the zero or one use constraint.\nEXPECTED: The `lower-dc-to-hw` pass should successfully generate valid HW and ESI IR for any valid, fully-materialized DC program without violating ESI use constraints.\nDECISION: CLEAR"
+ },
+ "8508": {
+  "success": true,
+  "text": "DECISION: UNCLEAR\nREASON: While the bug is a clear assertion failure (and illegal circuit creation) caused by an invalid cast when `InjectDUTHierarchy` encounters an `extmodule` instead of a normal module, the correct behavior is unclear. As the reporter notes, the input is unusual (marking a blackbox as the DUT), so it is ambiguous whether the pass should be extended to support wrapping an `extmodule` or if it should simply emit a diagnostic and cleanly reject it."
+ },
+ "10104": {
+  "success": true,
+  "text": "An analysis of the issue reveals that the `firrtl-expand-whens` pass is transforming valid MLIR into invalid MLIR (violating SSA dominance) when it encounters multiple `firrtl.layerblock` regions inside a `firrtl.when` block. Compiler passes should never produce IR that fails the verifier. The expected behavior is simply to correctly transform the IR while maintaining valid SSA value scoping.\n\nBUG: `firrtl-expand-whens` produces invalid IR with a dominance error when processing multiple `firrtl.layerblock` operations that define and use their own SSA values inside a `firrtl.when` block.\nEXPECTED: The pass should successfully transform the IR without breaking SSA dominance, producing valid MLIR that passes the verifier.\nDECISION: CLEAR"
+ },
+ "10571": {
+  "success": true,
+  "text": "DECISION: UNCLEAR\nREASON: While the bug (compilation failure on `comb.mux` with `hw.union` types) is clear, the expected behavior is ambiguous. It is not obvious how `aggregate-to-comb` should lower unions \u2014 whether it should treat them as non-aggregates and ignore them, cast them to bitvectors to mux the underlying bits, or attempt to extract and mux individual fields (which poses design questions for union construction). Resolving this requires a design decision from maintainers."
+ }
+}

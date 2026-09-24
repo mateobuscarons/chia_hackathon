@@ -1,0 +1,66 @@
+{
+ "2266": {
+  "success": true,
+  "text": "DECISION: NOT_A_BUG\nREASON: A CIRCT maintainer has explicitly clarified in the comments that the `-verilog` flag is intended only for writing compiler test-cases and is not meant to produce valid Verilog. The inclusion of the split file markers and sideband file contents in the output stream is the expected behavior for this flag, meaning this is working as intended and not a defect."
+ },
+ "2669": {
+  "success": true,
+  "text": "DECISION: NOT_A_BUG\nREASON: This is a Verilog output quality/enhancement request, not a correctness bug. The reporter explicitly states that the generated Verilog is semantically correct, but differs in verbosity (explicit bit extensions) from the older Scala FIRRTL compiler."
+ },
+ "4354": {
+  "success": true,
+  "text": "An analysis of the issue shows that when multiple `ForceNameAnnotation`s assign the same name to different instances within a single module, `LowerToHW` currently accepts it and sets the `hw.verilogName` attribute to the same string for all of them. This leads to the backend silently uniquing the names later (e.g. `Foo`, `Foo_0`, `Foo_1`), which defeats the purpose of the forced name annotation and can surprise the user. The issue explicitly outlines that this should be caught as an error during the `LowerToHW` pass.\n\nBUG: `LowerToHW` allows multiple `ForceNameAnnotation`s to assign the same name to different instances in the same module, causing the names to be silently uniqued later instead of forcing the exact name.\nEXPECTED: `LowerToHW` should emit an error when `ForceNameAnnotation`s would result in non-unique instance names within the same module.\nDECISION: CLEAR"
+ },
+ "4396": {
+  "success": true,
+  "text": "DECISION: NOT_A_BUG\nREASON: This is a request to enhance the FIRRTL folder to handle binary operators with one zero-width operand more consistently. Missing canonicalizations or optimizations are feature requests/enhancements, not functional defects or bugs, because the un-folded output is still functionally correct."
+ },
+ "4649": {
+  "success": true,
+  "text": "The issue describes a bug where `LowerTypes` generates invalid IR (a bitcast to a non-passive type) or crashes when encountering an unhandled operation like `firrtl.probe` with non-passive types. \n\nHowever, the correct behavior is unclear because there are multiple defensible ways to resolve it and the design is unsettled. The reporter explicitly points out this ambiguity: depending on the intended semantics of `ProbeOp`, we could extend `LowerTypes` to properly expand or rewrite it, restrict `ProbeOp` to only accept passive inputs (rejecting it in the verifier), or simply emit a clean diagnostic in `LowerTypes` for unsupported foreign operations. Without a definitive decision on whether to support or reject `ProbeOp` with non-passive types, an automated fix cannot proceed.\n\nDECISION: UNCLEAR\nREASON: The correct behavior is unclear because there are multiple defensible ways to resolve the issue, and the reporter explicitly notes the design of `ProbeOp` is unsettled. It is ambiguous whether the correct fix is to extend `LowerTypes` to handle the operation, restrict `firrtl.probe` to only accept passive types via the verifier, or emit a clean error in the pass."
+ },
+ "5626": {
+  "success": true,
+  "text": "DECISION: UNCLEAR\nREASON: The initial reproducer provided in the issue has already been fixed. The remaining issue is described vaguely as \"there are some places in LowerToHW where we fail to use the moduleNamespace at all\", but no concrete reproducer, specific inputs, or code pointers are provided to identify or test these remaining cases."
+ },
+ "5789": {
+  "success": true,
+  "text": "BUG: The MLIR verifier does not validate inner symbols attached to module ports, allowing symbols with invalid or out-of-bounds field IDs for the port's type which later causes crashes in passes.\nEXPECTED: The verifier (likely via `HWModuleLike` or the inner symbol table trait) should check inner symbols on ports and reject those with field IDs that are invalid for the corresponding port type.\nDECISION: CLEAR"
+ },
+ "6226": {
+  "success": true,
+  "text": "BUG: The custom assembly parser for `hw.module` fails when a port specifies both an alphanumeric SSA name (e.g., `%b`) and a true name string attribute, even though numeric SSA names (`%0`) combined with true names work correctly.\nEXPECTED: The parser should successfully parse `hw.module` port definitions that contain both an alphanumeric SSA name and a true name string attribute.\nDECISION: CLEAR"
+ },
+ "6740": {
+  "success": true,
+  "text": "BUG: `firrtl.invalidvalue` of clock type lowers to an illegal `hw.bitcast` operation to `!seq.clock` during the `FIRRTLToHW` pass, violating the verifier.\nEXPECTED: The `FIRRTLToHW` pass should produce valid MLIR for invalid clock values, typically by materializing a zero constant and casting it using the correct `seq` dialect operation (like `seq.to_clock`) instead of `hw.bitcast`.\nDECISION: CLEAR"
+ },
+ "7127": {
+  "success": true,
+  "text": "This issue describes an enhancement or design discussion regarding how type aliases should be handled when the `const` qualifier is dropped. The reporter explicitly acknowledges that arguably the alias shouldn't be preserved when its underlying type is mutated, and poses preserving a non-const version of the alias as a \"reasonable case\" rather than a strict defect. This is a feature request/discussion, not a bug.\n\nDECISION: NOT_A_BUG\nREASON: The issue is a feature request or design proposal to change how the `DropConst` pass handles type aliases, rather than a defect where CIRCT behaves incorrectly or crashes. The reporter is asking whether the tool should preserve the alias by stripping the `const` from it, which is an enhancement to current behavior."
+ },
+ "7388": {
+  "success": true,
+  "text": "PART A \u2014 Is this actually a BUG?\nYes, this is a compiler crash (specifically, attempting to insert a null MLIR `Value` into an operand list) when processing valid FIRRTL input containing a 0-width enum payload.\n\nPART B \u2014 Are BOTH of these CLEAR?\n1. The Bug: `circt-opt --lower-firrtl-to-hw` crashes when lowering a `firrtl.enumcreate` op that has a 0-width payload (`!firrtl.uint<0>`). During lowering to HW, 0-width values are typically stripped, which likely results in a null value being passed into `hw.union_create`, triggering an MLIR operand assertion.\n2. The Correct Behavior: The compiler should successfully compile the circuit without crashing. The `LowerToHW` pass must properly handle 0-width enum payloads (e.g., by omitting the payload from the lowered union or handling the empty value correctly according to HW dialect's type conversion rules).\n\nBUG: `circt-opt --lower-firrtl-to-hw` crashes due to a null operand when lowering a `firrtl.enumcreate` operation that has a 0-width payload.\nEXPECTED: The pass should successfully lower the `firrtl.enumcreate` without crashing by correctly handling or stripping the 0-width payload according to the type conversion rules.\nDECISION: CLEAR"
+ },
+ "7531": {
+  "success": true,
+  "text": "DECISION: UNCLEAR\nREASON: While the assertion failure in `circt-opt -canonicalize` is clearly a bug, it is unclear what the correct resolution should be. The maintainers discuss multiple defensible fixes (e.g., rejecting it in the verifier, fixing an upstream MLIR canonicalization bug, or modifying an earlier pass that generates unreachable blocks), but there is no consensus on which component should be modified to handle or reject this IR, nor is a reproducer provided for the earlier pass that initially produced the unreachable block."
+ },
+ "7949": {
+  "success": true,
+  "text": "BUG: The `lower-dc-to-hw` pass incorrectly generates `esi.wrap.vr` operations with multiple uses when lowering certain valid DC constructs (like `dc.fork`), which violates the ESI dialect verifier.\nEXPECTED: The pass should successfully lower valid DC programs to HW/ESI without generating invalid IR, correctly managing channel uses so that `esi.wrap.vr` results have at most one use.\nDECISION: CLEAR"
+ },
+ "8508": {
+  "success": true,
+  "text": "DECISION: UNCLEAR\nREASON: The bug is clear (the compiler generates an illegal circuit or crashes with a `cast<FModuleOp>` assertion failure when the DUT is an `extmodule`), but the expected behavior is not. It is ambiguous whether `InjectDUTHierarchy` should be extended to support wrapping an `extmodule` (which would require a design decision on how to resolve the resulting Verilog `defname` conflicts) or if it should simply reject such inputs with a graceful diagnostic error. The reporter's hedging (\"I realize that this circuit is weird as the DUT is a blackbox\") further suggests the intended semantics for this edge case are unsettled."
+ },
+ "10104": {
+  "success": true,
+  "text": "An analysis of the issue shows this is a straightforward compiler bug where a pass incorrectly transforms valid MLIR into invalid MLIR. \n\nThe dominance error occurs because `firrtl-expand-whens` appears to be incorrectly reusing or caching values across separate `firrtl.layerblock` regions when processing intrinsics (likely due to structural hashing or a flawed mapping dictionary). Because the input FIRRTL is valid, the pass is required to properly handle and lower it.\n\nBUG: The `firrtl-expand-whens` pass produces invalid IR with a dominance error when processing a `when` block containing multiple `firrtl.layerblock` regions with identical intrinsics.\nEXPECTED: The pass should correctly expand the `when` condition across all operations inside the layerblocks, generating valid MLIR without cross-region dominance violations.\nDECISION: CLEAR"
+ },
+ "10571": {
+  "success": true,
+  "text": "DECISION: UNCLEAR\nREASON: The bug itself is clear: `HWAggregateToComb` fails to legalize `comb.mux` on `hw.union` types because it marks all aggregates as illegal but lacks a conversion pattern for unions. However, the correct behavior is unclear: it is an ambiguous design decision whether this pass should simply be updated to ignore unions (leaving the `comb.mux` intact, since untagged unions cannot be trivially split into independent concurrent fields like structs and arrays) or if it should be extended to lower the operation by bitcasting the unions to integers, muxing the integers, and bitcasting back."
+ }
+}

@@ -1,0 +1,3829 @@
+{
+ "cell": "llama2",
+ "tag": "bare_nocap",
+ "workloads": [
+  "llama2.c-llama2_7b.1"
+ ],
+ "arms": [
+  "council"
+ ],
+ "seeds": 2,
+ "first_seed": 0,
+ "budget": 60,
+ "bo_batch": 1,
+ "fidelity": [
+  1000000,
+  2000000
+ ],
+ "model": "gemini-3.1-pro-preview",
+ "soc": "nocap",
+ "chip": "F_next-a414",
+ "area_budget_kb": 9216,
+ "card": {
+  "frequency_ghz": 3.8,
+  "process_nm": 22,
+  "issue_width": 6,
+  "fetch_width": 8,
+  "rob": 384,
+  "lq": 160,
+  "sq": 96,
+  "channels": 2,
+  "data_rate": 4800,
+  "channel_width": 8,
+  "dram_peak_bytes_per_cycle": 20.210526315789473,
+  "dram_row_miss_cycles": 186.83333333333334,
+  "dram_row_hit_cycles": 63.333333333333336,
+  "area_budget_kb": 9216,
+  "area_budget_mm2": null,
+  "power_budget_w": null
+ },
+ "flags": {
+  "wave": 5,
+  "openings": 10,
+  "plateau": 20,
+  "chip_view": true,
+  "area_cap_mm2": null,
+  "power_cap_w": null,
+  "rounds": 0,
+  "bo_rounds": 0
+ },
+ "runs": {
+  "council": {
+   "0": {
+    "designs": [
+     {
+      "index": 0,
+      "round": 0,
+      "name": "F_next-a414_l1d_prefetcher-next_line_l1d_sets-64_l1d_ways-8_l2_mshr-32_l2_prefetcher-spp_dev_l2_replacement-srrip_l2_sets-1024_l2_ways-8_llc_mshr-128_llc_prefetcher-no_llc_replacement-srrip_llc_sets-2048_llc_ways-16",
+      "knobs": {
+       "l1d_sets": 64,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "next_line",
+       "l2_sets": 1024,
+       "l2_ways": 8,
+       "l2_prefetcher": "spp_dev",
+       "l2_replacement": "srrip",
+       "llc_sets": 2048,
+       "llc_ways": 16,
+       "llc_prefetcher": "no",
+       "llc_replacement": "srrip",
+       "l2_mshr": 32,
+       "llc_mshr": 128
+      },
+      "source": "stock",
+      "hypothesis": null,
+      "ipc": 0.9426680171923363,
+      "mm2": 3.066670538224,
+      "watts": 1.0954143686494195,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 0.9426680171923363,
+        "LLC_mpki": 8.940977647555881
+       }
+      }
+     },
+     {
+      "index": 1,
+      "round": 1,
+      "name": "F_next-a414_l1d_prefetcher-ip_stride_l1d_sets-64_l1d_ways-8_l2_mshr-32_l2_prefetcher-va_ampm_lite_l2_replacement-srrip_l2_sets-1024_l2_ways-8_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-srrip_llc_sets-8192_llc_ways-16",
+      "knobs": {
+       "l1d_sets": 64,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "ip_stride",
+       "l2_sets": 1024,
+       "l2_ways": 8,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "srrip",
+       "llc_sets": 8192,
+       "llc_ways": 16,
+       "llc_prefetcher": "spp_dev",
+       "llc_replacement": "srrip",
+       "l2_mshr": 32,
+       "llc_mshr": 128
+      },
+      "source": "council:opening",
+      "hypothesis": "L1D and L2 prefetchers are changed to address their near-zero accuracy and coverage, LLC capacity is increased to the chip limit of 8192 KB to capture more hits and reduce the 63% DRAM memory time, and a sophisticated prefetcher is added to the LLC to hide remaining DRAM latency.",
+      "ipc": 1.146153396509277,
+      "mm2": 9.459041644624,
+      "watts": 2.6232087460487294,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 1.146153396509277,
+        "LLC_mpki": 2.1584989207505396
+       }
+      }
+     },
+     {
+      "index": 2,
+      "round": 1,
+      "name": "F_next-a414_l1d_prefetcher-no_l1d_sets-256_l1d_ways-16_l2_mshr-32_l2_prefetcher-next_line_l2_replacement-drrip_l2_sets-1024_l2_ways-16_llc_mshr-32_llc_prefetcher-next_line_llc_replacement-srrip_llc_sets-4096_llc_ways-12",
+      "knobs": {
+       "l1d_sets": 256,
+       "l1d_ways": 16,
+       "l1d_prefetcher": "no",
+       "l2_sets": 1024,
+       "l2_ways": 16,
+       "l2_prefetcher": "next_line",
+       "l2_replacement": "drrip",
+       "llc_sets": 4096,
+       "llc_ways": 12,
+       "llc_prefetcher": "next_line",
+       "llc_replacement": "srrip",
+       "l2_mshr": 32,
+       "llc_mshr": 32
+      },
+      "source": "opening:random",
+      "hypothesis": null,
+      "ipc": 0.6503023579301407,
+      "mm2": 5.238170898828738,
+      "watts": 1.495306343746527,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 0.6503023579301407,
+        "LLC_mpki": 2.0969989515005243
+       }
+      }
+     },
+     {
+      "index": 3,
+      "round": 1,
+      "name": "F_next-a414_l1d_prefetcher-ip_stride_l1d_sets-256_l1d_ways-4_l2_mshr-16_l2_prefetcher-no_l2_replacement-drrip_l2_sets-4096_l2_ways-12_llc_mshr-128_llc_prefetcher-ip_stride_llc_replacement-ship_llc_sets-8192_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 256,
+       "l1d_ways": 4,
+       "l1d_prefetcher": "ip_stride",
+       "l2_sets": 4096,
+       "l2_ways": 12,
+       "l2_prefetcher": "no",
+       "l2_replacement": "drrip",
+       "llc_sets": 8192,
+       "llc_ways": 8,
+       "llc_prefetcher": "ip_stride",
+       "llc_replacement": "ship",
+       "l2_mshr": 16,
+       "llc_mshr": 128
+      },
+      "source": "opening:random",
+      "hypothesis": null,
+      "ipc": 0.7351311674196236,
+      "mm2": 8.147028512286738,
+      "watts": 2.8907521294919736,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 0.7351311674196236,
+        "LLC_mpki": 33.48594977107534
+       }
+      }
+     },
+     {
+      "index": 4,
+      "round": 1,
+      "name": "F_next-a414_l1d_prefetcher-no_l1d_sets-64_l1d_ways-8_l2_mshr-64_l2_prefetcher-va_ampm_lite_l2_replacement-drrip_l2_sets-256_l2_ways-16_llc_mshr-64_llc_prefetcher-next_line_llc_replacement-ship_llc_sets-8192_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 64,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "no",
+       "l2_sets": 256,
+       "l2_ways": 16,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "drrip",
+       "llc_sets": 8192,
+       "llc_ways": 8,
+       "llc_prefetcher": "next_line",
+       "llc_replacement": "ship",
+       "l2_mshr": 64,
+       "llc_mshr": 64
+      },
+      "source": "opening:random",
+      "hypothesis": null,
+      "ipc": 1.0373664391377415,
+      "mm2": 5.0210451452400005,
+      "watts": 1.389060101352642,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 1.0373664391377415,
+        "LLC_mpki": 2.104998947500526
+       }
+      }
+     },
+     {
+      "index": 5,
+      "round": 1,
+      "name": "F_next-a414_l1d_prefetcher-no_l1d_sets-32_l1d_ways-4_l2_mshr-16_l2_prefetcher-next_line_l2_replacement-lru_l2_sets-512_l2_ways-4_llc_mshr-32_llc_prefetcher-no_llc_replacement-lru_llc_sets-2048_llc_ways-4",
+      "knobs": {
+       "l1d_sets": 32,
+       "l1d_ways": 4,
+       "l1d_prefetcher": "no",
+       "l2_sets": 512,
+       "l2_ways": 4,
+       "l2_prefetcher": "next_line",
+       "l2_replacement": "lru",
+       "llc_sets": 2048,
+       "llc_ways": 4,
+       "llc_prefetcher": "no",
+       "llc_replacement": "lru",
+       "l2_mshr": 16,
+       "llc_mshr": 32
+      },
+      "source": "opening:random",
+      "hypothesis": null,
+      "ipc": 0.589431788040435,
+      "mm2": 0.8551506393478,
+      "watts": 0.2269145769834075,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 0.589431788040435,
+        "LLC_mpki": 0.5754997122501438
+       }
+      }
+     },
+     {
+      "index": 6,
+      "round": 1,
+      "name": "F_next-a414_l1d_prefetcher-next_line_l1d_sets-256_l1d_ways-8_l2_mshr-64_l2_prefetcher-spp_dev_l2_replacement-drrip_l2_sets-256_l2_ways-8_llc_mshr-32_llc_prefetcher-no_llc_replacement-ship_llc_sets-8192_llc_ways-12",
+      "knobs": {
+       "l1d_sets": 256,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "next_line",
+       "l2_sets": 256,
+       "l2_ways": 8,
+       "l2_prefetcher": "spp_dev",
+       "l2_replacement": "drrip",
+       "llc_sets": 8192,
+       "llc_ways": 12,
+       "llc_prefetcher": "no",
+       "llc_replacement": "ship",
+       "l2_mshr": 64,
+       "llc_mshr": 32
+      },
+      "source": "opening:random",
+      "hypothesis": null,
+      "ipc": 0.8866103552284168,
+      "mm2": 7.333559227058695,
+      "watts": 2.513991624677311,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 0.8866103552284168,
+        "LLC_mpki": 19.18845202886993
+       }
+      }
+     },
+     {
+      "index": 7,
+      "round": 1,
+      "name": "F_next-a414_l1d_prefetcher-ip_stride_l1d_sets-128_l1d_ways-4_l2_mshr-64_l2_prefetcher-next_line_l2_replacement-drrip_l2_sets-512_l2_ways-8_llc_mshr-64_llc_prefetcher-ip_stride_llc_replacement-srrip_llc_sets-8192_llc_ways-12",
+      "knobs": {
+       "l1d_sets": 128,
+       "l1d_ways": 4,
+       "l1d_prefetcher": "ip_stride",
+       "l2_sets": 512,
+       "l2_ways": 8,
+       "l2_prefetcher": "next_line",
+       "l2_replacement": "drrip",
+       "llc_sets": 8192,
+       "llc_ways": 12,
+       "llc_prefetcher": "ip_stride",
+       "llc_replacement": "srrip",
+       "l2_mshr": 64,
+       "llc_mshr": 64
+      },
+      "source": "opening:random",
+      "hypothesis": null,
+      "ipc": 0.8114619641975404,
+      "mm2": 7.328007138474694,
+      "watts": 1.9416407329580703,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 0.8114619641975404,
+        "LLC_mpki": 0.5654991517512724
+       }
+      }
+     },
+     {
+      "index": 8,
+      "round": 1,
+      "name": "F_next-a414_l1d_prefetcher-va_ampm_lite_l1d_sets-64_l1d_ways-4_l2_mshr-16_l2_prefetcher-next_line_l2_replacement-drrip_l2_sets-256_l2_ways-4_llc_mshr-64_llc_prefetcher-next_line_llc_replacement-ship_llc_sets-4096_llc_ways-16",
+      "knobs": {
+       "l1d_sets": 64,
+       "l1d_ways": 4,
+       "l1d_prefetcher": "va_ampm_lite",
+       "l2_sets": 256,
+       "l2_ways": 4,
+       "l2_prefetcher": "next_line",
+       "l2_replacement": "drrip",
+       "llc_sets": 4096,
+       "llc_ways": 16,
+       "llc_prefetcher": "next_line",
+       "llc_replacement": "ship",
+       "l2_mshr": 16,
+       "llc_mshr": 64
+      },
+      "source": "opening:random",
+      "hypothesis": null,
+      "ipc": 0.8670256440046508,
+      "mm2": 4.626651597684599,
+      "watts": 1.2192807720840684,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 0.8670256440046508,
+        "LLC_mpki": 0.5769997115001443
+       }
+      }
+     },
+     {
+      "index": 9,
+      "round": 1,
+      "name": "F_next-a414_l1d_prefetcher-va_ampm_lite_l1d_sets-64_l1d_ways-4_l2_mshr-64_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-512_l2_ways-16_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-srrip_llc_sets-2048_llc_ways-16",
+      "knobs": {
+       "l1d_sets": 64,
+       "l1d_ways": 4,
+       "l1d_prefetcher": "va_ampm_lite",
+       "l2_sets": 512,
+       "l2_ways": 16,
+       "l2_prefetcher": "next_line",
+       "l2_replacement": "ship",
+       "llc_sets": 2048,
+       "llc_ways": 16,
+       "llc_prefetcher": "spp_dev",
+       "llc_replacement": "srrip",
+       "l2_mshr": 64,
+       "llc_mshr": 128
+      },
+      "source": "opening:random",
+      "hypothesis": null,
+      "ipc": 1.0327852006233882,
+      "mm2": 2.9437785674106003,
+      "watts": 0.796235746877833,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 1.0327852006233882,
+        "LLC_mpki": 0.5714991427512859
+       }
+      }
+     },
+     {
+      "index": 10,
+      "round": 1,
+      "name": "F_next-a414_l1d_prefetcher-ip_stride_l1d_sets-64_l1d_ways-4_l2_mshr-64_l2_prefetcher-no_l2_replacement-srrip_l2_sets-1024_l2_ways-12_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-drrip_llc_sets-2048_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 64,
+       "l1d_ways": 4,
+       "l1d_prefetcher": "ip_stride",
+       "l2_sets": 1024,
+       "l2_ways": 12,
+       "l2_prefetcher": "no",
+       "l2_replacement": "srrip",
+       "llc_sets": 2048,
+       "llc_ways": 8,
+       "llc_prefetcher": "spp_dev",
+       "llc_replacement": "drrip",
+       "l2_mshr": 64,
+       "llc_mshr": 128
+      },
+      "source": "opening:random",
+      "hypothesis": null,
+      "ipc": 0.9461678603344793,
+      "mm2": 2.118841020997325,
+      "watts": 1.549853687205738,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 0.9461678603344793,
+        "LLC_mpki": 33.683449474825785
+       }
+      }
+     },
+     {
+      "index": 11,
+      "round": 2,
+      "name": "F_next-a414_l1d_prefetcher-no_l1d_sets-128_l1d_ways-4_l2_mshr-32_l2_prefetcher-va_ampm_lite_l2_replacement-srrip_l2_sets-1024_l2_ways-8_llc_mshr-128_llc_prefetcher-no_llc_replacement-srrip_llc_sets-8192_llc_ways-16",
+      "knobs": {
+       "l1d_sets": 128,
+       "l1d_ways": 4,
+       "l1d_prefetcher": "no",
+       "l2_sets": 1024,
+       "l2_ways": 8,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "srrip",
+       "llc_sets": 8192,
+       "llc_ways": 16,
+       "llc_prefetcher": "no",
+       "llc_replacement": "srrip",
+       "l2_mshr": 32,
+       "llc_mshr": 128
+      },
+      "source": "council:analyst",
+      "hypothesis": "['l1d_sets: Increased to 128 to maintain 32 KB capacity while allowing a reduction in ways.', 'l1d_ways: Reduced to 4 to drop the hit latency from 3 to 2 cycles, targeting the 49% memory time share.', 'l1d_prefetcher: Disabled because ip_stride provided 0.00 coverage and 0.00 accuracy in D1.', 'llc_prefetcher: Disabled because spp_dev provided 0.19 coverage and 0.00 accuracy in D1.']",
+      "ipc": 0.982961856222385,
+      "mm2": 9.343391958958,
+      "watts": 2.5479662721746035,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 0.982961856222385,
+        "LLC_mpki": 2.2449966325050514
+       }
+      }
+     },
+     {
+      "index": 12,
+      "round": 2,
+      "name": "F_next-a414_l1d_prefetcher-no_l1d_sets-64_l1d_ways-8_l2_mshr-32_l2_prefetcher-va_ampm_lite_l2_replacement-srrip_l2_sets-1024_l2_ways-8_llc_mshr-128_llc_prefetcher-no_llc_replacement-srrip_llc_sets-8192_llc_ways-16",
+      "knobs": {
+       "l1d_sets": 64,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "no",
+       "l2_sets": 1024,
+       "l2_ways": 8,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "srrip",
+       "llc_sets": 8192,
+       "llc_ways": 16,
+       "llc_prefetcher": "no",
+       "llc_replacement": "srrip",
+       "l2_mshr": 32,
+       "llc_mshr": 128
+      },
+      "source": "council:prefetch",
+      "hypothesis": "L1D ip_stride and LLC spp_dev are both failing with 0.00 accuracy, so removing them stops bandwidth waste while retaining the effective L2 va_ampm_lite prefetcher.",
+      "ipc": 0.9805719760093861,
+      "mm2": 9.459041644624,
+      "watts": 2.603539178682056,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 0.9805719760093861,
+        "LLC_mpki": 2.2624943437641405
+       }
+      }
+     },
+     {
+      "index": 13,
+      "round": 2,
+      "name": "F_next-a414_l1d_prefetcher-ip_stride_l1d_sets-128_l1d_ways-4_l2_mshr-32_l2_prefetcher-va_ampm_lite_l2_replacement-srrip_l2_sets-1024_l2_ways-8_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-srrip_llc_sets-8192_llc_ways-16",
+      "knobs": {
+       "l1d_sets": 128,
+       "l1d_ways": 4,
+       "l1d_prefetcher": "ip_stride",
+       "l2_sets": 1024,
+       "l2_ways": 8,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "srrip",
+       "llc_sets": 8192,
+       "llc_ways": 16,
+       "llc_prefetcher": "spp_dev",
+       "llc_replacement": "srrip",
+       "l2_mshr": 32,
+       "llc_mshr": 128
+      },
+      "source": "council:geometry",
+      "hypothesis": "Reducing L1D associativity to 4 ways and doubling the sets to 128 maintains the 32 KB capacity but lowers the hit latency from 3 to 2 cycles, directly addressing the L1D latency bottleneck.",
+      "ipc": 1.1512650657198678,
+      "mm2": 9.343391958958,
+      "watts": 2.560870425960482,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 1.1512650657198678,
+        "LLC_mpki": 2.15099677350484
+       }
+      }
+     },
+     {
+      "index": 14,
+      "round": 2,
+      "name": "F_next-a414_l1d_prefetcher-ip_stride_l1d_sets-64_l1d_ways-8_l2_mshr-32_l2_prefetcher-va_ampm_lite_l2_replacement-srrip_l2_sets-1024_l2_ways-8_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-ship_llc_sets-8192_llc_ways-16",
+      "knobs": {
+       "l1d_sets": 64,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "ip_stride",
+       "l2_sets": 1024,
+       "l2_ways": 8,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "srrip",
+       "llc_sets": 8192,
+       "llc_ways": 16,
+       "llc_prefetcher": "spp_dev",
+       "llc_replacement": "ship",
+       "l2_mshr": 32,
+       "llc_mshr": 128
+      },
+      "source": "council:replacement",
+      "hypothesis": "Since the LLC suffers from severe prefetch pollution (0.00 accuracy with high issue rates), changing the LLC replacement policy to SHiP can help predict reuse distance and mitigate the impact of dead prefetched lines, while keeping SRRIP at L2 where it already performs well.",
+      "ipc": 1.1483385592176618,
+      "mm2": 9.459041644624,
+      "watts": 2.6233568442790207,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 1.1483385592176618,
+        "LLC_mpki": 2.1494946262634342
+       }
+      }
+     },
+     {
+      "index": 15,
+      "round": 2,
+      "name": "F_next-a414_l1d_prefetcher-ip_stride_l1d_sets-64_l1d_ways-8_l2_mshr-64_l2_prefetcher-va_ampm_lite_l2_replacement-srrip_l2_sets-1024_l2_ways-8_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-srrip_llc_sets-8192_llc_ways-16",
+      "knobs": {
+       "l1d_sets": 64,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "ip_stride",
+       "l2_sets": 1024,
+       "l2_ways": 8,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "srrip",
+       "llc_sets": 8192,
+       "llc_ways": 16,
+       "llc_prefetcher": "spp_dev",
+       "llc_replacement": "srrip",
+       "l2_mshr": 64,
+       "llc_mshr": 128
+      },
+      "source": "council:concurrency",
+      "hypothesis": "L2C receives a high volume of prefetch requests (50.6/ki issued), which share MSHRs with demand misses; expanding L2 MSHRs to 64 can prevent stalls when the aggressive prefetcher is active, while keeping LLC MSHRs at 128 to sustain off-chip concurrency.",
+      "ipc": 1.1477820271197803,
+      "mm2": 9.459041644624,
+      "watts": 2.6206217189072896,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 1.1477820271197803,
+        "LLC_mpki": 2.144998927500536
+       }
+      }
+     },
+     {
+      "index": 16,
+      "round": 3,
+      "name": "F_next-a414_l1d_prefetcher-ip_stride_l1d_sets-128_l1d_ways-4_l2_mshr-64_l2_prefetcher-va_ampm_lite_l2_replacement-srrip_l2_sets-1024_l2_ways-8_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-ship_llc_sets-8192_llc_ways-16",
+      "knobs": {
+       "l1d_sets": 128,
+       "l1d_ways": 4,
+       "l1d_prefetcher": "ip_stride",
+       "l2_sets": 1024,
+       "l2_ways": 8,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "srrip",
+       "llc_sets": 8192,
+       "llc_ways": 16,
+       "llc_prefetcher": "spp_dev",
+       "llc_replacement": "ship",
+       "l2_mshr": 64,
+       "llc_mshr": 128
+      },
+      "source": "council:analyst",
+      "hypothesis": "Retains the best L1D/L2 geometry and prefetchers (D13), incorporates the proven ship replacement at LLC (D14), and keeps the higher L2 MSHR (D15) to maximize IPC.",
+      "ipc": 1.1513737595405564,
+      "mm2": 9.343391958958,
+      "watts": 2.55815445956713,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 1.1513737595405564,
+        "LLC_mpki": 2.130496804254794
+       }
+      }
+     },
+     {
+      "index": 17,
+      "round": 3,
+      "name": "F_next-a414_l1d_prefetcher-ip_stride_l1d_sets-128_l1d_ways-4_l2_mshr-32_l2_prefetcher-va_ampm_lite_l2_replacement-srrip_l2_sets-1024_l2_ways-16_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-srrip_llc_sets-8192_llc_ways-16",
+      "knobs": {
+       "l1d_sets": 128,
+       "l1d_ways": 4,
+       "l1d_prefetcher": "ip_stride",
+       "l2_sets": 1024,
+       "l2_ways": 16,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "srrip",
+       "llc_sets": 8192,
+       "llc_ways": 16,
+       "llc_prefetcher": "spp_dev",
+       "llc_replacement": "srrip",
+       "l2_mshr": 32,
+       "llc_mshr": 128
+      },
+      "source": "council:geometry",
+      "hypothesis": "Increasing L2 ways to 16 uses the remaining 512 KB of the area budget to capture more hits and reduce the volume of misses spilling into the LLC.",
+      "ipc": 1.1435748976788918,
+      "mm2": 9.839315376914001,
+      "watts": 2.719484236798719,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 1.1435748976788918,
+        "LLC_mpki": 2.1544946137634655
+       }
+      }
+     },
+     {
+      "index": 18,
+      "round": 3,
+      "name": "F_next-a414_l1d_prefetcher-ip_stride_l1d_sets-128_l1d_ways-4_l2_mshr-32_l2_prefetcher-va_ampm_lite_l2_replacement-srrip_l2_sets-1024_l2_ways-8_llc_mshr-64_llc_prefetcher-spp_dev_llc_replacement-srrip_llc_sets-8192_llc_ways-16",
+      "knobs": {
+       "l1d_sets": 128,
+       "l1d_ways": 4,
+       "l1d_prefetcher": "ip_stride",
+       "l2_sets": 1024,
+       "l2_ways": 8,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "srrip",
+       "llc_sets": 8192,
+       "llc_ways": 16,
+       "llc_prefetcher": "spp_dev",
+       "llc_replacement": "srrip",
+       "l2_mshr": 32,
+       "llc_mshr": 64
+      },
+      "source": "council:concurrency",
+      "hypothesis": "Since memory bandwidth is only 23% utilized and off-chip traffic is low, the LLC is overprovisioned with 128 MSHRs and can be reduced to 64 without bottlenecking memory-level parallelism.",
+      "ipc": 1.1512650657198678,
+      "mm2": 9.343391958958,
+      "watts": 2.560870425960482,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 1.1512650657198678,
+        "LLC_mpki": 2.15099677350484
+       }
+      }
+     },
+     {
+      "index": 19,
+      "round": 4,
+      "name": "F_next-a414_l1d_prefetcher-no_l1d_sets-128_l1d_ways-4_l2_mshr-64_l2_prefetcher-va_ampm_lite_l2_replacement-srrip_l2_sets-1024_l2_ways-8_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-ship_llc_sets-8192_llc_ways-16",
+      "knobs": {
+       "l1d_sets": 128,
+       "l1d_ways": 4,
+       "l1d_prefetcher": "no",
+       "l2_sets": 1024,
+       "l2_ways": 8,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "srrip",
+       "llc_sets": 8192,
+       "llc_ways": 16,
+       "llc_prefetcher": "spp_dev",
+       "llc_replacement": "ship",
+       "l2_mshr": 64,
+       "llc_mshr": 128
+      },
+      "source": "council:prefetch",
+      "hypothesis": "The L1D ip_stride prefetcher shows zero coverage and accuracy, so disabling it removes useless activity while retaining the effective prefetchers at L2 and LLC.",
+      "ipc": 1.1513238752313435,
+      "mm2": 9.343391958958,
+      "watts": 2.5587256719652243,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 1.1513238752313435,
+        "LLC_mpki": 2.144994637513406
+       }
+      }
+     },
+     {
+      "index": 20,
+      "round": 4,
+      "name": "F_next-a414_l1d_prefetcher-ip_stride_l1d_sets-128_l1d_ways-4_l2_mshr-64_l2_prefetcher-va_ampm_lite_l2_replacement-ship_l2_sets-1024_l2_ways-8_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-ship_llc_sets-8192_llc_ways-16",
+      "knobs": {
+       "l1d_sets": 128,
+       "l1d_ways": 4,
+       "l1d_prefetcher": "ip_stride",
+       "l2_sets": 1024,
+       "l2_ways": 8,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "ship",
+       "llc_sets": 8192,
+       "llc_ways": 16,
+       "llc_prefetcher": "spp_dev",
+       "llc_replacement": "ship",
+       "l2_mshr": 64,
+       "llc_mshr": 128
+      },
+      "source": "council:replacement",
+      "hypothesis": "Since SHiP already improved hit rates at the LLC, applying it to the L2 could better predict reuse distances and manage the cache pollution from the active L2 prefetcher.",
+      "ipc": 1.1511320514716927,
+      "mm2": 9.343391958958,
+      "watts": 2.558298371910844,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 1.1511320514716927,
+        "LLC_mpki": 2.1454989272505363
+       }
+      }
+     },
+     {
+      "index": 21,
+      "round": 5,
+      "name": "F_next-a414_l1d_prefetcher-ip_stride_l1d_sets-256_l1d_ways-4_l2_mshr-64_l2_prefetcher-va_ampm_lite_l2_replacement-srrip_l2_sets-1024_l2_ways-8_llc_mshr-128_llc_prefetcher-no_llc_replacement-ship_llc_sets-8192_llc_ways-16",
+      "knobs": {
+       "l1d_sets": 256,
+       "l1d_ways": 4,
+       "l1d_prefetcher": "ip_stride",
+       "l2_sets": 1024,
+       "l2_ways": 8,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "srrip",
+       "llc_sets": 8192,
+       "llc_ways": 16,
+       "llc_prefetcher": "no",
+       "llc_replacement": "ship",
+       "l2_mshr": 64,
+       "llc_mshr": 128
+      },
+      "source": "council:analyst",
+      "hypothesis": "['l1d_sets: Increased to 256 to double L1D capacity to 64KB without increasing the 2-cycle hit latency, addressing the 40% memory time share.', 'llc_prefetcher: Disabled because spp_dev issues 478.7/ki prefetches with 0.00 accuracy, polluting the cache.']",
+      "ipc": 0.9829541265826767,
+      "mm2": 9.369149504862,
+      "watts": 2.5530936520707965,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 0.9829541265826767,
+        "LLC_mpki": 2.234996647505029
+       }
+      }
+     },
+     {
+      "index": 22,
+      "round": 5,
+      "name": "F_next-a414_l1d_prefetcher-ip_stride_l1d_sets-128_l1d_ways-4_l2_mshr-64_l2_prefetcher-va_ampm_lite_l2_replacement-srrip_l2_sets-1024_l2_ways-8_llc_mshr-128_llc_prefetcher-no_llc_replacement-ship_llc_sets-8192_llc_ways-16",
+      "knobs": {
+       "l1d_sets": 128,
+       "l1d_ways": 4,
+       "l1d_prefetcher": "ip_stride",
+       "l2_sets": 1024,
+       "l2_ways": 8,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "srrip",
+       "llc_sets": 8192,
+       "llc_ways": 16,
+       "llc_prefetcher": "no",
+       "llc_replacement": "ship",
+       "l2_mshr": 64,
+       "llc_mshr": 128
+      },
+      "source": "council:prefetch",
+      "hypothesis": "Removing the LLC prefetcher tests the analyst's hypothesis that eliminating its high volume of inaccurate issues will reduce DRAM contention and LLC miss latency, while keeping the L1D and L2 prefetchers that have proven beneficial.",
+      "ipc": 0.982961856222385,
+      "mm2": 9.343391958958,
+      "watts": 2.5433425081045677,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 0.982961856222385,
+        "LLC_mpki": 2.234996647505029
+       }
+      }
+     },
+     {
+      "index": 23,
+      "round": 5,
+      "name": "F_next-a414_l1d_prefetcher-ip_stride_l1d_sets-256_l1d_ways-4_l2_mshr-64_l2_prefetcher-va_ampm_lite_l2_replacement-srrip_l2_sets-1024_l2_ways-8_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-ship_llc_sets-8192_llc_ways-16",
+      "knobs": {
+       "l1d_sets": 256,
+       "l1d_ways": 4,
+       "l1d_prefetcher": "ip_stride",
+       "l2_sets": 1024,
+       "l2_ways": 8,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "srrip",
+       "llc_sets": 8192,
+       "llc_ways": 16,
+       "llc_prefetcher": "spp_dev",
+       "llc_replacement": "ship",
+       "l2_mshr": 64,
+       "llc_mshr": 128
+      },
+      "source": "council:geometry",
+      "hypothesis": "L1D is capacity-bound and accounts for 40% of memory time; doubling its capacity to 64 KB via 256 sets at 4 ways maintains the 2-cycle hit latency while reducing misses.",
+      "ipc": 1.1505886684558275,
+      "mm2": 9.369149504862,
+      "watts": 2.568161242285742,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 1.1505886684558275,
+        "LLC_mpki": 2.1419946450133875
+       }
+      }
+     },
+     {
+      "index": 24,
+      "round": 6,
+      "name": "F_next-a414_l1d_prefetcher-ip_stride_l1d_sets-128_l1d_ways-4_l2_mshr-64_l2_prefetcher-va_ampm_lite_l2_replacement-srrip_l2_sets-512_l2_ways-8_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-ship_llc_sets-8192_llc_ways-16",
+      "knobs": {
+       "l1d_sets": 128,
+       "l1d_ways": 4,
+       "l1d_prefetcher": "ip_stride",
+       "l2_sets": 512,
+       "l2_ways": 8,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "srrip",
+       "llc_sets": 8192,
+       "llc_ways": 16,
+       "llc_prefetcher": "spp_dev",
+       "llc_replacement": "ship",
+       "l2_mshr": 64,
+       "llc_mshr": 128
+      },
+      "source": "council:geometry",
+      "hypothesis": "With the LLC already at its maximum capacity to mitigate the severe DRAM bottleneck, L2 capacity can be halved to 256 KB to reduce its hit latency from 4 to 3 cycles, as its misses are well covered by prefetchers.",
+      "ipc": 1.1518019320277306,
+      "mm2": 9.048760310634,
+      "watts": 2.4845949473508733,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 1.1518019320277306,
+        "LLC_mpki": 2.1264946837632905
+       }
+      }
+     },
+     {
+      "index": 25,
+      "round": 7,
+      "name": "F_next-a414_l1d_prefetcher-ip_stride_l1d_sets-128_l1d_ways-4_l2_mshr-64_l2_prefetcher-va_ampm_lite_l2_replacement-srrip_l2_sets-256_l2_ways-4_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-ship_llc_sets-8192_llc_ways-16",
+      "knobs": {
+       "l1d_sets": 128,
+       "l1d_ways": 4,
+       "l1d_prefetcher": "ip_stride",
+       "l2_sets": 256,
+       "l2_ways": 4,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "srrip",
+       "llc_sets": 8192,
+       "llc_ways": 16,
+       "llc_prefetcher": "spp_dev",
+       "llc_replacement": "ship",
+       "l2_mshr": 64,
+       "llc_mshr": 128
+      },
+      "source": "council:geometry",
+      "hypothesis": "L2C is latency-heavy; shrinking it to 64 KB (256 sets, 4 ways) reduces its hit latency from 3 to 2 cycles, accelerating the path to LLC and memory for its misses.",
+      "ipc": 1.1373805823266108,
+      "mm2": 8.761717393079,
+      "watts": 2.442609912766117,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 1.1373805823266108,
+        "LLC_mpki": 2.1349967975048036
+       }
+      }
+     },
+     {
+      "index": 26,
+      "round": 8,
+      "name": "F_next-a414_l1d_prefetcher-va_ampm_lite_l1d_sets-128_l1d_ways-4_l2_mshr-64_l2_prefetcher-va_ampm_lite_l2_replacement-srrip_l2_sets-512_l2_ways-8_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-ship_llc_sets-8192_llc_ways-16",
+      "knobs": {
+       "l1d_sets": 128,
+       "l1d_ways": 4,
+       "l1d_prefetcher": "va_ampm_lite",
+       "l2_sets": 512,
+       "l2_ways": 8,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "srrip",
+       "llc_sets": 8192,
+       "llc_ways": 16,
+       "llc_prefetcher": "spp_dev",
+       "llc_replacement": "ship",
+       "l2_mshr": 64,
+       "llc_mshr": 128
+      },
+      "source": "council:analyst",
+      "hypothesis": "Switching l1d_prefetcher to va_ampm_lite to address the failing ip_stride prefetcher that provides 0.00 coverage and accuracy, while maintaining the rest of the best-performing D24 configuration.",
+      "ipc": 1.1512410347328552,
+      "mm2": 9.048760310634,
+      "watts": 2.4799694477031533,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 1.1512410347328552,
+        "LLC_mpki": 2.096994757513106
+       }
+      }
+     }
+    ],
+    "rounds": [
+     {
+      "round": 2,
+      "mode": "climb",
+      "against": 1,
+      "sheet": {
+       "levels": {
+        "L1D": {
+         "verdict": "latency-heavy",
+         "number": "0.49"
+        },
+        "L2C": {
+         "verdict": "fine",
+         "number": "0.09"
+        },
+        "LLC": {
+         "verdict": "prefetch-polluting",
+         "number": "0.03"
+        }
+       },
+       "bottleneck": {
+        "level": "L1D",
+        "cause": "L1D hits take 3 cycles to serve, dominating the memory time.",
+        "evidence": "L1D hits consume 49% of the memory time with a hit latency of 3 cycles."
+       },
+       "learned": [],
+       "unattributable": [
+        "D1: l1d_prefetcher, l2_prefetcher, llc_prefetcher, llc_sets",
+        "D2: l1d_prefetcher, l1d_sets, l1d_ways, l2_prefetcher, l2_replacement, l2_ways, llc_mshr, llc_prefetcher, llc_sets, llc_ways",
+        "D3: l1d_prefetcher, l1d_sets, l1d_ways, l2_mshr, l2_prefetcher, l2_replacement, l2_sets, l2_ways, llc_prefetcher, llc_replacement, llc_sets, llc_ways",
+        "D4: l1d_prefetcher, l2_mshr, l2_prefetcher, l2_replacement, l2_sets, l2_ways, llc_mshr, llc_prefetcher, llc_replacement, llc_sets, llc_ways",
+        "D5: l1d_prefetcher, l1d_sets, l1d_ways, l2_mshr, l2_prefetcher, l2_replacement, l2_sets, l2_ways, llc_mshr, llc_replacement, llc_ways",
+        "D6: l1d_sets, l2_mshr, l2_replacement, l2_sets, llc_mshr, llc_replacement, llc_sets, llc_ways",
+        "D7: l1d_prefetcher, l1d_sets, l1d_ways, l2_mshr, l2_prefetcher, l2_replacement, l2_sets, llc_mshr, llc_prefetcher, llc_sets, llc_ways",
+        "D8: l1d_prefetcher, l1d_ways, l2_mshr, l2_prefetcher, l2_replacement, l2_sets, l2_ways, llc_mshr, llc_prefetcher, llc_replacement, llc_sets"
+       ],
+       "failing": [
+        "l1d_prefetcher with 0.00 coverage and 0.00 accuracy (3 alternatives measured)",
+        "llc_prefetcher with 0.19 coverage and 0.00 accuracy (3 alternatives measured)"
+       ],
+       "hypothesis": "Reducing L1D hit latency from 3 to 2 cycles will decrease the L1D memory time share below 49%.",
+       "design": {
+        "l1d_sets": 128,
+        "l1d_ways": 4,
+        "l1d_prefetcher": "no",
+        "l2_sets": 1024,
+        "l2_ways": 8,
+        "l2_prefetcher": "va_ampm_lite",
+        "l2_replacement": "srrip",
+        "llc_sets": 8192,
+        "llc_ways": 16,
+        "llc_prefetcher": "no",
+        "llc_replacement": "srrip",
+        "l2_mshr": 32,
+        "llc_mshr": 128
+       },
+       "design_reasoning": "['l1d_sets: Increased to 128 to maintain 32 KB capacity while allowing a reduction in ways.', 'l1d_ways: Reduced to 4 to drop the hit latency from 3 to 2 cycles, targeting the 49% memory time share.', 'l1d_prefetcher: Disabled because ip_stride provided 0.00 coverage and 0.00 accuracy in D1.', 'llc_prefetcher: Disabled because spp_dev provided 0.19 coverage and 0.00 accuracy in D1.']"
+      },
+      "sweep": null,
+      "proposals": {
+       "analyst": {
+        "knobs": {
+         "l1d_sets": 128,
+         "l1d_ways": 4,
+         "l1d_prefetcher": "no",
+         "llc_prefetcher": "no"
+        },
+        "reasoning": "['l1d_sets: Increased to 128 to maintain 32 KB capacity while allowing a reduction in ways.', 'l1d_ways: Reduced to 4 to drop the hit latency from 3 to 2 cycles, targeting the 49% memory time share.', 'l1d_prefetcher: Disabled because ip_stride provided 0.00 coverage and 0.00 accuracy in D1.', 'llc_prefetcher: Disabled because spp_dev provided 0.19 coverage and 0.00 accuracy in D1.']"
+       },
+       "prefetch": {
+        "knobs": {
+         "l1d_prefetcher": "no",
+         "l2_prefetcher": "va_ampm_lite",
+         "llc_prefetcher": "no"
+        },
+        "reasoning": "L1D ip_stride and LLC spp_dev are both failing with 0.00 accuracy, so removing them stops bandwidth waste while retaining the effective L2 va_ampm_lite prefetcher."
+       },
+       "geometry": {
+        "knobs": {
+         "l1d_sets": 128,
+         "l1d_ways": 4,
+         "l2_sets": 1024,
+         "l2_ways": 8,
+         "llc_sets": 8192,
+         "llc_ways": 16
+        },
+        "reasoning": "Reducing L1D associativity to 4 ways and doubling the sets to 128 maintains the 32 KB capacity but lowers the hit latency from 3 to 2 cycles, directly addressing the L1D latency bottleneck."
+       },
+       "replacement": {
+        "knobs": {
+         "l2_replacement": "srrip",
+         "llc_replacement": "ship"
+        },
+        "reasoning": "Since the LLC suffers from severe prefetch pollution (0.00 accuracy with high issue rates), changing the LLC replacement policy to SHiP can help predict reuse distance and mitigate the impact of dead prefetched lines, while keeping SRRIP at L2 where it already performs well."
+       },
+       "concurrency": {
+        "knobs": {
+         "l2_mshr": 64,
+         "llc_mshr": 128
+        },
+        "reasoning": "L2C receives a high volume of prefetch requests (50.6/ki issued), which share MSHRs with demand misses; expanding L2 MSHRs to 64 can prevent stalls when the aggressive prefetcher is active, while keeping LLC MSHRs at 128 to sustain off-chip concurrency."
+       }
+      },
+      "moves": {
+       "analyst": {
+        "l1d_sets": [
+         64,
+         128
+        ],
+        "l1d_ways": [
+         8,
+         4
+        ],
+        "l1d_prefetcher": [
+         "ip_stride",
+         "no"
+        ],
+        "llc_prefetcher": [
+         "spp_dev",
+         "no"
+        ]
+       },
+       "prefetch": {
+        "l1d_prefetcher": [
+         "ip_stride",
+         "no"
+        ],
+        "llc_prefetcher": [
+         "spp_dev",
+         "no"
+        ]
+       },
+       "geometry": {
+        "l1d_sets": [
+         64,
+         128
+        ],
+        "l1d_ways": [
+         8,
+         4
+        ]
+       },
+       "replacement": {
+        "llc_replacement": [
+         "srrip",
+         "ship"
+        ]
+       },
+       "concurrency": {
+        "l2_mshr": [
+         32,
+         64
+        ]
+       }
+      },
+      "include": [
+       "geometry"
+      ],
+      "hypothesis": "",
+      "probes": {
+       "rung": [
+        1000000,
+        2000000
+       ],
+       "incumbent": 1.146153396509277,
+       "parts": {
+        "analyst": -0.16319154028689198,
+        "prefetch": -0.16558142049989089,
+        "geometry": 0.005111669210590808,
+        "replacement": 0.002185162708384869,
+        "concurrency": 0.0016286306105033344
+       },
+       "failed": [],
+       "refused": {},
+       "pairs": {}
+      }
+     },
+     {
+      "round": 3,
+      "mode": "climb",
+      "against": 13,
+      "sheet": {
+       "levels": {
+        "L1D": {
+         "verdict": "latency-heavy",
+         "number": "0.39"
+        },
+        "L2C": {
+         "verdict": "fine",
+         "number": "0.16"
+        },
+        "LLC": {
+         "verdict": "fine",
+         "number": "0.02"
+        }
+       },
+       "bottleneck": {
+        "level": "DRAM",
+        "cause": "Misses past the last level incur high latency relative to idle memory, making off-chip wait time the largest component of memory time.",
+        "evidence": "DRAM holds 44% of memory time; a miss costs 205 cycles vs 187 for idle DRAM."
+       },
+       "learned": [
+        "llc_replacement srrip->ship: +0.0022 (D14 vs D1); LLC hit ratio slightly improved or latency hidden better.",
+        "l2_mshr 32->64: +0.0016 (D15 vs D1); increased concurrency allowed more in-flight misses."
+       ],
+       "unattributable": [
+        "D1: l1d_prefetcher, l2_prefetcher, llc_prefetcher, llc_sets",
+        "D2: l1d_prefetcher, l1d_sets, l1d_ways, l2_prefetcher, l2_replacement, l2_ways, llc_mshr, llc_prefetcher, llc_sets, llc_ways",
+        "D3: l1d_prefetcher, l1d_sets, l1d_ways, l2_mshr, l2_prefetcher, l2_replacement, l2_sets, l2_ways, llc_prefetcher, llc_replacement, llc_sets, llc_ways",
+        "D4: l1d_prefetcher, l2_mshr, l2_prefetcher, l2_replacement, l2_sets, l2_ways, llc_mshr, llc_prefetcher, llc_replacement, llc_sets, llc_ways",
+        "D5: l1d_prefetcher, l1d_sets, l1d_ways, l2_mshr, l2_prefetcher, l2_replacement, l2_sets, l2_ways, llc_mshr, llc_replacement, llc_ways",
+        "D6: l1d_sets, l2_mshr, l2_replacement, l2_sets, llc_mshr, llc_replacement, llc_sets, llc_ways",
+        "D7: l1d_prefetcher, l1d_sets, l1d_ways, l2_mshr, l2_prefetcher, l2_replacement, l2_sets, llc_mshr, llc_prefetcher, llc_sets, llc_ways",
+        "D8: l1d_prefetcher, l1d_ways, l2_mshr, l2_prefetcher, l2_replacement, l2_sets, l2_ways, llc_mshr, llc_prefetcher, llc_replacement, llc_sets"
+       ],
+       "failing": [
+        "llc_mshr: 128 is highly provisioned but memory bandwidth is only 23% utilized, tested 3 alternatives"
+       ],
+       "hypothesis": "Increasing LLC replacement to ship will reduce LLC miss share and DRAM time share below 44%.",
+       "design": {
+        "l1d_sets": 128,
+        "l1d_ways": 4,
+        "l1d_prefetcher": "ip_stride",
+        "l2_sets": 1024,
+        "l2_ways": 8,
+        "l2_prefetcher": "va_ampm_lite",
+        "l2_replacement": "srrip",
+        "llc_sets": 8192,
+        "llc_ways": 16,
+        "llc_prefetcher": "spp_dev",
+        "llc_replacement": "ship",
+        "l2_mshr": 64,
+        "llc_mshr": 128
+       },
+       "design_reasoning": "Retains the best L1D/L2 geometry and prefetchers (D13), incorporates the proven ship replacement at LLC (D14), and keeps the higher L2 MSHR (D15) to maximize IPC."
+      },
+      "sweep": null,
+      "proposals": {
+       "analyst": {
+        "knobs": {
+         "llc_replacement": "ship",
+         "l2_mshr": 64
+        },
+        "reasoning": "Retains the best L1D/L2 geometry and prefetchers (D13), incorporates the proven ship replacement at LLC (D14), and keeps the higher L2 MSHR (D15) to maximize IPC."
+       },
+       "geometry": {
+        "knobs": {
+         "l1d_sets": 128,
+         "l1d_ways": 4,
+         "l2_sets": 1024,
+         "l2_ways": 16,
+         "llc_sets": 8192,
+         "llc_ways": 16
+        },
+        "reasoning": "Increasing L2 ways to 16 uses the remaining 512 KB of the area budget to capture more hits and reduce the volume of misses spilling into the LLC."
+       },
+       "concurrency": {
+        "knobs": {
+         "l2_mshr": 32,
+         "llc_mshr": 64
+        },
+        "reasoning": "Since memory bandwidth is only 23% utilized and off-chip traffic is low, the LLC is overprovisioned with 128 MSHRs and can be reduced to 64 without bottlenecking memory-level parallelism."
+       }
+      },
+      "moves": {
+       "analyst": {
+        "llc_replacement": [
+         "srrip",
+         "ship"
+        ],
+        "l2_mshr": [
+         32,
+         64
+        ]
+       },
+       "geometry": {
+        "l2_ways": [
+         8,
+         16
+        ]
+       },
+       "concurrency": {
+        "llc_mshr": [
+         128,
+         64
+        ]
+       }
+      },
+      "include": [
+       "analyst"
+      ],
+      "hypothesis": "",
+      "probes": {
+       "rung": [
+        1000000,
+        2000000
+       ],
+       "incumbent": 1.1512650657198678,
+       "parts": {
+        "analyst": 0.00010869382068867672,
+        "geometry": -0.007690168040975998,
+        "concurrency": 0.0
+       },
+       "failed": [],
+       "refused": {},
+       "pairs": {}
+      }
+     },
+     {
+      "round": 4,
+      "mode": "climb",
+      "against": 16,
+      "sheet": {
+       "levels": {
+        "L1D": {
+         "verdict": "latency-heavy",
+         "number": "0.4"
+        },
+        "L2C": {
+         "verdict": "fine",
+         "number": "0.16"
+        },
+        "LLC": {
+         "verdict": "fine",
+         "number": "0.01"
+        }
+       },
+       "bottleneck": {
+        "level": "DRAM",
+        "cause": "High miss rate past the last level cache leads to significant time spent waiting for memory.",
+        "evidence": "DRAM memory time share is 44%, off-chip traffic is 4.66 B/cy (23% of channel capacity), and a miss past LLC costs 205 cycles."
+       },
+       "learned": [
+        "LLC mshr 128 to 64: +0.0000 (D18 vs D13); no impact on IPC, suggesting 64 MSHRs are sufficient for current memory concurrency.",
+        "L2 ways 8 to 16: -0.0077 (D17 vs D13); IPC dropped, likely because the larger L2 capacity increased hit latency without saving enough misses.",
+        "LLC replacement srrip to ship: +0.0022 (D14 vs D1); minor IPC gain, showing ship slightly improves LLC hit rates over srrip.",
+        "L2 mshr 32 to 64: +0.0016 (D15 vs D1); slight IPC improvement, indicating L2 benefits marginally from more concurrency."
+       ],
+       "unattributable": [
+        "D1",
+        "D2",
+        "D3",
+        "D4",
+        "D5",
+        "D6",
+        "D7",
+        "D8"
+       ],
+       "failing": [
+        "l1d_prefetcher: prefetch cov 0.00 acc 0.00, 3 alternatives measured",
+        "llc_prefetcher: prefetch cov 0.20 acc 0.00, 3 alternatives measured"
+       ],
+       "hypothesis": "Changing the LLC replacement policy to ship while holding all other knobs constant will reduce the LLC miss share below 0.83.",
+       "design": {
+        "l1d_sets": 128,
+        "l1d_ways": 4,
+        "l1d_prefetcher": "ip_stride",
+        "l2_sets": 1024,
+        "l2_ways": 8,
+        "l2_prefetcher": "va_ampm_lite",
+        "l2_replacement": "srrip",
+        "llc_sets": 8192,
+        "llc_ways": 16,
+        "llc_prefetcher": "spp_dev",
+        "llc_replacement": "ship",
+        "l2_mshr": 64,
+        "llc_mshr": 64
+       },
+       "design_reasoning": "['llc_mshr is set to 64 because D18 showed it performs equally to 128 without losing IPC.', 'llc_replacement is set to ship as D14 showed it provides a slight IPC gain over srrip.']"
+      },
+      "sweep": null,
+      "proposals": {
+       "prefetch": {
+        "knobs": {
+         "l1d_prefetcher": "no",
+         "l2_prefetcher": "va_ampm_lite",
+         "llc_prefetcher": "spp_dev"
+        },
+        "reasoning": "The L1D ip_stride prefetcher shows zero coverage and accuracy, so disabling it removes useless activity while retaining the effective prefetchers at L2 and LLC."
+       },
+       "replacement": {
+        "knobs": {
+         "l2_replacement": "ship",
+         "llc_replacement": "ship"
+        },
+        "reasoning": "Since SHiP already improved hit rates at the LLC, applying it to the L2 could better predict reuse distances and manage the cache pollution from the active L2 prefetcher."
+       }
+      },
+      "moves": {
+       "prefetch": {
+        "l1d_prefetcher": [
+         "ip_stride",
+         "no"
+        ]
+       },
+       "replacement": {
+        "l2_replacement": [
+         "srrip",
+         "ship"
+        ]
+       }
+      },
+      "include": [],
+      "hypothesis": "",
+      "probes": {
+       "rung": [
+        1000000,
+        2000000
+       ],
+       "incumbent": 1.1513737595405564,
+       "parts": {
+        "prefetch": -4.9884309212933076e-05,
+        "replacement": -0.00024170806886369967
+       },
+       "failed": [],
+       "refused": {},
+       "pairs": {}
+      }
+     },
+     {
+      "round": 5,
+      "mode": "climb",
+      "against": 16,
+      "sheet": {
+       "levels": {
+        "L1D": {
+         "verdict": "capacity-bound",
+         "number": "40%"
+        },
+        "L2C": {
+         "verdict": "latency-heavy",
+         "number": "16%"
+        },
+        "LLC": {
+         "verdict": "prefetch-polluting",
+         "number": "1%"
+        }
+       },
+       "bottleneck": {
+        "level": "DRAM",
+        "cause": "Off-chip accesses dominate memory service time with high latency despite open channels.",
+        "evidence": "DRAM holds 44% of memory time; a miss past LLC costs 205 cycles versus 187 for idle DRAM."
+       },
+       "learned": [
+        "llc_replacement srrip->ship: +0.0022 (D14 vs D1); LLC miss share 0.83.",
+        "l2_mshr 32->64: +0.0016 (D15 vs D1); supports more concurrent misses.",
+        "l2_ways 8->16: -0.0077 (D17 vs D13); increased capacity likely penalized hit latency without proportional miss reduction.",
+        "llc_mshr 128->64: +0.0000 (D18 vs D13); reducing LLC concurrency did not affect objective.",
+        "l1d_prefetcher ip_stride->no: -0.0001 (D19 vs D16); despite 0.00 accuracy counter, removing it resulted in a measurable IPC loss.",
+        "l2_replacement srrip->ship: -0.0002 (D20 vs D16); L2 miss share remained 0.23."
+       ],
+       "unattributable": [
+        "D1: l1d_prefetcher, l2_prefetcher, llc_prefetcher, llc_sets",
+        "D2: l1d_prefetcher, l1d_sets, l1d_ways, l2_prefetcher, l2_replacement, l2_ways, llc_mshr, llc_prefetcher, llc_sets, llc_ways",
+        "D3: l1d_prefetcher, l1d_sets, l1d_ways, l2_mshr, l2_prefetcher, l2_replacement, l2_sets, l2_ways, llc_prefetcher, llc_replacement, llc_sets, llc_ways",
+        "D4: l1d_prefetcher, l2_mshr, l2_prefetcher, l2_replacement, l2_sets, l2_ways, llc_mshr, llc_prefetcher, llc_replacement, llc_sets, llc_ways",
+        "D5: l1d_prefetcher, l1d_sets, l1d_ways, l2_mshr, l2_prefetcher, l2_replacement, l2_sets, l2_ways, llc_mshr, llc_replacement, llc_ways",
+        "D6: l1d_sets, l2_mshr, l2_replacement, l2_sets, llc_mshr, llc_replacement, llc_sets, llc_ways",
+        "D7: l1d_prefetcher, l1d_sets, l1d_ways, l2_mshr, l2_prefetcher, l2_replacement, l2_sets, llc_mshr, llc_prefetcher, llc_sets, llc_ways",
+        "D8: l1d_prefetcher, l1d_ways, l2_mshr, l2_prefetcher, l2_replacement, l2_sets, l2_ways, llc_mshr, llc_prefetcher, llc_replacement, llc_sets"
+       ],
+       "failing": [
+        "llc_prefetcher: accuracy is 0.00 with 478.7/ki issued, 3 alternatives measured."
+       ],
+       "hypothesis": "Changing llc_prefetcher to no will reduce LLC prefetch issued to 0.0/ki and decrease LLC miss latency.",
+       "design": {
+        "l1d_sets": 256,
+        "l1d_ways": 4,
+        "l1d_prefetcher": "ip_stride",
+        "l2_sets": 1024,
+        "l2_ways": 8,
+        "l2_prefetcher": "va_ampm_lite",
+        "l2_replacement": "srrip",
+        "llc_sets": 8192,
+        "llc_ways": 16,
+        "llc_prefetcher": "no",
+        "llc_replacement": "ship",
+        "l2_mshr": 64,
+        "llc_mshr": 128
+       },
+       "design_reasoning": "['l1d_sets: Increased to 256 to double L1D capacity to 64KB without increasing the 2-cycle hit latency, addressing the 40% memory time share.', 'llc_prefetcher: Disabled because spp_dev issues 478.7/ki prefetches with 0.00 accuracy, polluting the cache.']"
+      },
+      "sweep": null,
+      "proposals": {
+       "analyst": {
+        "knobs": {
+         "l1d_sets": 256,
+         "llc_prefetcher": "no"
+        },
+        "reasoning": "['l1d_sets: Increased to 256 to double L1D capacity to 64KB without increasing the 2-cycle hit latency, addressing the 40% memory time share.', 'llc_prefetcher: Disabled because spp_dev issues 478.7/ki prefetches with 0.00 accuracy, polluting the cache.']"
+       },
+       "prefetch": {
+        "knobs": {
+         "l1d_prefetcher": "ip_stride",
+         "l2_prefetcher": "va_ampm_lite",
+         "llc_prefetcher": "no"
+        },
+        "reasoning": "Removing the LLC prefetcher tests the analyst's hypothesis that eliminating its high volume of inaccurate issues will reduce DRAM contention and LLC miss latency, while keeping the L1D and L2 prefetchers that have proven beneficial."
+       },
+       "geometry": {
+        "knobs": {
+         "l1d_sets": 256,
+         "l1d_ways": 4,
+         "l2_sets": 1024,
+         "l2_ways": 8,
+         "llc_sets": 8192,
+         "llc_ways": 16
+        },
+        "reasoning": "L1D is capacity-bound and accounts for 40% of memory time; doubling its capacity to 64 KB via 256 sets at 4 ways maintains the 2-cycle hit latency while reducing misses."
+       }
+      },
+      "moves": {
+       "analyst": {
+        "l1d_sets": [
+         128,
+         256
+        ],
+        "llc_prefetcher": [
+         "spp_dev",
+         "no"
+        ]
+       },
+       "prefetch": {
+        "llc_prefetcher": [
+         "spp_dev",
+         "no"
+        ]
+       },
+       "geometry": {
+        "l1d_sets": [
+         128,
+         256
+        ]
+       }
+      },
+      "include": [],
+      "hypothesis": "",
+      "probes": {
+       "rung": [
+        1000000,
+        2000000
+       ],
+       "incumbent": 1.1513737595405564,
+       "parts": {
+        "analyst": -0.16841963295787976,
+        "prefetch": -0.16841190331817146,
+        "geometry": -0.0007850910847289061
+       },
+       "failed": [],
+       "refused": {},
+       "pairs": {}
+      }
+     },
+     {
+      "round": 6,
+      "mode": "climb",
+      "against": 16,
+      "sheet": {
+       "levels": {
+        "L1D": {
+         "verdict": "prefetch-uncovered",
+         "number": "0.0"
+        },
+        "L2C": {
+         "verdict": "fine",
+         "number": "0.16"
+        },
+        "LLC": {
+         "verdict": "capacity-bound",
+         "number": "0.83"
+        }
+       },
+       "bottleneck": {
+        "level": "DRAM",
+        "cause": "Off-chip memory accesses dominate the memory time due to high miss rates at the LLC.",
+        "evidence": "44% memory time, 205 cy miss latency vs 187 cy idle DRAM"
+       },
+       "learned": [
+        "l1d_sets 128->256: -0.0008 ipc (D23 vs D16); L1D miss latency increased 20 -> 25 cy.",
+        "llc_prefetcher spp_dev->no: -0.1684 ipc (D22 vs D16); LLC prefetch cov dropped 0.20 -> 0.00.",
+        "l1d_prefetcher ip_stride->no: -0.0000 ipc (D19 vs D16); L1D prefetch cov 0.00 unchanged.",
+        "l2_replacement srrip->ship: -0.0002 ipc (D20 vs D16); L2C hit ratio 0.77 unchanged.",
+        "llc_mshr 128->64: +0.0000 ipc (D18 vs D13); no change in performance.",
+        "l2_ways 8->16: -0.0077 ipc (D17 vs D13); L2C hit latency unchanged."
+       ],
+       "unattributable": [
+        "D2",
+        "D3",
+        "D4",
+        "D5",
+        "D6",
+        "D7",
+        "D8",
+        "D9"
+       ],
+       "failing": [],
+       "hypothesis": "Changing l1d_prefetcher to no will keep L1D prefetch issued at 0.0/ki and leave IPC unchanged.",
+       "design": {
+        "l1d_sets": 128,
+        "l1d_ways": 4,
+        "l1d_prefetcher": "no",
+        "l2_sets": 1024,
+        "l2_ways": 8,
+        "l2_prefetcher": "va_ampm_lite",
+        "l2_replacement": "srrip",
+        "llc_sets": 8192,
+        "llc_ways": 16,
+        "llc_prefetcher": "spp_dev",
+        "llc_replacement": "ship",
+        "l2_mshr": 64,
+        "llc_mshr": 128
+       },
+       "design_reasoning": "['l1d_prefetcher to no: ip_stride has 0.00 coverage and accuracy, and removing it in D19 cost nothing.']"
+      },
+      "sweep": null,
+      "proposals": {
+       "geometry": {
+        "knobs": {
+         "l1d_sets": 128,
+         "l1d_ways": 4,
+         "l2_sets": 512,
+         "l2_ways": 8,
+         "llc_sets": 8192,
+         "llc_ways": 16
+        },
+        "reasoning": "With the LLC already at its maximum capacity to mitigate the severe DRAM bottleneck, L2 capacity can be halved to 256 KB to reduce its hit latency from 4 to 3 cycles, as its misses are well covered by prefetchers."
+       }
+      },
+      "moves": {
+       "geometry": {
+        "l2_sets": [
+         1024,
+         512
+        ]
+       }
+      },
+      "include": [
+       "geometry"
+      ],
+      "hypothesis": "",
+      "probes": {
+       "rung": [
+        1000000,
+        2000000
+       ],
+       "incumbent": 1.1513737595405564,
+       "parts": {
+        "geometry": 0.0004281724871741943
+       },
+       "failed": [],
+       "refused": {},
+       "pairs": {}
+      }
+     },
+     {
+      "round": 7,
+      "mode": "climb",
+      "against": 24,
+      "sheet": {
+       "levels": {
+        "L1D": {
+         "verdict": "capacity-bound",
+         "number": "0.69"
+        },
+        "L2C": {
+         "verdict": "latency-heavy",
+         "number": "0.76"
+        },
+        "LLC": {
+         "verdict": "fine",
+         "number": "0.02"
+        }
+       },
+       "bottleneck": {
+        "level": "DRAM",
+        "cause": "Main memory access latency dominates the execution time despite available bandwidth.",
+        "evidence": "DRAM holds 45% of memory time, using only 23% of channel bandwidth, with a miss costing 205 cycles."
+       },
+       "learned": [
+        "llc_replacement srrip->ship: +0.0022 (D14 vs D1)",
+        "l2_mshr 32->64: +0.0016 (D15 vs D1)",
+        "l2_ways 8->16: -0.0077 (D17 vs D13)",
+        "llc_mshr 128->64: +0.0000 (D18 vs D13)",
+        "llc_prefetcher spp_dev->no: -0.1684 (D22 vs D16); counter unreliable as accuracy was 0.00 but loss was large",
+        "l2_sets 1024->512: +0.0004 (D24 vs D16)"
+       ],
+       "unattributable": [
+        "D2",
+        "D3",
+        "D4",
+        "D5",
+        "D6",
+        "D7",
+        "D8",
+        "D9"
+       ],
+       "failing": [],
+       "hypothesis": "Changing llc_mshr to 64 will leave IPC unchanged and reduce power.",
+       "design": {
+        "l1d_sets": 128,
+        "l1d_ways": 4,
+        "l1d_prefetcher": "ip_stride",
+        "l2_sets": 512,
+        "l2_ways": 8,
+        "l2_prefetcher": "va_ampm_lite",
+        "l2_replacement": "srrip",
+        "llc_sets": 8192,
+        "llc_ways": 16,
+        "llc_prefetcher": "spp_dev",
+        "llc_replacement": "ship",
+        "l2_mshr": 64,
+        "llc_mshr": 64
+       },
+       "design_reasoning": "llc_mshr is reduced to 64 as D18 demonstrated it performs identically to 128, saving power without impacting IPC."
+      },
+      "sweep": null,
+      "proposals": {
+       "geometry": {
+        "knobs": {
+         "l1d_sets": 128,
+         "l1d_ways": 4,
+         "l2_sets": 256,
+         "l2_ways": 4,
+         "llc_sets": 8192,
+         "llc_ways": 16
+        },
+        "reasoning": "L2C is latency-heavy; shrinking it to 64 KB (256 sets, 4 ways) reduces its hit latency from 3 to 2 cycles, accelerating the path to LLC and memory for its misses."
+       }
+      },
+      "moves": {
+       "geometry": {
+        "l2_sets": [
+         512,
+         256
+        ],
+        "l2_ways": [
+         8,
+         4
+        ]
+       }
+      },
+      "include": [],
+      "hypothesis": "",
+      "probes": {
+       "rung": [
+        1000000,
+        2000000
+       ],
+       "incumbent": 1.1518019320277306,
+       "parts": {
+        "geometry": -0.014421349701119857
+       },
+       "failed": [],
+       "refused": {},
+       "pairs": {}
+      }
+     },
+     {
+      "round": 8,
+      "mode": "climb",
+      "against": 24,
+      "sheet": {
+       "levels": {
+        "L1D": {
+         "verdict": "latency-heavy",
+         "number": "0.41"
+        },
+        "L2C": {
+         "verdict": "fine",
+         "number": "0.12"
+        },
+        "LLC": {
+         "verdict": "fine",
+         "number": "0.02"
+        }
+       },
+       "bottleneck": {
+        "level": "DRAM",
+        "cause": "Off-chip memory accesses dominate the time, accounting for nearly half of the memory time.",
+        "evidence": "DRAM holds 45% of memory time; off-chip traffic is 4.63 of the 20.2 B/cycle (23%); a miss costs 205 cycles."
+       },
+       "learned": [
+        "llc_prefetcher spp_dev to no lost 0.1684 (D22 vs D16); despite the counter showing 0.00 accuracy, this prefetcher is essential.",
+        "l2_sets 1024 to 512 gained 0.0004 (D24 vs D16); reducing L2 capacity slightly improved IPC.",
+        "l1d_sets 128 to 256 lost 0.0008 (D23 vs D16); increasing L1D capacity was slightly detrimental.",
+        "l1d_prefetcher ip_stride to no lost 0.0001 (D19 vs D16); the prefetcher provides a negligible benefit.",
+        "l2_sets 512 to 256 and l2_ways 8 to 4 lost 0.0144 (D25 vs D24); aggressively shrinking the L2 cache harmed IPC despite lowering hit latency from 3 to 2 cycles."
+       ],
+       "unattributable": [
+        "D1 moved l1d_prefetcher, l2_prefetcher, llc_prefetcher, llc_sets",
+        "D2 moved l1d_prefetcher, l1d_sets, l1d_ways, l2_prefetcher, l2_replacement, l2_ways, llc_mshr, llc_prefetcher, llc_sets, llc_ways",
+        "D3 moved l1d_prefetcher, l1d_sets, l1d_ways, l2_mshr, l2_prefetcher, l2_replacement, l2_sets, l2_ways, llc_prefetcher, llc_replacement, llc_sets, llc_ways",
+        "D4 moved l1d_prefetcher, l2_mshr, l2_prefetcher, l2_replacement, l2_sets, l2_ways, llc_mshr, llc_prefetcher, llc_replacement, llc_sets, llc_ways",
+        "D5 moved l1d_prefetcher, l1d_sets, l1d_ways, l2_mshr, l2_prefetcher, l2_replacement, l2_sets, l2_ways, llc_mshr, llc_replacement, llc_ways",
+        "D6 moved l1d_sets, l2_mshr, l2_replacement, l2_sets, llc_mshr, llc_replacement, llc_sets, llc_ways",
+        "D7 moved l1d_prefetcher, l1d_sets, l1d_ways, l2_mshr, l2_prefetcher, l2_replacement, l2_sets, llc_mshr, llc_prefetcher, llc_sets, llc_ways",
+        "D8 moved l1d_prefetcher, l1d_ways, l2_mshr, l2_prefetcher, l2_replacement, l2_sets, l2_ways, llc_mshr, llc_prefetcher, llc_replacement, llc_sets"
+       ],
+       "failing": [],
+       "hypothesis": "Changing l1d_prefetcher to va_ampm_lite will increase L1D prefetch coverage and accuracy, reducing the L1D miss share and increasing IPC.",
+       "design": {
+        "l1d_sets": 128,
+        "l1d_ways": 4,
+        "l1d_prefetcher": "va_ampm_lite",
+        "l2_sets": 512,
+        "l2_ways": 8,
+        "l2_prefetcher": "va_ampm_lite",
+        "l2_replacement": "srrip",
+        "llc_sets": 8192,
+        "llc_ways": 16,
+        "llc_prefetcher": "spp_dev",
+        "llc_replacement": "ship",
+        "l2_mshr": 64,
+        "llc_mshr": 128
+       },
+       "design_reasoning": "Switching l1d_prefetcher to va_ampm_lite to address the failing ip_stride prefetcher that provides 0.00 coverage and accuracy, while maintaining the rest of the best-performing D24 configuration."
+      },
+      "sweep": null,
+      "proposals": {
+       "analyst": {
+        "knobs": {
+         "l1d_prefetcher": "va_ampm_lite"
+        },
+        "reasoning": "Switching l1d_prefetcher to va_ampm_lite to address the failing ip_stride prefetcher that provides 0.00 coverage and accuracy, while maintaining the rest of the best-performing D24 configuration."
+       },
+       "prefetch": {
+        "knobs": {
+         "l1d_prefetcher": "va_ampm_lite",
+         "l2_prefetcher": "va_ampm_lite",
+         "llc_prefetcher": "spp_dev"
+        },
+        "reasoning": "Testing the analyst's hypothesis that upgrading the L1D prefetcher to va_ampm_lite will improve coverage and accuracy over the ineffective ip_stride, reducing the L1D miss share and improving IPC."
+       }
+      },
+      "moves": {
+       "analyst": {
+        "l1d_prefetcher": [
+         "ip_stride",
+         "va_ampm_lite"
+        ]
+       },
+       "prefetch": {
+        "l1d_prefetcher": [
+         "ip_stride",
+         "va_ampm_lite"
+        ]
+       }
+      },
+      "include": [],
+      "hypothesis": "",
+      "probes": {
+       "rung": [
+        1000000,
+        2000000
+       ],
+       "incumbent": 1.1518019320277306,
+       "parts": {
+        "analyst": -0.0005608972948754065,
+        "prefetch": -0.0005608972948754065
+       },
+       "failed": [],
+       "refused": {},
+       "pairs": {}
+      }
+     },
+     {
+      "round": 9,
+      "mode": "climb",
+      "against": 24,
+      "sheet": {
+       "levels": {
+        "L1D": {
+         "verdict": "latency-heavy",
+         "number": "0.41"
+        },
+        "L2C": {
+         "verdict": "fine",
+         "number": "0.12"
+        },
+        "LLC": {
+         "verdict": "fine",
+         "number": "0.02"
+        }
+       },
+       "bottleneck": {
+        "level": "DRAM",
+        "cause": "DRAM dominates memory time due to unresolved misses and high latency.",
+        "evidence": "DRAM holds 45% of memory time, with misses costing 205 cycles compared to 187 for idle memory."
+       },
+       "learned": [
+        "l1d_prefetcher ip_stride to va_ampm_lite: -0.0006 ipc (D26 vs D24); L1D prefetch coverage increased to 0.07 but useless prefetches rose to 0.1/ki.",
+        "l2_sets 1024 to 512: +0.0004 ipc (D24 vs D16); L2C hit latency remained 3 cycles while area decreased.",
+        "l2_sets 512 to 256 and l2_ways 8 to 4: -0.0144 ipc (D25 vs D24); geometry reduction penalized performance.",
+        "llc_prefetcher spp_dev to no: -0.1684 ipc (D22 vs D16); despite LLC prefetch accuracy showing 0.00, removal causes massive IPC drop, indicating the counter is unreliable.",
+        "l1d_sets 128 to 256: -0.0008 ipc (D23 vs D16); larger L1D capacity did not improve IPC."
+       ],
+       "unattributable": [
+        "l1d_prefetcher, l2_prefetcher, llc_prefetcher, llc_sets",
+        "l1d_prefetcher, l1d_sets, l1d_ways, l2_prefetcher, l2_replacement, l2_ways, llc_mshr, llc_prefetcher, llc_sets, llc_ways",
+        "l1d_prefetcher, l1d_sets, l1d_ways, l2_mshr, l2_prefetcher, l2_replacement, l2_sets, l2_ways, llc_prefetcher, llc_replacement, llc_sets, llc_ways",
+        "l1d_prefetcher, l2_mshr, l2_prefetcher, l2_replacement, l2_sets, l2_ways, llc_mshr, llc_prefetcher, llc_replacement, llc_sets, llc_ways",
+        "l1d_prefetcher, l1d_sets, l1d_ways, l2_mshr, l2_prefetcher, l2_replacement, l2_sets, l2_ways, llc_mshr, llc_replacement, llc_ways",
+        "l1d_sets, l2_mshr, l2_replacement, l2_sets, llc_mshr, llc_replacement, llc_sets, llc_ways",
+        "l1d_prefetcher, l1d_sets, l1d_ways, l2_mshr, l2_prefetcher, l2_replacement, l2_sets, llc_mshr, llc_prefetcher, llc_sets, llc_ways",
+        "l1d_prefetcher, l1d_ways, l2_mshr, l2_prefetcher, l2_replacement, l2_sets, l2_ways, llc_mshr, llc_prefetcher, llc_replacement, llc_sets"
+       ],
+       "failing": [],
+       "hypothesis": "Changing l1d_prefetcher to no will not reduce IPC but will lower useless prefetches to 0.0/ki.",
+       "design": {
+        "l1d_sets": 128,
+        "l1d_ways": 4,
+        "l1d_prefetcher": "no",
+        "l2_sets": 512,
+        "l2_ways": 8,
+        "l2_prefetcher": "va_ampm_lite",
+        "l2_replacement": "srrip",
+        "llc_sets": 8192,
+        "llc_ways": 16,
+        "llc_prefetcher": "spp_dev",
+        "llc_replacement": "ship",
+        "l2_mshr": 64,
+        "llc_mshr": 128
+       },
+       "design_reasoning": "['l1d_prefetcher moved to no because ip_stride provides zero coverage and accuracy, and its previous removal in D19 maintained IPC while saving energy.']"
+      },
+      "sweep": null,
+      "proposals": {},
+      "moves": {},
+      "include": [],
+      "hypothesis": "",
+      "probes": {
+       "rung": [
+        1000000,
+        2000000
+       ],
+       "incumbent": 1.1518019320277306,
+       "parts": {},
+       "failed": [],
+       "refused": {},
+       "pairs": {}
+      }
+     },
+     {
+      "round": 10,
+      "mode": "climb",
+      "against": 24,
+      "sheet": {
+       "levels": {
+        "L1D": {
+         "verdict": "capacity-bound",
+         "number": "41%"
+        },
+        "L2C": {
+         "verdict": "fine",
+         "number": "12%"
+        },
+        "LLC": {
+         "verdict": "fine",
+         "number": "2%"
+        }
+       },
+       "bottleneck": {
+        "level": "DRAM",
+        "cause": "Off-chip traffic causes high DRAM latency due to row misses.",
+        "evidence": "memory time DRAM 45%, off-chip 4.63 B/cy (23%), DRAM row-buffer hit 0.40, miss past LLC 205 cy vs 187 idle"
+       },
+       "learned": [
+        "l1d_sets 64->128, l1d_ways 8->4: +0.0051 (D13 vs D1); geometry adjustment improved IPC.",
+        "llc_replacement srrip->ship: +0.0022 (D14 vs D1); replacement policy change provided a slight gain.",
+        "l2_mshr 32->64: +0.0016 (D15 vs D1); increased concurrency improved performance.",
+        "llc_prefetcher spp_dev->no: -0.1684 (D22 vs D16); removing the LLC prefetcher caused a massive drop in IPC.",
+        "l2_sets 1024->512: +0.0004 (D24 vs D16); reducing L2 sets slightly improved IPC.",
+        "l1d_prefetcher ip_stride->va_ampm_lite: -0.0006 (D26 vs D24); changing the L1D prefetcher slightly reduced IPC."
+       ],
+       "unattributable": [
+        "D1: l1d_prefetcher next_line->ip_stride, l2_prefetcher spp_dev->va_ampm_lite, llc_prefetcher no->spp_dev, llc_sets 2048->8192",
+        "D2: l1d_prefetcher next_line->no, l1d_sets 64->256, l1d_ways 8->16, l2_prefetcher spp_dev->next_line, l2_replacement srrip->drrip, l2_ways 8->16, llc_mshr 128->32, llc_prefetcher no->next_line, llc_sets 2048->4096, llc_ways 16->12",
+        "D3: l1d_prefetcher next_line->ip_stride, l1d_sets 64->256, l1d_ways 8->4, l2_mshr 32->16, l2_prefetcher spp_dev->no, l2_replacement srrip->drrip, l2_sets 1024->4096, l2_ways 8->12, llc_prefetcher no->ip_stride, llc_replacement srrip->ship, llc_sets 2048->8192, llc_ways 16->8",
+        "D4: l1d_prefetcher next_line->no, l2_mshr 32->64, l2_prefetcher spp_dev->va_ampm_lite, l2_replacement srrip->drrip, l2_sets 1024->256, l2_ways 8->16, llc_mshr 128->64, llc_prefetcher no->next_line, llc_replacement srrip->ship, llc_sets 2048->8192, llc_ways 16->8",
+        "D5: l1d_prefetcher next_line->no, l1d_sets 64->32, l1d_ways 8->4, l2_mshr 32->16, l2_prefetcher spp_dev->next_line, l2_replacement srrip->lru, l2_sets 1024->512, l2_ways 8->4, llc_mshr 128->32, llc_replacement srrip->lru, llc_ways 16->4",
+        "D6: l1d_sets 64->256, l2_mshr 32->64, l2_replacement srrip->drrip, l2_sets 1024->256, llc_mshr 128->32, llc_replacement srrip->ship, llc_sets 2048->8192, llc_ways 16->12",
+        "D7: l1d_prefetcher next_line->ip_stride, l1d_sets 64->128, l1d_ways 8->4, l2_mshr 32->64, l2_prefetcher spp_dev->next_line, l2_replacement srrip->drrip, l2_sets 1024->512, llc_mshr 128->64, llc_prefetcher no->ip_stride, llc_sets 2048->8192, llc_ways 16->12",
+        "D8: l1d_prefetcher next_line->va_ampm_lite, l1d_ways 8->4, l2_mshr 32->16, l2_prefetcher spp_dev->next_line, l2_replacement srrip->drrip, l2_sets 1024->256, l2_ways 8->4, llc_mshr 128->64, llc_prefetcher no->next_line, llc_replacement srrip->ship, llc_sets 2048->4096"
+       ],
+       "failing": [],
+       "hypothesis": "Setting l1d_prefetcher to 'no' will maintain the IPC near 1.1518 while reducing useless prefetch traffic.",
+       "design": {
+        "l1d_sets": 128,
+        "l1d_ways": 4,
+        "l1d_prefetcher": "no",
+        "l2_sets": 512,
+        "l2_ways": 8,
+        "l2_prefetcher": "va_ampm_lite",
+        "l2_replacement": "srrip",
+        "llc_sets": 8192,
+        "llc_ways": 16,
+        "llc_prefetcher": "spp_dev",
+        "llc_replacement": "ship",
+        "l2_mshr": 64,
+        "llc_mshr": 128
+       },
+       "design_reasoning": "[\"l1d_prefetcher: Changed to 'no' because ip_stride provides 0.00 coverage and 0.00 accuracy, and previous measurements showed its removal loses negligible IPC.\"]"
+      },
+      "sweep": null,
+      "proposals": {},
+      "moves": {},
+      "include": [],
+      "hypothesis": "",
+      "probes": {
+       "rung": [
+        1000000,
+        2000000
+       ],
+       "incumbent": 1.1518019320277306,
+       "parts": {},
+       "failed": [],
+       "refused": {},
+       "pairs": {}
+      }
+     }
+    ]
+   },
+   "1": {
+    "designs": [
+     {
+      "index": 0,
+      "round": 0,
+      "name": "F_next-a414_l1d_prefetcher-next_line_l1d_sets-64_l1d_ways-8_l2_mshr-32_l2_prefetcher-spp_dev_l2_replacement-srrip_l2_sets-1024_l2_ways-8_llc_mshr-128_llc_prefetcher-no_llc_replacement-srrip_llc_sets-2048_llc_ways-16",
+      "knobs": {
+       "l1d_sets": 64,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "next_line",
+       "l2_sets": 1024,
+       "l2_ways": 8,
+       "l2_prefetcher": "spp_dev",
+       "l2_replacement": "srrip",
+       "llc_sets": 2048,
+       "llc_ways": 16,
+       "llc_prefetcher": "no",
+       "llc_replacement": "srrip",
+       "l2_mshr": 32,
+       "llc_mshr": 128
+      },
+      "source": "stock",
+      "hypothesis": null,
+      "ipc": 0.9426680171923363,
+      "mm2": 3.066670538224,
+      "watts": 1.0954143686494195,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 0.9426680171923363,
+        "LLC_mpki": 8.940977647555881
+       }
+      }
+     },
+     {
+      "index": 1,
+      "round": 1,
+      "name": "F_next-a414_l1d_prefetcher-ip_stride_l1d_sets-64_l1d_ways-8_l2_mshr-32_l2_prefetcher-spp_dev_l2_replacement-srrip_l2_sets-1024_l2_ways-8_llc_mshr-128_llc_prefetcher-no_llc_replacement-srrip_llc_sets-8192_llc_ways-16",
+      "knobs": {
+       "l1d_sets": 64,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "ip_stride",
+       "l2_sets": 1024,
+       "l2_ways": 8,
+       "l2_prefetcher": "spp_dev",
+       "l2_replacement": "srrip",
+       "llc_sets": 8192,
+       "llc_ways": 16,
+       "llc_prefetcher": "no",
+       "llc_replacement": "srrip",
+       "l2_mshr": 32,
+       "llc_mshr": 128
+      },
+      "source": "council:opening",
+      "hypothesis": "Changed l1d_prefetcher to ip_stride because next_line provides only 0.01 coverage. Increased llc_sets to 8192 to utilize the available area budget (8704 KB total L2+LLC out of 9216 KB) and reduce the high LLC miss rate causing 63% DRAM memory time.",
+      "ipc": 0.9340501527635205,
+      "mm2": 9.459041644624,
+      "watts": 2.7996973079669516,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 0.9340501527635205,
+        "LLC_mpki": 8.97297756755608
+       }
+      }
+     },
+     {
+      "index": 2,
+      "round": 1,
+      "name": "F_next-a414_l1d_prefetcher-ip_stride_l1d_sets-64_l1d_ways-4_l2_mshr-16_l2_prefetcher-next_line_l2_replacement-ship_l2_sets-256_l2_ways-16_llc_mshr-64_llc_prefetcher-no_llc_replacement-ship_llc_sets-4096_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 64,
+       "l1d_ways": 4,
+       "l1d_prefetcher": "ip_stride",
+       "l2_sets": 256,
+       "l2_ways": 16,
+       "l2_prefetcher": "next_line",
+       "l2_replacement": "ship",
+       "llc_sets": 4096,
+       "llc_ways": 8,
+       "llc_prefetcher": "no",
+       "llc_replacement": "ship",
+       "l2_mshr": 16,
+       "llc_mshr": 64
+      },
+      "source": "opening:random",
+      "hypothesis": null,
+      "ipc": 0.5803659778707005,
+      "mm2": 2.6361649335796,
+      "watts": 0.6935252555364454,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 0.5803659778707005,
+        "LLC_mpki": 0.5659985850035375
+       }
+      }
+     },
+     {
+      "index": 3,
+      "round": 1,
+      "name": "F_next-a414_l1d_prefetcher-va_ampm_lite_l1d_sets-256_l1d_ways-4_l2_mshr-64_l2_prefetcher-va_ampm_lite_l2_replacement-lru_l2_sets-1024_l2_ways-8_llc_mshr-128_llc_prefetcher-no_llc_replacement-lru_llc_sets-2048_llc_ways-4",
+      "knobs": {
+       "l1d_sets": 256,
+       "l1d_ways": 4,
+       "l1d_prefetcher": "va_ampm_lite",
+       "l2_sets": 1024,
+       "l2_ways": 8,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "lru",
+       "llc_sets": 2048,
+       "llc_ways": 4,
+       "llc_prefetcher": "no",
+       "llc_replacement": "lru",
+       "l2_mshr": 64,
+       "llc_mshr": 128
+      },
+      "source": "opening:random",
+      "hypothesis": null,
+      "ipc": 1.0596339291816625,
+      "mm2": 1.371384877587,
+      "watts": 0.43416294237504693,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 1.0596339291816625,
+        "LLC_mpki": 2.2534943662640843
+       }
+      }
+     },
+     {
+      "index": 4,
+      "round": 1,
+      "name": "F_next-a414_l1d_prefetcher-ip_stride_l1d_sets-256_l1d_ways-8_l2_mshr-64_l2_prefetcher-va_ampm_lite_l2_replacement-ship_l2_sets-1024_l2_ways-16_llc_mshr-64_llc_prefetcher-spp_dev_llc_replacement-srrip_llc_sets-8192_llc_ways-4",
+      "knobs": {
+       "l1d_sets": 256,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "ip_stride",
+       "l2_sets": 1024,
+       "l2_ways": 16,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "ship",
+       "llc_sets": 8192,
+       "llc_ways": 4,
+       "llc_prefetcher": "spp_dev",
+       "llc_replacement": "srrip",
+       "l2_mshr": 64,
+       "llc_mshr": 64
+      },
+      "source": "opening:random",
+      "hypothesis": null,
+      "ipc": 1.1588021699718585,
+      "mm2": 3.6077885832100005,
+      "watts": 1.1048943127935984,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 1.1588021699718585,
+        "LLC_mpki": 2.1384989307505347
+       }
+      }
+     },
+     {
+      "index": 5,
+      "round": 1,
+      "name": "F_next-a414_l1d_prefetcher-no_l1d_sets-32_l1d_ways-16_l2_mshr-64_l2_prefetcher-spp_dev_l2_replacement-srrip_l2_sets-1024_l2_ways-16_llc_mshr-128_llc_prefetcher-no_llc_replacement-srrip_llc_sets-8192_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 32,
+       "l1d_ways": 16,
+       "l1d_prefetcher": "no",
+       "l2_sets": 1024,
+       "l2_ways": 16,
+       "l2_prefetcher": "spp_dev",
+       "l2_replacement": "srrip",
+       "llc_sets": 8192,
+       "llc_ways": 8,
+       "llc_prefetcher": "no",
+       "llc_replacement": "srrip",
+       "l2_mshr": 64,
+       "llc_mshr": 128
+      },
+      "source": "opening:random",
+      "hypothesis": null,
+      "ipc": 0.9006498185191523,
+      "mm2": 6.00267745763,
+      "watts": 2.251051662831984,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 0.9006498185191523,
+        "LLC_mpki": 20.530489734755133
+       }
+      }
+     },
+     {
+      "index": 6,
+      "round": 1,
+      "name": "F_next-a414_l1d_prefetcher-va_ampm_lite_l1d_sets-32_l1d_ways-12_l2_mshr-16_l2_prefetcher-spp_dev_l2_replacement-srrip_l2_sets-4096_l2_ways-4_llc_mshr-128_llc_prefetcher-no_llc_replacement-drrip_llc_sets-8192_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 32,
+       "l1d_ways": 12,
+       "l1d_prefetcher": "va_ampm_lite",
+       "l2_sets": 4096,
+       "l2_ways": 4,
+       "l2_prefetcher": "spp_dev",
+       "l2_replacement": "srrip",
+       "llc_sets": 8192,
+       "llc_ways": 8,
+       "llc_prefetcher": "no",
+       "llc_replacement": "drrip",
+       "l2_mshr": 16,
+       "llc_mshr": 128
+      },
+      "source": "opening:random",
+      "hypothesis": null,
+      "ipc": 1.1593694205486123,
+      "mm2": 5.903073800114788,
+      "watts": 1.770677218772739,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 1.1593694205486123,
+        "LLC_mpki": 2.1024947437631405
+       }
+      }
+     },
+     {
+      "index": 7,
+      "round": 1,
+      "name": "F_next-a414_l1d_prefetcher-no_l1d_sets-32_l1d_ways-4_l2_mshr-32_l2_prefetcher-ip_stride_l2_replacement-srrip_l2_sets-2048_l2_ways-4_llc_mshr-32_llc_prefetcher-next_line_llc_replacement-drrip_llc_sets-2048_llc_ways-4",
+      "knobs": {
+       "l1d_sets": 32,
+       "l1d_ways": 4,
+       "l1d_prefetcher": "no",
+       "l2_sets": 2048,
+       "l2_ways": 4,
+       "l2_prefetcher": "ip_stride",
+       "l2_replacement": "srrip",
+       "llc_sets": 2048,
+       "llc_ways": 4,
+       "llc_prefetcher": "next_line",
+       "llc_replacement": "drrip",
+       "l2_mshr": 32,
+       "llc_mshr": 32
+      },
+      "source": "opening:random",
+      "hypothesis": null,
+      "ipc": 0.6974890084615752,
+      "mm2": 1.3267382330788,
+      "watts": 0.3719273238191441,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 0.6974890084615752,
+        "LLC_mpki": 1.6789974815037778
+       }
+      }
+     },
+     {
+      "index": 8,
+      "round": 1,
+      "name": "F_next-a414_l1d_prefetcher-ip_stride_l1d_sets-64_l1d_ways-8_l2_mshr-16_l2_prefetcher-ip_stride_l2_replacement-drrip_l2_sets-4096_l2_ways-8_llc_mshr-32_llc_prefetcher-spp_dev_llc_replacement-ship_llc_sets-4096_llc_ways-12",
+      "knobs": {
+       "l1d_sets": 64,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "ip_stride",
+       "l2_sets": 4096,
+       "l2_ways": 8,
+       "l2_prefetcher": "ip_stride",
+       "l2_replacement": "drrip",
+       "llc_sets": 4096,
+       "llc_ways": 12,
+       "llc_prefetcher": "spp_dev",
+       "llc_replacement": "ship",
+       "l2_mshr": 16,
+       "llc_mshr": 32
+      },
+      "source": "opening:random",
+      "hypothesis": null,
+      "ipc": 1.081140558332581,
+      "mm2": 5.978241986548737,
+      "watts": 1.6980305710077621,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 1.081140558332581,
+        "LLC_mpki": 2.1229968155047767
+       }
+      }
+     },
+     {
+      "index": 9,
+      "round": 1,
+      "name": "F_next-a414_l1d_prefetcher-ip_stride_l1d_sets-128_l1d_ways-16_l2_mshr-16_l2_prefetcher-ip_stride_l2_replacement-lru_l2_sets-2048_l2_ways-8_llc_mshr-32_llc_prefetcher-spp_dev_llc_replacement-lru_llc_sets-2048_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 128,
+       "l1d_ways": 16,
+       "l1d_prefetcher": "ip_stride",
+       "l2_sets": 2048,
+       "l2_ways": 8,
+       "l2_prefetcher": "ip_stride",
+       "l2_replacement": "lru",
+       "llc_sets": 2048,
+       "llc_ways": 8,
+       "llc_prefetcher": "spp_dev",
+       "llc_replacement": "lru",
+       "l2_mshr": 16,
+       "llc_mshr": 32
+      },
+      "source": "opening:random",
+      "hypothesis": null,
+      "ipc": 1.1596353180675152,
+      "mm2": 2.70139564691,
+      "watts": 0.9934231745272083,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 1.1596353180675152,
+        "LLC_mpki": 2.1009989495005255
+       }
+      }
+     },
+     {
+      "index": 10,
+      "round": 1,
+      "name": "F_next-a414_l1d_prefetcher-no_l1d_sets-256_l1d_ways-8_l2_mshr-64_l2_prefetcher-va_ampm_lite_l2_replacement-ship_l2_sets-512_l2_ways-16_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-srrip_llc_sets-8192_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 256,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "no",
+       "l2_sets": 512,
+       "l2_ways": 16,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "ship",
+       "llc_sets": 8192,
+       "llc_ways": 8,
+       "llc_prefetcher": "spp_dev",
+       "llc_replacement": "srrip",
+       "l2_mshr": 64,
+       "llc_mshr": 128
+      },
+      "source": "opening:random",
+      "hypothesis": null,
+      "ipc": 1.1629968319982136,
+      "mm2": 5.385435422101,
+      "watts": 1.522804052367023,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 1.1629968319982136,
+        "LLC_mpki": 2.138998930500535
+       }
+      }
+     },
+     {
+      "index": 11,
+      "round": 2,
+      "name": "F_next-a414_l1d_prefetcher-no_l1d_sets-256_l1d_ways-4_l2_mshr-64_l2_prefetcher-va_ampm_lite_l2_replacement-ship_l2_sets-512_l2_ways-16_llc_mshr-128_llc_prefetcher-no_llc_replacement-srrip_llc_sets-8192_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 256,
+       "l1d_ways": 4,
+       "l1d_prefetcher": "no",
+       "l2_sets": 512,
+       "l2_ways": 16,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "ship",
+       "llc_sets": 8192,
+       "llc_ways": 8,
+       "llc_prefetcher": "no",
+       "llc_replacement": "srrip",
+       "l2_mshr": 64,
+       "llc_mshr": 128
+      },
+      "source": "council:analyst",
+      "hypothesis": "['l1d_ways: reduced from 8 to 4 to drop L1D capacity to 64 KB, reducing hit latency from 3 to 2 cycles to address the 52% memory time bottleneck.', 'llc_prefetcher: disabled (no) because spp_dev yields 0.00 accuracy and issues useless prefetches.']",
+      "ipc": 0.9928312725496464,
+      "mm2": 5.226440527309,
+      "watts": 1.4212809540456623,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 0.9928312725496464,
+        "LLC_mpki": 2.2394966407550387
+       }
+      }
+     },
+     {
+      "index": 12,
+      "round": 2,
+      "name": "F_next-a414_l1d_prefetcher-no_l1d_sets-256_l1d_ways-8_l2_mshr-64_l2_prefetcher-va_ampm_lite_l2_replacement-ship_l2_sets-512_l2_ways-16_llc_mshr-128_llc_prefetcher-no_llc_replacement-srrip_llc_sets-8192_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 256,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "no",
+       "l2_sets": 512,
+       "l2_ways": 16,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "ship",
+       "llc_sets": 8192,
+       "llc_ways": 8,
+       "llc_prefetcher": "no",
+       "llc_replacement": "srrip",
+       "l2_mshr": 64,
+       "llc_mshr": 128
+      },
+      "source": "council:prefetch",
+      "hypothesis": "LLC prefetching is polluting with 0.00 accuracy, so disabling it removes useless traffic, while L2's va_ampm_lite provides high coverage and accuracy.",
+      "ipc": 0.9907435065594487,
+      "mm2": 5.385435422101,
+      "watts": 1.498911362357151,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 0.9907435065594487,
+        "LLC_mpki": 2.2384944037639904
+       }
+      }
+     },
+     {
+      "index": 13,
+      "round": 2,
+      "name": "F_next-a414_l1d_prefetcher-no_l1d_sets-256_l1d_ways-4_l2_mshr-64_l2_prefetcher-va_ampm_lite_l2_replacement-ship_l2_sets-512_l2_ways-16_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-srrip_llc_sets-8192_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 256,
+       "l1d_ways": 4,
+       "l1d_prefetcher": "no",
+       "l2_sets": 512,
+       "l2_ways": 16,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "ship",
+       "llc_sets": 8192,
+       "llc_ways": 8,
+       "llc_prefetcher": "spp_dev",
+       "llc_replacement": "srrip",
+       "l2_mshr": 64,
+       "llc_mshr": 128
+      },
+      "source": "council:geometry",
+      "hypothesis": "Reducing L1D capacity to 64 KB by halving associativity achieves a 2-cycle hit latency, which should reduce the dominant memory time spent on L1D hits.",
+      "ipc": 1.160992041999943,
+      "mm2": 5.226440527309,
+      "watts": 1.4358019234804136,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 1.160992041999943,
+        "LLC_mpki": 2.1379946550133626
+       }
+      }
+     },
+     {
+      "index": 14,
+      "round": 2,
+      "name": "F_next-a414_l1d_prefetcher-no_l1d_sets-256_l1d_ways-8_l2_mshr-64_l2_prefetcher-va_ampm_lite_l2_replacement-lru_l2_sets-512_l2_ways-16_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-drrip_llc_sets-8192_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 256,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "no",
+       "l2_sets": 512,
+       "l2_ways": 16,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "lru",
+       "llc_sets": 8192,
+       "llc_ways": 8,
+       "llc_prefetcher": "spp_dev",
+       "llc_replacement": "drrip",
+       "l2_mshr": 64,
+       "llc_mshr": 128
+      },
+      "source": "council:replacement",
+      "hypothesis": "L2C has a high hit rate indicating recency-friendly accesses where LRU is effective, while LLC has a very low hit rate and prefetch pollution, making DRRIP a strong choice to resist scans and thrashing.",
+      "ipc": 1.1610705994430348,
+      "mm2": 5.385435422101,
+      "watts": 1.5222686521197832,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 1.1610705994430348,
+        "LLC_mpki": 2.1349989325005336
+       }
+      }
+     },
+     {
+      "index": 15,
+      "round": 3,
+      "name": "F_next-a414_l1d_prefetcher-va_ampm_lite_l1d_sets-256_l1d_ways-8_l2_mshr-64_l2_prefetcher-va_ampm_lite_l2_replacement-ship_l2_sets-512_l2_ways-16_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-srrip_llc_sets-8192_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 256,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "va_ampm_lite",
+       "l2_sets": 512,
+       "l2_ways": 16,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "ship",
+       "llc_sets": 8192,
+       "llc_ways": 8,
+       "llc_prefetcher": "spp_dev",
+       "llc_replacement": "srrip",
+       "l2_mshr": 64,
+       "llc_mshr": 128
+      },
+      "source": "council:analyst",
+      "hypothesis": "l1d_prefetcher set to va_ampm_lite to attempt covering L1D misses since the current 'no' prefetcher leaves misses unmitigated and capacity reductions to lower latency failed.",
+      "ipc": 1.15790098340383,
+      "mm2": 5.385435422101,
+      "watts": 1.5150560884749888,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 1.15790098340383,
+        "LLC_mpki": 2.1009968485047272
+       }
+      }
+     },
+     {
+      "index": 16,
+      "round": 3,
+      "name": "F_next-a414_l1d_prefetcher-no_l1d_sets-256_l1d_ways-8_l2_mshr-64_l2_prefetcher-va_ampm_lite_l2_replacement-ship_l2_sets-512_l2_ways-16_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-srrip_llc_sets-2048_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 256,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "no",
+       "l2_sets": 512,
+       "l2_ways": 16,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "ship",
+       "llc_sets": 2048,
+       "llc_ways": 8,
+       "llc_prefetcher": "spp_dev",
+       "llc_replacement": "srrip",
+       "l2_mshr": 64,
+       "llc_mshr": 128
+      },
+      "source": "council:geometry",
+      "hypothesis": "LLC has a very low hit ratio (0.05), so shrinking it from 4 MB to 1 MB reduces its hit latency from 10 cycles to 6 cycles, removing 4 cycles from the path to memory for the vast majority of accesses that miss.",
+      "ipc": 1.1636203162944836,
+      "mm2": 2.027358294801,
+      "watts": 0.6761942452550243,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 1.1636203162944836,
+        "LLC_mpki": 2.1394946512633717
+       }
+      }
+     },
+     {
+      "index": 17,
+      "round": 5,
+      "name": "F_next-a414_l1d_prefetcher-no_l1d_sets-256_l1d_ways-8_l2_mshr-64_l2_prefetcher-va_ampm_lite_l2_replacement-ship_l2_sets-512_l2_ways-16_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-lru_llc_sets-2048_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 256,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "no",
+       "l2_sets": 512,
+       "l2_ways": 16,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "ship",
+       "llc_sets": 2048,
+       "llc_ways": 8,
+       "llc_prefetcher": "spp_dev",
+       "llc_replacement": "lru",
+       "l2_mshr": 64,
+       "llc_mshr": 128
+      },
+      "source": "council:analyst",
+      "hypothesis": "['llc_replacement: changed from srrip to lru to test if an alternative policy can improve the poor 0.05 LLC hit ratio without altering geometry.']",
+      "ipc": 1.1629802224077816,
+      "mm2": 2.027358294801,
+      "watts": 0.6758262363372495,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 1.1629802224077816,
+        "LLC_mpki": 2.1354946612633467
+       }
+      }
+     },
+     {
+      "index": 18,
+      "round": 5,
+      "name": "F_next-a414_l1d_prefetcher-ip_stride_l1d_sets-256_l1d_ways-8_l2_mshr-64_l2_prefetcher-va_ampm_lite_l2_replacement-ship_l2_sets-512_l2_ways-16_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-srrip_llc_sets-2048_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 256,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "ip_stride",
+       "l2_sets": 512,
+       "l2_ways": 16,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "ship",
+       "llc_sets": 2048,
+       "llc_ways": 8,
+       "llc_prefetcher": "spp_dev",
+       "llc_replacement": "srrip",
+       "l2_mshr": 64,
+       "llc_mshr": 128
+      },
+      "source": "council:prefetch",
+      "hypothesis": "Adding va_ampm_lite to L1D harmed IPC, but a simpler, more accurate ip_stride prefetcher might hide L1D latency without the pollution penalty, while keeping the proven va_ampm_lite at L2 and spp_dev at LLC.",
+      "ipc": 1.1636291174186115,
+      "mm2": 2.027358294801,
+      "watts": 0.6761877643819719,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 1.1636291174186115,
+        "LLC_mpki": 2.1394946512633717
+       }
+      }
+     },
+     {
+      "index": 19,
+      "round": 5,
+      "name": "F_next-a414_l1d_prefetcher-no_l1d_sets-256_l1d_ways-8_l2_mshr-64_l2_prefetcher-va_ampm_lite_l2_replacement-ship_l2_sets-512_l2_ways-16_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-srrip_llc_sets-1024_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 256,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "no",
+       "l2_sets": 512,
+       "l2_ways": 16,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "ship",
+       "llc_sets": 1024,
+       "llc_ways": 8,
+       "llc_prefetcher": "spp_dev",
+       "llc_replacement": "srrip",
+       "l2_mshr": 64,
+       "llc_mshr": 128
+      },
+      "source": "council:geometry",
+      "hypothesis": "Since the LLC has a 5% hit ratio and its hits account for 0% of memory time, shrinking it from 1024 KB to 512 KB removes 2 cycles of latency from the path to memory for the 95% of accesses that miss it.",
+      "ipc": 1.1619228380591522,
+      "mm2": 1.536680911895,
+      "watts": 0.5355996046415099,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 1.1619228380591522,
+        "LLC_mpki": 2.1394946512633717
+       }
+      }
+     },
+     {
+      "index": 20,
+      "round": 6,
+      "name": "F_next-a414_l1d_prefetcher-no_l1d_sets-256_l1d_ways-4_l2_mshr-64_l2_prefetcher-va_ampm_lite_l2_replacement-ship_l2_sets-512_l2_ways-16_llc_mshr-128_llc_prefetcher-no_llc_replacement-srrip_llc_sets-2048_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 256,
+       "l1d_ways": 4,
+       "l1d_prefetcher": "no",
+       "l2_sets": 512,
+       "l2_ways": 16,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "ship",
+       "llc_sets": 2048,
+       "llc_ways": 8,
+       "llc_prefetcher": "no",
+       "llc_replacement": "srrip",
+       "l2_mshr": 64,
+       "llc_mshr": 128
+      },
+      "source": "council:analyst",
+      "hypothesis": "['l1d_ways: Reduced from 8 to 4 to drop L1D hit latency from 3 to 2 cycles, targeting its 53% memory time share.', \"l1d_prefetcher: Set to 'no' because ip_stride provided 0.00 coverage and +0.0000 IPC.\", \"llc_prefetcher: Set to 'no' because spp_dev has 0.00 accuracy and generates useless prefetches.\"]",
+      "ipc": 1.001783673154542,
+      "mm2": 1.868363400009,
+      "watts": 0.575514092108982,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 1.001783673154542,
+        "LLC_mpki": 2.2534966197550705
+       }
+      }
+     },
+     {
+      "index": 21,
+      "round": 6,
+      "name": "F_next-a414_l1d_prefetcher-next_line_l1d_sets-256_l1d_ways-8_l2_mshr-64_l2_prefetcher-va_ampm_lite_l2_replacement-ship_l2_sets-512_l2_ways-16_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-srrip_llc_sets-2048_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 256,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "next_line",
+       "l2_sets": 512,
+       "l2_ways": 16,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "ship",
+       "llc_sets": 2048,
+       "llc_ways": 8,
+       "llc_prefetcher": "spp_dev",
+       "llc_replacement": "srrip",
+       "l2_mshr": 64,
+       "llc_mshr": 128
+      },
+      "source": "council:prefetch",
+      "hypothesis": "With the analyst proposing a smaller L1D that will increase misses, next_line prefetching at L1D may catch sequential accesses that ip_stride missed, while keeping the highly effective va_ampm_lite at L2C and spp_dev at LLC.",
+      "ipc": 1.1639633631075013,
+      "mm2": 2.027358294801,
+      "watts": 0.6763057299866493,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 1.1639633631075013,
+        "LLC_mpki": 2.1409989295005354
+       }
+      }
+     },
+     {
+      "index": 22,
+      "round": 6,
+      "name": "F_next-a414_l1d_prefetcher-ip_stride_l1d_sets-256_l1d_ways-8_l2_mshr-64_l2_prefetcher-va_ampm_lite_l2_replacement-ship_l2_sets-512_l2_ways-16_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-drrip_llc_sets-2048_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 256,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "ip_stride",
+       "l2_sets": 512,
+       "l2_ways": 16,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "ship",
+       "llc_sets": 2048,
+       "llc_ways": 8,
+       "llc_prefetcher": "spp_dev",
+       "llc_replacement": "drrip",
+       "l2_mshr": 64,
+       "llc_mshr": 128
+      },
+      "source": "council:replacement",
+      "hypothesis": "With the LLC suffering a 5% hit ratio and 95% miss share, reuse is extremely poor; DRRIP resists both scans and thrashing better than SRRIP and has not been isolated on the current best design alongside L2 SHiP.",
+      "ipc": 1.1637144275208464,
+      "mm2": 2.027358294801,
+      "watts": 0.6761048868386553,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 1.1637144275208464,
+        "LLC_mpki": 2.1379946550133626
+       }
+      }
+     },
+     {
+      "index": 23,
+      "round": 7,
+      "name": "F_next-a414_l1d_prefetcher-next_line_l1d_sets-256_l1d_ways-8_l2_mshr-64_l2_prefetcher-va_ampm_lite_l2_replacement-ship_l2_sets-512_l2_ways-16_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-drrip_llc_sets-4096_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 256,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "next_line",
+       "l2_sets": 512,
+       "l2_ways": 16,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "ship",
+       "llc_sets": 4096,
+       "llc_ways": 8,
+       "llc_prefetcher": "spp_dev",
+       "llc_replacement": "drrip",
+       "l2_mshr": 64,
+       "llc_mshr": 128
+      },
+      "source": "council:analyst",
+      "hypothesis": "Increasing llc_sets to 4096 attempts to capture more LLC hits given its extremely low 0.05 hit ratio, while retaining the known best configurations for L1D and L2C.",
+      "ipc": 1.1630049474205726,
+      "mm2": 3.126756756601,
+      "watts": 0.9565529610983646,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 1.1630049474205726,
+        "LLC_mpki": 2.1294989352505325
+       }
+      }
+     },
+     {
+      "index": 24,
+      "round": 7,
+      "name": "F_next-a414_l1d_prefetcher-next_line_l1d_sets-256_l1d_ways-8_l2_mshr-64_l2_prefetcher-va_ampm_lite_l2_replacement-ship_l2_sets-512_l2_ways-16_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-srrip_llc_sets-4096_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 256,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "next_line",
+       "l2_sets": 512,
+       "l2_ways": 16,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "ship",
+       "llc_sets": 4096,
+       "llc_ways": 8,
+       "llc_prefetcher": "spp_dev",
+       "llc_replacement": "srrip",
+       "l2_mshr": 64,
+       "llc_mshr": 128
+      },
+      "source": "council:geometry",
+      "hypothesis": "The analyst hypothesizes that increasing LLC capacity will reduce DRAM memory time share, so we expand the LLC to 4096 sets (2048 KB) to test if the reduced miss rate outweighs the 8-cycle hit latency.",
+      "ipc": 1.1630049474205726,
+      "mm2": 3.126756756601,
+      "watts": 0.9569261561558287,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 1.1630049474205726,
+        "LLC_mpki": 2.1374989312505344
+       }
+      }
+     },
+     {
+      "index": 25,
+      "round": 7,
+      "name": "F_next-a414_l1d_prefetcher-next_line_l1d_sets-256_l1d_ways-8_l2_mshr-64_l2_prefetcher-va_ampm_lite_l2_replacement-ship_l2_sets-512_l2_ways-16_llc_mshr-128_llc_prefetcher-spp_dev_llc_replacement-ship_llc_sets-2048_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 256,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "next_line",
+       "l2_sets": 512,
+       "l2_ways": 16,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "ship",
+       "llc_sets": 2048,
+       "llc_ways": 8,
+       "llc_prefetcher": "spp_dev",
+       "llc_replacement": "ship",
+       "l2_mshr": 64,
+       "llc_mshr": 128
+      },
+      "source": "council:replacement",
+      "hypothesis": "Since the LLC is capacity-bound and faces long reuse distances, SHiP can better predict reuse and improve hit rates compared to SRRIP, which has not yet been isolated on the current best baseline.",
+      "ipc": 1.1636719613661488,
+      "mm2": 2.027358294801,
+      "watts": 0.6766405352375051,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 1.1636719613661488,
+        "LLC_mpki": 2.151996772004842
+       }
+      }
+     },
+     {
+      "index": 26,
+      "round": 8,
+      "name": "F_next-a414_l1d_prefetcher-next_line_l1d_sets-256_l1d_ways-8_l2_mshr-64_l2_prefetcher-va_ampm_lite_l2_replacement-ship_l2_sets-512_l2_ways-16_llc_mshr-128_llc_prefetcher-next_line_llc_replacement-srrip_llc_sets-2048_llc_ways-8",
+      "knobs": {
+       "l1d_sets": 256,
+       "l1d_ways": 8,
+       "l1d_prefetcher": "next_line",
+       "l2_sets": 512,
+       "l2_ways": 16,
+       "l2_prefetcher": "va_ampm_lite",
+       "l2_replacement": "ship",
+       "llc_sets": 2048,
+       "llc_ways": 8,
+       "llc_prefetcher": "next_line",
+       "llc_replacement": "srrip",
+       "l2_mshr": 64,
+       "llc_mshr": 128
+      },
+      "source": "council:analyst",
+      "hypothesis": "['Changed llc_prefetcher to next_line to replace the failing spp_dev which has 0.00 accuracy.']",
+      "ipc": 1.0484855188784588,
+      "mm2": 2.027358294801,
+      "watts": 0.6575534354511884,
+      "violations": [],
+      "per_workload": {
+       "llama2.c-llama2_7b.1": {
+        "ipc": 1.0484855188784588,
+        "LLC_mpki": 2.1024947437631405
+       }
+      }
+     }
+    ],
+    "rounds": [
+     {
+      "round": 2,
+      "mode": "climb",
+      "against": 10,
+      "sheet": {
+       "levels": {
+        "L1D": {
+         "verdict": "latency-heavy",
+         "number": "52%"
+        },
+        "L2C": {
+         "verdict": "fine",
+         "number": "9%"
+        },
+        "LLC": {
+         "verdict": "prefetch-polluting",
+         "number": "0%"
+        }
+       },
+       "bottleneck": {
+        "level": "L1D",
+        "cause": "L1D hits consume the majority of memory time due to the 3-cycle hit latency of its 128 KB capacity.",
+        "evidence": "L1D hits account for 52% of memory time with a hit latency of 3 cycles."
+       },
+       "learned": [],
+       "unattributable": [
+        "D1: l1d_prefetcher, llc_sets",
+        "D2: l1d_prefetcher, l1d_ways, l2_mshr, l2_prefetcher, l2_replacement, l2_sets, l2_ways, llc_mshr, llc_replacement, llc_sets, llc_ways",
+        "D3: l1d_prefetcher, l1d_sets, l1d_ways, l2_mshr, l2_prefetcher, l2_replacement, llc_replacement, llc_ways",
+        "D4: l1d_prefetcher, l1d_sets, l2_mshr, l2_prefetcher, l2_replacement, l2_ways, llc_mshr, llc_prefetcher, llc_sets, llc_ways",
+        "D5: l1d_prefetcher, l1d_sets, l1d_ways, l2_mshr, l2_ways, llc_sets, llc_ways",
+        "D6: l1d_prefetcher, l1d_sets, l1d_ways, l2_mshr, l2_sets, l2_ways, llc_replacement, llc_sets, llc_ways",
+        "D7: l1d_prefetcher, l1d_sets, l1d_ways, l2_prefetcher, l2_sets, l2_ways, llc_mshr, llc_prefetcher, llc_replacement, llc_ways",
+        "D8: l1d_prefetcher, l2_mshr, l2_prefetcher, l2_replacement, l2_sets, llc_mshr, llc_prefetcher, llc_replacement, llc_sets, llc_ways"
+       ],
+       "failing": [
+        "llc_prefetcher: accuracy 0.00 with 3 alternatives measured"
+       ],
+       "hypothesis": "Reducing L1D capacity to achieve a 2-cycle hit latency will decrease the L1D memory time share below 52% and improve IPC.",
+       "design": {
+        "l1d_sets": 256,
+        "l1d_ways": 4,
+        "l1d_prefetcher": "no",
+        "l2_sets": 512,
+        "l2_ways": 16,
+        "l2_prefetcher": "va_ampm_lite",
+        "l2_replacement": "ship",
+        "llc_sets": 8192,
+        "llc_ways": 8,
+        "llc_prefetcher": "no",
+        "llc_replacement": "srrip",
+        "l2_mshr": 64,
+        "llc_mshr": 128
+       },
+       "design_reasoning": "['l1d_ways: reduced from 8 to 4 to drop L1D capacity to 64 KB, reducing hit latency from 3 to 2 cycles to address the 52% memory time bottleneck.', 'llc_prefetcher: disabled (no) because spp_dev yields 0.00 accuracy and issues useless prefetches.']"
+      },
+      "sweep": null,
+      "proposals": {
+       "analyst": {
+        "knobs": {
+         "l1d_ways": 4,
+         "llc_prefetcher": "no"
+        },
+        "reasoning": "['l1d_ways: reduced from 8 to 4 to drop L1D capacity to 64 KB, reducing hit latency from 3 to 2 cycles to address the 52% memory time bottleneck.', 'llc_prefetcher: disabled (no) because spp_dev yields 0.00 accuracy and issues useless prefetches.']"
+       },
+       "prefetch": {
+        "knobs": {
+         "l1d_prefetcher": "no",
+         "l2_prefetcher": "va_ampm_lite",
+         "llc_prefetcher": "no"
+        },
+        "reasoning": "LLC prefetching is polluting with 0.00 accuracy, so disabling it removes useless traffic, while L2's va_ampm_lite provides high coverage and accuracy."
+       },
+       "geometry": {
+        "knobs": {
+         "l1d_sets": 256,
+         "l1d_ways": 4,
+         "l2_sets": 512,
+         "l2_ways": 16,
+         "llc_sets": 8192,
+         "llc_ways": 8
+        },
+        "reasoning": "Reducing L1D capacity to 64 KB by halving associativity achieves a 2-cycle hit latency, which should reduce the dominant memory time spent on L1D hits."
+       },
+       "replacement": {
+        "knobs": {
+         "l2_replacement": "lru",
+         "llc_replacement": "drrip"
+        },
+        "reasoning": "L2C has a high hit rate indicating recency-friendly accesses where LRU is effective, while LLC has a very low hit rate and prefetch pollution, making DRRIP a strong choice to resist scans and thrashing."
+       }
+      },
+      "moves": {
+       "analyst": {
+        "l1d_ways": [
+         8,
+         4
+        ],
+        "llc_prefetcher": [
+         "spp_dev",
+         "no"
+        ]
+       },
+       "prefetch": {
+        "llc_prefetcher": [
+         "spp_dev",
+         "no"
+        ]
+       },
+       "geometry": {
+        "l1d_ways": [
+         8,
+         4
+        ]
+       },
+       "replacement": {
+        "l2_replacement": [
+         "ship",
+         "lru"
+        ],
+        "llc_replacement": [
+         "srrip",
+         "drrip"
+        ]
+       }
+      },
+      "include": [],
+      "hypothesis": "",
+      "probes": {
+       "rung": [
+        1000000,
+        2000000
+       ],
+       "incumbent": 1.1629968319982136,
+       "parts": {
+        "analyst": -0.17016555944856715,
+        "prefetch": -0.17225332543876493,
+        "geometry": -0.002004789998270473,
+        "replacement": -0.001926232555178764
+       },
+       "failed": [],
+       "refused": {},
+       "pairs": {}
+      }
+     },
+     {
+      "round": 3,
+      "mode": "climb",
+      "against": 10,
+      "sheet": {
+       "levels": {
+        "L1D": {
+         "verdict": "latency-heavy",
+         "number": "0.52"
+        },
+        "L2C": {
+         "verdict": "fine",
+         "number": "0.09"
+        },
+        "LLC": {
+         "verdict": "capacity-bound",
+         "number": "0.0"
+        }
+       },
+       "bottleneck": {
+        "level": "L1D",
+        "cause": "L1D hits account for the majority of the memory time due to its 3-cycle hit latency.",
+        "evidence": "L1D hits consume 52% of memory time."
+       },
+       "learned": [
+        "llc_prefetcher spp_dev to no: -0.1723 (D12 vs D10); despite showing 0.00 accuracy, spp_dev provides a massive IPC boost.",
+        "l1d_ways 8 to 4: -0.0020 (D13 vs D10); reducing capacity from 128 KB to 64 KB to achieve 2-cycle latency lost IPC."
+       ],
+       "unattributable": [
+        "D11: l1d_ways, llc_prefetcher",
+        "D14: l2_replacement, llc_replacement"
+       ],
+       "failing": [
+        "llc_replacement: LLC hit ratio is 0.05, showing replacement policies are ineffective for this access pattern, with 3 alternatives measured."
+       ],
+       "hypothesis": "Adding an L1D prefetcher to cover the misses will reduce L1D miss share below 0.32 and improve IPC.",
+       "design": {
+        "l1d_sets": 256,
+        "l1d_ways": 8,
+        "l1d_prefetcher": "va_ampm_lite",
+        "l2_sets": 512,
+        "l2_ways": 16,
+        "l2_prefetcher": "va_ampm_lite",
+        "l2_replacement": "ship",
+        "llc_sets": 8192,
+        "llc_ways": 8,
+        "llc_prefetcher": "spp_dev",
+        "llc_replacement": "srrip",
+        "l2_mshr": 64,
+        "llc_mshr": 128
+       },
+       "design_reasoning": "l1d_prefetcher set to va_ampm_lite to attempt covering L1D misses since the current 'no' prefetcher leaves misses unmitigated and capacity reductions to lower latency failed."
+      },
+      "sweep": null,
+      "proposals": {
+       "analyst": {
+        "knobs": {
+         "l1d_prefetcher": "va_ampm_lite"
+        },
+        "reasoning": "l1d_prefetcher set to va_ampm_lite to attempt covering L1D misses since the current 'no' prefetcher leaves misses unmitigated and capacity reductions to lower latency failed."
+       },
+       "prefetch": {
+        "knobs": {
+         "l1d_prefetcher": "va_ampm_lite",
+         "l2_prefetcher": "va_ampm_lite",
+         "llc_prefetcher": "spp_dev"
+        },
+        "reasoning": "Adding va_ampm_lite to the L1D tests the analyst's hypothesis that an L1D prefetcher can cover latency-heavy misses, as it showed the highest accuracy and coverage among L1D prefetchers in previous runs."
+       },
+       "geometry": {
+        "knobs": {
+         "l1d_sets": 256,
+         "l1d_ways": 8,
+         "l2_sets": 512,
+         "l2_ways": 16,
+         "llc_sets": 2048,
+         "llc_ways": 8
+        },
+        "reasoning": "LLC has a very low hit ratio (0.05), so shrinking it from 4 MB to 1 MB reduces its hit latency from 10 cycles to 6 cycles, removing 4 cycles from the path to memory for the vast majority of accesses that miss."
+       }
+      },
+      "moves": {
+       "analyst": {
+        "l1d_prefetcher": [
+         "no",
+         "va_ampm_lite"
+        ]
+       },
+       "prefetch": {
+        "l1d_prefetcher": [
+         "no",
+         "va_ampm_lite"
+        ]
+       },
+       "geometry": {
+        "llc_sets": [
+         8192,
+         2048
+        ]
+       }
+      },
+      "include": [
+       "geometry"
+      ],
+      "hypothesis": "",
+      "probes": {
+       "rung": [
+        1000000,
+        2000000
+       ],
+       "incumbent": 1.1629968319982136,
+       "parts": {
+        "analyst": -0.005095848594383501,
+        "prefetch": -0.005095848594383501,
+        "geometry": 0.000623484296270016
+       },
+       "failed": [],
+       "refused": {},
+       "pairs": {}
+      }
+     },
+     {
+      "round": 4,
+      "mode": "climb",
+      "against": 16,
+      "sheet": {
+       "levels": {
+        "L1D": {
+         "verdict": "latency-heavy",
+         "number": "53%"
+        },
+        "L2C": {
+         "verdict": "fine",
+         "number": "8%"
+        },
+        "LLC": {
+         "verdict": "fine",
+         "number": "0%"
+        }
+       },
+       "bottleneck": {
+        "level": "L1D",
+        "cause": "The majority of memory time is spent serving L1D hits, making its 3-cycle hit latency the primary performance limiter.",
+        "evidence": "L1D hits hold 53% of the total memory time."
+       },
+       "learned": [
+        "llc_prefetcher spp_dev->no: -0.1723 (D12 vs D10); despite counters showing 0.00 accuracy, removing it causes a massive IPC drop.",
+        "l1d_ways 8->4: -0.0020 (D13 vs D10); halving capacity from 128 KB to 64 KB costs negligible IPC.",
+        "l1d_prefetcher no->va_ampm_lite: -0.0051 (D15 vs D10); adding the prefetcher hurts performance.",
+        "llc_sets 8192->2048: +0.0006 (D16 vs D10); reducing LLC capacity from 4096 KB to 1024 KB slightly improves IPC."
+       ],
+       "unattributable": [
+        "l1d_prefetcher, llc_sets",
+        "l1d_prefetcher, l1d_ways, l2_mshr, l2_prefetcher, l2_replacement, l2_sets, l2_ways, llc_mshr, llc_replacement, llc_sets, llc_ways",
+        "l1d_prefetcher, l1d_sets, l1d_ways, l2_mshr, l2_prefetcher, l2_replacement, llc_replacement, llc_ways",
+        "l1d_prefetcher, l1d_sets, l2_mshr, l2_prefetcher, l2_replacement, l2_ways, llc_mshr, llc_prefetcher, llc_sets, llc_ways",
+        "l1d_prefetcher, l1d_sets, l1d_ways, l2_mshr, l2_ways, llc_sets, llc_ways",
+        "l1d_prefetcher, l1d_sets, l1d_ways, l2_mshr, l2_sets, l2_ways, llc_replacement, llc_sets, llc_ways",
+        "l1d_prefetcher, l1d_sets, l1d_ways, l2_prefetcher, l2_sets, l2_ways, llc_mshr, llc_prefetcher, llc_replacement, llc_ways",
+        "l1d_prefetcher, l2_mshr, l2_prefetcher, l2_replacement, l2_sets, llc_mshr, llc_prefetcher, llc_replacement, llc_sets, llc_ways"
+       ],
+       "failing": [
+        "llc_replacement with hit ratio 0.05 and 3 alternatives measured"
+       ],
+       "hypothesis": "Reducing L1D latency to 2 cycles by dropping to 64 KB will reduce its memory time share below 53% and increase IPC.",
+       "design": {
+        "l1d_sets": 256,
+        "l1d_ways": 4,
+        "l1d_prefetcher": "no",
+        "l2_sets": 512,
+        "l2_ways": 16,
+        "l2_prefetcher": "va_ampm_lite",
+        "l2_replacement": "ship",
+        "llc_sets": 2048,
+        "llc_ways": 8,
+        "llc_prefetcher": "spp_dev",
+        "llc_replacement": "srrip",
+        "l2_mshr": 64,
+        "llc_mshr": 128
+       },
+       "design_reasoning": "l1d_ways: Reduced to 4 to cut hit latency from 3 to 2 cycles, as D13 showed halving capacity costs only 0.0020 IPC while L1D hits consume 53% of memory time."
+      },
+      "sweep": null,
+      "proposals": {},
+      "moves": {},
+      "include": [],
+      "hypothesis": "",
+      "probes": {
+       "rung": [
+        1000000,
+        2000000
+       ],
+       "incumbent": 1.1636203162944836,
+       "parts": {},
+       "failed": [],
+       "refused": {},
+       "pairs": {}
+      }
+     },
+     {
+      "round": 5,
+      "mode": "climb",
+      "against": 16,
+      "sheet": {
+       "levels": {
+        "L1D": {
+         "verdict": "latency-heavy",
+         "number": "53%"
+        },
+        "L2C": {
+         "verdict": "fine",
+         "number": "8%"
+        },
+        "LLC": {
+         "verdict": "capacity-bound",
+         "number": "0%"
+        }
+       },
+       "bottleneck": {
+        "level": "L1D",
+        "cause": "L1D hits consume the majority of the memory time due to its 3-cycle latency.",
+        "evidence": "memory time L1D hits 53%"
+       },
+       "learned": [
+        "llc_prefetcher spp_dev->no: -0.1723 (D12 vs D10); counter unreliable, 0.18 cov 0.00 acc but removal lost IPC",
+        "l1d_ways 8->4: -0.0020 (D13 vs D10); reducing capacity from 128 KB to 64 KB lost IPC despite reducing latency from 3 to 2 cycles",
+        "l1d_prefetcher no->va_ampm_lite: -0.0051 (D15 vs D10); adding prefetcher harmed IPC",
+        "llc_sets 8192->2048: +0.0006 (D16 vs D10); reducing LLC capacity from 4096 KB to 1024 KB improved IPC by reducing hit latency from 10 to 6 cycles"
+       ],
+       "unattributable": [
+        "D1: l1d_prefetcher, llc_sets",
+        "D2: l1d_prefetcher, l1d_ways, l2_mshr, l2_prefetcher, l2_replacement, l2_sets, l2_ways, llc_mshr, llc_replacement, llc_sets, llc_ways",
+        "D3: l1d_prefetcher, l1d_sets, l1d_ways, l2_mshr, l2_prefetcher, l2_replacement, llc_replacement, llc_ways",
+        "D4: l1d_prefetcher, l1d_sets, l2_mshr, l2_prefetcher, l2_replacement, l2_ways, llc_mshr, llc_prefetcher, llc_sets, llc_ways",
+        "D5: l1d_prefetcher, l1d_sets, l1d_ways, l2_mshr, l2_ways, llc_sets, llc_ways",
+        "D6: l1d_prefetcher, l1d_sets, l1d_ways, l2_mshr, l2_sets, l2_ways, llc_replacement, llc_sets, llc_ways",
+        "D7: l1d_prefetcher, l1d_sets, l1d_ways, l2_prefetcher, l2_sets, l2_ways, llc_mshr, llc_prefetcher, llc_replacement, llc_ways",
+        "D8: l1d_prefetcher, l2_mshr, l2_prefetcher, l2_replacement, l2_sets, llc_mshr, llc_prefetcher, llc_replacement, llc_sets, llc_ways"
+       ],
+       "failing": [
+        "llc_replacement: hit ratio 0.05, 3 alternatives tested in run"
+       ],
+       "hypothesis": "Changing the LLC replacement policy to lru will increase the LLC hit ratio above 0.05.",
+       "design": {
+        "l1d_sets": 256,
+        "l1d_ways": 8,
+        "l1d_prefetcher": "no",
+        "l2_sets": 512,
+        "l2_ways": 16,
+        "l2_prefetcher": "va_ampm_lite",
+        "l2_replacement": "ship",
+        "llc_sets": 2048,
+        "llc_ways": 8,
+        "llc_prefetcher": "spp_dev",
+        "llc_replacement": "lru",
+        "l2_mshr": 64,
+        "llc_mshr": 128
+       },
+       "design_reasoning": "['llc_replacement: changed from srrip to lru to test if an alternative policy can improve the poor 0.05 LLC hit ratio without altering geometry.']"
+      },
+      "sweep": null,
+      "proposals": {
+       "analyst": {
+        "knobs": {
+         "llc_replacement": "lru"
+        },
+        "reasoning": "['llc_replacement: changed from srrip to lru to test if an alternative policy can improve the poor 0.05 LLC hit ratio without altering geometry.']"
+       },
+       "prefetch": {
+        "knobs": {
+         "l1d_prefetcher": "ip_stride",
+         "l2_prefetcher": "va_ampm_lite",
+         "llc_prefetcher": "spp_dev"
+        },
+        "reasoning": "Adding va_ampm_lite to L1D harmed IPC, but a simpler, more accurate ip_stride prefetcher might hide L1D latency without the pollution penalty, while keeping the proven va_ampm_lite at L2 and spp_dev at LLC."
+       },
+       "geometry": {
+        "knobs": {
+         "l1d_sets": 256,
+         "l1d_ways": 8,
+         "l2_sets": 512,
+         "l2_ways": 16,
+         "llc_sets": 1024,
+         "llc_ways": 8
+        },
+        "reasoning": "Since the LLC has a 5% hit ratio and its hits account for 0% of memory time, shrinking it from 1024 KB to 512 KB removes 2 cycles of latency from the path to memory for the 95% of accesses that miss it."
+       },
+       "replacement": {
+        "knobs": {
+         "l2_replacement": "ship",
+         "llc_replacement": "lru"
+        },
+        "reasoning": "The analyst hypothesizes that changing the LLC replacement policy to LRU will increase the LLC hit ratio above 0.05, so we test this policy change."
+       }
+      },
+      "moves": {
+       "analyst": {
+        "llc_replacement": [
+         "srrip",
+         "lru"
+        ]
+       },
+       "prefetch": {
+        "l1d_prefetcher": [
+         "no",
+         "ip_stride"
+        ]
+       },
+       "geometry": {
+        "llc_sets": [
+         2048,
+         1024
+        ]
+       },
+       "replacement": {
+        "llc_replacement": [
+         "srrip",
+         "lru"
+        ]
+       }
+      },
+      "include": [
+       "prefetch"
+      ],
+      "hypothesis": "",
+      "probes": {
+       "rung": [
+        1000000,
+        2000000
+       ],
+       "incumbent": 1.1636203162944836,
+       "parts": {
+        "analyst": -0.0006400938867019423,
+        "prefetch": 8.80112412793288e-06,
+        "geometry": -0.0016974782353313955,
+        "replacement": -0.0006400938867019423
+       },
+       "failed": [],
+       "refused": {},
+       "pairs": {}
+      }
+     },
+     {
+      "round": 6,
+      "mode": "climb",
+      "against": 18,
+      "sheet": {
+       "levels": {
+        "L1D": {
+         "verdict": "latency-heavy",
+         "number": "53%"
+        },
+        "L2C": {
+         "verdict": "fine",
+         "number": "8%"
+        },
+        "LLC": {
+         "verdict": "fine",
+         "number": "0%"
+        }
+       },
+       "bottleneck": {
+        "level": "L1D",
+        "cause": "L1D hits dominate memory time due to the 3-cycle hit latency of the large 128KB capacity.",
+        "evidence": "L1D hits account for 53% of memory time with a 3-cycle hit latency."
+       },
+       "learned": [
+        "llc_sets 2048->1024: -0.0017 (D19 vs D16); LLC hit ratio remains low.",
+        "l1d_prefetcher no->ip_stride: +0.0000 (D18 vs D16); prefetch coverage and accuracy are 0.00.",
+        "llc_replacement srrip->lru: -0.0006 (D17 vs D16).",
+        "llc_sets 8192->2048: +0.0006 (D16 vs D10)."
+       ],
+       "unattributable": [
+        "D1: l1d_prefetcher, llc_sets",
+        "D2: l1d_prefetcher, l1d_ways, l2_mshr, l2_prefetcher, l2_replacement, l2_sets, l2_ways, llc_mshr, llc_replacement, llc_sets, llc_ways",
+        "D3: l1d_prefetcher, l1d_sets, l1d_ways, l2_mshr, l2_prefetcher, l2_replacement, llc_replacement, llc_ways",
+        "D4: l1d_prefetcher, l1d_sets, l2_mshr, l2_prefetcher, l2_replacement, l2_ways, llc_mshr, llc_prefetcher, llc_sets, llc_ways",
+        "D5: l1d_prefetcher, l1d_sets, l1d_ways, l2_mshr, l2_ways, llc_sets, llc_ways",
+        "D6: l1d_prefetcher, l1d_sets, l1d_ways, l2_mshr, l2_sets, l2_ways, llc_replacement, llc_sets, llc_ways",
+        "D7: l1d_prefetcher, l1d_sets, l1d_ways, l2_prefetcher, l2_sets, l2_ways, llc_mshr, llc_prefetcher, llc_replacement, llc_ways",
+        "D8: l1d_prefetcher, l2_mshr, l2_prefetcher, l2_replacement, l2_sets, llc_mshr, llc_prefetcher, llc_replacement, llc_sets, llc_ways"
+       ],
+       "failing": [],
+       "hypothesis": "Decreasing L1D capacity to 64KB (4 ways) will reduce hit latency to 2 cycles and decrease L1D's share of memory time.",
+       "design": {
+        "l1d_sets": 256,
+        "l1d_ways": 4,
+        "l1d_prefetcher": "no",
+        "l2_sets": 512,
+        "l2_ways": 16,
+        "l2_prefetcher": "va_ampm_lite",
+        "l2_replacement": "ship",
+        "llc_sets": 2048,
+        "llc_ways": 8,
+        "llc_prefetcher": "no",
+        "llc_replacement": "srrip",
+        "l2_mshr": 64,
+        "llc_mshr": 128
+       },
+       "design_reasoning": "['l1d_ways: Reduced from 8 to 4 to drop L1D hit latency from 3 to 2 cycles, targeting its 53% memory time share.', \"l1d_prefetcher: Set to 'no' because ip_stride provided 0.00 coverage and +0.0000 IPC.\", \"llc_prefetcher: Set to 'no' because spp_dev has 0.00 accuracy and generates useless prefetches.\"]"
+      },
+      "sweep": null,
+      "proposals": {
+       "analyst": {
+        "knobs": {
+         "l1d_ways": 4,
+         "l1d_prefetcher": "no",
+         "llc_prefetcher": "no"
+        },
+        "reasoning": "['l1d_ways: Reduced from 8 to 4 to drop L1D hit latency from 3 to 2 cycles, targeting its 53% memory time share.', \"l1d_prefetcher: Set to 'no' because ip_stride provided 0.00 coverage and +0.0000 IPC.\", \"llc_prefetcher: Set to 'no' because spp_dev has 0.00 accuracy and generates useless prefetches.\"]"
+       },
+       "prefetch": {
+        "knobs": {
+         "l1d_prefetcher": "next_line",
+         "l2_prefetcher": "va_ampm_lite",
+         "llc_prefetcher": "spp_dev"
+        },
+        "reasoning": "With the analyst proposing a smaller L1D that will increase misses, next_line prefetching at L1D may catch sequential accesses that ip_stride missed, while keeping the highly effective va_ampm_lite at L2C and spp_dev at LLC."
+       },
+       "replacement": {
+        "knobs": {
+         "l2_replacement": "ship",
+         "llc_replacement": "drrip"
+        },
+        "reasoning": "With the LLC suffering a 5% hit ratio and 95% miss share, reuse is extremely poor; DRRIP resists both scans and thrashing better than SRRIP and has not been isolated on the current best design alongside L2 SHiP."
+       }
+      },
+      "moves": {
+       "analyst": {
+        "l1d_ways": [
+         8,
+         4
+        ],
+        "l1d_prefetcher": [
+         "ip_stride",
+         "no"
+        ],
+        "llc_prefetcher": [
+         "spp_dev",
+         "no"
+        ]
+       },
+       "prefetch": {
+        "l1d_prefetcher": [
+         "ip_stride",
+         "next_line"
+        ]
+       },
+       "replacement": {
+        "llc_replacement": [
+         "srrip",
+         "drrip"
+        ]
+       }
+      },
+      "include": [
+       "prefetch"
+      ],
+      "hypothesis": "",
+      "probes": {
+       "rung": [
+        1000000,
+        2000000
+       ],
+       "incumbent": 1.1636291174186115,
+       "parts": {
+        "analyst": -0.16184544426406955,
+        "prefetch": 0.00033424568888973383,
+        "replacement": 8.531010223489233e-05
+       },
+       "failed": [],
+       "refused": {},
+       "pairs": {}
+      }
+     },
+     {
+      "round": 7,
+      "mode": "climb",
+      "against": 21,
+      "sheet": {
+       "levels": {
+        "L1D": {
+         "verdict": "latency-heavy",
+         "number": "0.53"
+        },
+        "L2C": {
+         "verdict": "fine",
+         "number": "0.08"
+        },
+        "LLC": {
+         "verdict": "capacity-bound",
+         "number": "0.05"
+        }
+       },
+       "bottleneck": {
+        "level": "L1D",
+        "cause": "L1D hits hold the majority of memory time due to its 3-cycle latency.",
+        "evidence": "0.53"
+       },
+       "learned": [
+        "llc_sets 8192->2048: +0.0006 (D16 vs D10); reduced LLC capacity.",
+        "llc_prefetcher spp_dev->no: -0.1723 (D12 vs D10); removing LLC prefetcher loses significant IPC despite 0.00 accuracy.",
+        "l1d_ways 8->4: -0.0020 (D13 vs D10); reducing L1D capacity from 128KB to 64KB loses IPC.",
+        "l1d_prefetcher ip_stride->next_line: +0.0003 (D21 vs D18); changing L1D prefetcher yields negligible change.",
+        "llc_replacement srrip->drrip: +0.0001 (D22 vs D18); changing LLC replacement yields negligible change.",
+        "llc_sets 2048->1024: -0.0017 (D19 vs D16); further reducing LLC capacity loses IPC."
+       ],
+       "unattributable": [
+        "l1d_prefetcher next_line->ip_stride, llc_sets 2048->8192",
+        "l1d_prefetcher next_line->ip_stride, l1d_ways 8->4, l2_mshr 32->16, l2_prefetcher spp_dev->next_line, l2_replacement srrip->ship, l2_sets 1024->256, l2_ways 8->16, llc_mshr 128->64, llc_replacement srrip->ship, llc_sets 2048->4096, llc_ways 16->8",
+        "l1d_prefetcher next_line->va_ampm_lite, l1d_sets 64->256, l1d_ways 8->4, l2_mshr 32->64, l2_prefetcher spp_dev->va_ampm_lite, l2_replacement srrip->lru, llc_replacement srrip->lru, llc_ways 16->4",
+        "l1d_prefetcher next_line->ip_stride, l1d_sets 64->256, l2_mshr 32->64, l2_prefetcher spp_dev->va_ampm_lite, l2_replacement srrip->ship, l2_ways 8->16, llc_mshr 128->64, llc_prefetcher no->spp_dev, llc_sets 2048->8192, llc_ways 16->4",
+        "l1d_prefetcher next_line->no, l1d_sets 64->32, l1d_ways 8->16, l2_mshr 32->64, l2_ways 8->16, llc_sets 2048->8192, llc_ways 16->8",
+        "l1d_prefetcher next_line->va_ampm_lite, l1d_sets 64->32, l1d_ways 8->12, l2_mshr 32->16, l2_sets 1024->4096, l2_ways 8->4, llc_replacement srrip->drrip, llc_sets 2048->8192, llc_ways 16->8",
+        "l1d_prefetcher next_line->no, l1d_sets 64->32, l1d_ways 8->4, l2_prefetcher spp_dev->ip_stride, l2_sets 1024->2048, l2_ways 8->4, llc_mshr 128->32, llc_prefetcher no->next_line, llc_replacement srrip->drrip, llc_ways 16->4",
+        "l1d_prefetcher next_line->ip_stride, l2_mshr 32->16, l2_prefetcher spp_dev->ip_stride, l2_replacement srrip->drrip, l2_sets 1024->4096, llc_mshr 128->32, llc_prefetcher no->spp_dev, llc_replacement srrip->ship, llc_sets 2048->4096, llc_ways 16->12"
+       ],
+       "failing": [],
+       "hypothesis": "Increasing LLC capacity will reduce DRAM memory time share at the cost of higher LLC hit latency.",
+       "design": {
+        "l1d_sets": 256,
+        "l1d_ways": 8,
+        "l1d_prefetcher": "next_line",
+        "l2_sets": 512,
+        "l2_ways": 16,
+        "l2_prefetcher": "va_ampm_lite",
+        "l2_replacement": "ship",
+        "llc_sets": 4096,
+        "llc_ways": 8,
+        "llc_prefetcher": "spp_dev",
+        "llc_replacement": "drrip",
+        "l2_mshr": 64,
+        "llc_mshr": 128
+       },
+       "design_reasoning": "Increasing llc_sets to 4096 attempts to capture more LLC hits given its extremely low 0.05 hit ratio, while retaining the known best configurations for L1D and L2C."
+      },
+      "sweep": null,
+      "proposals": {
+       "analyst": {
+        "knobs": {
+         "llc_sets": 4096,
+         "llc_replacement": "drrip"
+        },
+        "reasoning": "Increasing llc_sets to 4096 attempts to capture more LLC hits given its extremely low 0.05 hit ratio, while retaining the known best configurations for L1D and L2C."
+       },
+       "geometry": {
+        "knobs": {
+         "l1d_sets": 256,
+         "l1d_ways": 8,
+         "l2_sets": 512,
+         "l2_ways": 16,
+         "llc_sets": 4096,
+         "llc_ways": 8
+        },
+        "reasoning": "The analyst hypothesizes that increasing LLC capacity will reduce DRAM memory time share, so we expand the LLC to 4096 sets (2048 KB) to test if the reduced miss rate outweighs the 8-cycle hit latency."
+       },
+       "replacement": {
+        "knobs": {
+         "l2_replacement": "ship",
+         "llc_replacement": "ship"
+        },
+        "reasoning": "Since the LLC is capacity-bound and faces long reuse distances, SHiP can better predict reuse and improve hit rates compared to SRRIP, which has not yet been isolated on the current best baseline."
+       }
+      },
+      "moves": {
+       "analyst": {
+        "llc_sets": [
+         2048,
+         4096
+        ],
+        "llc_replacement": [
+         "srrip",
+         "drrip"
+        ]
+       },
+       "geometry": {
+        "llc_sets": [
+         2048,
+         4096
+        ]
+       },
+       "replacement": {
+        "llc_replacement": [
+         "srrip",
+         "ship"
+        ]
+       }
+      },
+      "include": [],
+      "hypothesis": "",
+      "probes": {
+       "rung": [
+        1000000,
+        2000000
+       ],
+       "incumbent": 1.1639633631075013,
+       "parts": {
+        "analyst": -0.0009584156869286709,
+        "geometry": -0.0009584156869286709,
+        "replacement": -0.00029140174135244834
+       },
+       "failed": [],
+       "refused": {},
+       "pairs": {}
+      }
+     },
+     {
+      "round": 8,
+      "mode": "climb",
+      "against": 21,
+      "sheet": {
+       "levels": {
+        "L1D": {
+         "verdict": "latency-heavy",
+         "number": "53%"
+        },
+        "L2C": {
+         "verdict": "fine",
+         "number": "8%"
+        },
+        "LLC": {
+         "verdict": "capacity-bound",
+         "number": "0%"
+        }
+       },
+       "bottleneck": {
+        "level": "L1D",
+        "cause": "L1D hits consume the majority of memory time due to the 3-cycle hit latency of its 128 KB 8-way configuration.",
+        "evidence": "L1D hits 53% memory time vs DRAM 39%, with a 3-cycle hit latency."
+       },
+       "learned": [
+        "llc_prefetcher spp_dev->no: -0.1723 (D12 vs D10); LLC prefetch cov 0.18 acc 0.00.",
+        "l1d_ways 8->4: -0.0020 (D13 vs D10); L1D hit latency decreased to 2 cycles but capacity loss hurt IPC.",
+        "llc_sets 8192->2048: +0.0006 (D16 vs D10); LLC memory time share remains 0%.",
+        "llc_sets 2048->1024: -0.0017 (D19 vs D16); LLC hit ratio dropped further.",
+        "l1d_prefetcher ip_stride->next_line: +0.0003 (D21 vs D18); L1D prefetch cov 0.00 acc 0.01.",
+        "llc_replacement srrip->ship: -0.0003 (D25 vs D21); LLC hit ratio 0.04."
+       ],
+       "unattributable": [
+        "D1",
+        "D2",
+        "D3",
+        "D4",
+        "D5",
+        "D6",
+        "D7",
+        "D8"
+       ],
+       "failing": [],
+       "hypothesis": "Changing llc_prefetcher to next_line will improve LLC accuracy and IPC without hurting the L1D bottleneck.",
+       "design": {
+        "l1d_sets": 256,
+        "l1d_ways": 8,
+        "l1d_prefetcher": "next_line",
+        "l2_sets": 512,
+        "l2_ways": 16,
+        "l2_prefetcher": "va_ampm_lite",
+        "l2_replacement": "ship",
+        "llc_sets": 2048,
+        "llc_ways": 8,
+        "llc_prefetcher": "next_line",
+        "llc_replacement": "srrip",
+        "l2_mshr": 64,
+        "llc_mshr": 128
+       },
+       "design_reasoning": "['Changed llc_prefetcher to next_line to replace the failing spp_dev which has 0.00 accuracy.']"
+      },
+      "sweep": null,
+      "proposals": {
+       "analyst": {
+        "knobs": {
+         "llc_prefetcher": "next_line"
+        },
+        "reasoning": "['Changed llc_prefetcher to next_line to replace the failing spp_dev which has 0.00 accuracy.']"
+       },
+       "prefetch": {
+        "knobs": {
+         "l1d_prefetcher": "next_line",
+         "l2_prefetcher": "va_ampm_lite",
+         "llc_prefetcher": "next_line"
+        },
+        "reasoning": "The analyst hypothesized that changing the LLC prefetcher to next_line will improve its accuracy and overall IPC without exacerbating the L1D bottleneck."
+       }
+      },
+      "moves": {
+       "analyst": {
+        "llc_prefetcher": [
+         "spp_dev",
+         "next_line"
+        ]
+       },
+       "prefetch": {
+        "llc_prefetcher": [
+         "spp_dev",
+         "next_line"
+        ]
+       }
+      },
+      "include": [],
+      "hypothesis": "",
+      "probes": {
+       "rung": [
+        1000000,
+        2000000
+       ],
+       "incumbent": 1.1639633631075013,
+       "parts": {
+        "analyst": -0.1154778442290425,
+        "prefetch": -0.1154778442290425
+       },
+       "failed": [],
+       "refused": {},
+       "pairs": {}
+      }
+     },
+     {
+      "round": 9,
+      "mode": "climb",
+      "against": 21,
+      "sheet": {
+       "levels": {
+        "L1D": {
+         "verdict": "latency-heavy",
+         "number": "53%"
+        },
+        "L2C": {
+         "verdict": "fine",
+         "number": "8%"
+        },
+        "LLC": {
+         "verdict": "capacity-bound",
+         "number": "0%"
+        }
+       },
+       "bottleneck": {
+        "level": "L1D",
+        "cause": "Serving hits at the first level takes up the majority of the memory time due to the 3-cycle hit latency of its 128 KB capacity.",
+        "evidence": "L1D hits hold 53% of memory time"
+       },
+       "learned": [
+        "llc_prefetcher spp_dev to next_line: -0.1155 (D26 vs D21); LLC prefetch useless issued increased from 1.9/ki to 32.8/ki",
+        "llc_sets 2048 to 4096: -0.0010 (D24 vs D21)",
+        "llc_replacement srrip to ship: -0.0003 (D25 vs D21)",
+        "l1d_prefetcher ip_stride to next_line: +0.0003 (D21 vs D18)",
+        "llc_replacement srrip to drrip: +0.0001 (D22 vs D18)"
+       ],
+       "unattributable": [
+        "D2: l1d_prefetcher, l1d_ways, l2_mshr, l2_prefetcher, l2_replacement, l2_sets, l2_ways, llc_mshr, llc_replacement, llc_sets, llc_ways",
+        "D3: l1d_prefetcher, l1d_sets, l1d_ways, l2_mshr, l2_prefetcher, l2_replacement, llc_replacement, llc_ways",
+        "D4: l1d_prefetcher, l1d_sets, l2_mshr, l2_prefetcher, l2_replacement, l2_ways, llc_mshr, llc_prefetcher, llc_sets, llc_ways",
+        "D5: l1d_prefetcher, l1d_sets, l1d_ways, l2_mshr, l2_ways, llc_sets, llc_ways",
+        "D6: l1d_prefetcher, l1d_sets, l1d_ways, l2_mshr, l2_sets, l2_ways, llc_replacement, llc_sets, llc_ways",
+        "D7: l1d_prefetcher, l1d_sets, l1d_ways, l2_prefetcher, l2_sets, l2_ways, llc_mshr, llc_prefetcher, llc_replacement, llc_ways",
+        "D8: l1d_prefetcher, l2_mshr, l2_prefetcher, l2_replacement, l2_sets, llc_mshr, llc_prefetcher, llc_replacement, llc_sets, llc_ways",
+        "D9: l1d_prefetcher, l1d_sets, l1d_ways, l2_mshr, l2_prefetcher, l2_replacement, l2_sets, llc_mshr, llc_prefetcher, llc_replacement, llc_ways"
+       ],
+       "failing": [],
+       "hypothesis": "Dropping L1D capacity to 64 KB to achieve a 2-cycle hit latency will reduce the L1D memory time share and increase IPC.",
+       "design": {
+        "l1d_sets": 256,
+        "l1d_ways": 4,
+        "l1d_prefetcher": "next_line",
+        "l2_sets": 512,
+        "l2_ways": 16,
+        "l2_prefetcher": "va_ampm_lite",
+        "l2_replacement": "ship",
+        "llc_sets": 2048,
+        "llc_ways": 8,
+        "llc_prefetcher": "spp_dev",
+        "llc_replacement": "srrip",
+        "l2_mshr": 64,
+        "llc_mshr": 128
+       },
+       "design_reasoning": "Reducing l1d_ways to 4 drops L1D capacity to 64 KB, lowering the hit latency from 3 cycles to 2 cycles to relieve the L1D memory time bottleneck."
+      },
+      "sweep": null,
+      "proposals": {},
+      "moves": {},
+      "include": [],
+      "hypothesis": "",
+      "probes": {
+       "rung": [
+        1000000,
+        2000000
+       ],
+       "incumbent": 1.1639633631075013,
+       "parts": {},
+       "failed": [],
+       "refused": {},
+       "pairs": {}
+      }
+     },
+     {
+      "round": 10,
+      "mode": "climb",
+      "against": 21,
+      "sheet": {
+       "levels": {
+        "L1D": {
+         "verdict": "latency-heavy",
+         "number": "53%"
+        },
+        "L2C": {
+         "verdict": "fine",
+         "number": "8%"
+        },
+        "LLC": {
+         "verdict": "prefetch-uncovered",
+         "number": "0.18"
+        }
+       },
+       "bottleneck": {
+        "level": "L1D",
+        "cause": "L1D hits dominate the memory time due to a 3-cycle hit latency.",
+        "evidence": "L1D hits account for 53% of memory time"
+       },
+       "learned": [
+        "llc_prefetcher spp_dev->next_line: -0.1155 (D26 vs D21); LLC prefetch cov 0.18 -> 0.21, acc 0.00 -> 0.01, but IPC dropped significantly, showing spp_dev was providing value despite the counter.",
+        "llc_sets 2048->4096: -0.0010 (D24 vs D21); LLC hit ratio remained low and IPC dropped slightly.",
+        "llc_replacement srrip->ship: -0.0003 (D25 vs D21); no significant impact on performance.",
+        "l1d_prefetcher ip_stride->next_line: +0.0003 (D21 vs D18); L1D prefetch cov 0.00 acc 0.01.",
+        "llc_sets 2048->1024: -0.0017 (D19 vs D16); reducing sets slightly decreased performance."
+       ],
+       "unattributable": [
+        "D1: l1d_prefetcher next_line->ip_stride, llc_sets 2048->8192",
+        "D2: l1d_prefetcher next_line->ip_stride, l1d_ways 8->4, l2_mshr 32->16, l2_prefetcher spp_dev->next_line, l2_replacement srrip->ship, l2_sets 1024->256, l2_ways 8->16, llc_mshr 128->64, llc_replacement srrip->ship, llc_sets 2048->4096, llc_ways 16->8",
+        "D3: l1d_prefetcher next_line->va_ampm_lite, l1d_sets 64->256, l1d_ways 8->4, l2_mshr 32->64, l2_prefetcher spp_dev->va_ampm_lite, l2_replacement srrip->lru, llc_replacement srrip->lru, llc_ways 16->4",
+        "D4: l1d_prefetcher next_line->ip_stride, l1d_sets 64->256, l2_mshr 32->64, l2_prefetcher spp_dev->va_ampm_lite, l2_replacement srrip->ship, l2_ways 8->16, llc_mshr 128->64, llc_prefetcher no->spp_dev, llc_sets 2048->8192, llc_ways 16->4",
+        "D5: l1d_prefetcher next_line->no, l1d_sets 64->32, l1d_ways 8->16, l2_mshr 32->64, l2_ways 8->16, llc_sets 2048->8192, llc_ways 16->8",
+        "D6: l1d_prefetcher next_line->va_ampm_lite, l1d_sets 64->32, l1d_ways 8->12, l2_mshr 32->16, l2_sets 1024->4096, l2_ways 8->4, llc_replacement srrip->drrip, llc_sets 2048->8192, llc_ways 16->8",
+        "D7: l1d_prefetcher next_line->no, l1d_sets 64->32, l1d_ways 8->4, l2_prefetcher spp_dev->ip_stride, l2_sets 1024->2048, l2_ways 8->4, llc_mshr 128->32, llc_prefetcher no->next_line, llc_replacement srrip->drrip, llc_ways 16->4",
+        "D8: l1d_prefetcher next_line->ip_stride, l2_mshr 32->16, l2_prefetcher spp_dev->ip_stride, l2_replacement srrip->drrip, l2_sets 1024->4096, llc_mshr 128->32, llc_prefetcher no->spp_dev, llc_replacement srrip->ship, llc_sets 2048->4096, llc_ways 16->12"
+       ],
+       "failing": [],
+       "hypothesis": "Dropping L1D capacity to 64 KB by reducing ways to achieve a 2-cycle hit latency will reduce the L1D memory time share from 53% and increase IPC.",
+       "design": {
+        "l1d_sets": 256,
+        "l1d_ways": 4,
+        "l1d_prefetcher": "next_line",
+        "l2_sets": 512,
+        "l2_ways": 16,
+        "l2_prefetcher": "va_ampm_lite",
+        "l2_replacement": "ship",
+        "llc_sets": 2048,
+        "llc_ways": 8,
+        "llc_prefetcher": "spp_dev",
+        "llc_replacement": "srrip",
+        "l2_mshr": 64,
+        "llc_mshr": 128
+       },
+       "design_reasoning": "['l1d_ways: reduced to 4 to drop L1D capacity to 64 KB, achieving a 2-cycle hit latency to reduce the 53% memory time share of L1D hits.']"
+      },
+      "sweep": null,
+      "proposals": {},
+      "moves": {},
+      "include": [],
+      "hypothesis": "",
+      "probes": {
+       "rung": [
+        1000000,
+        2000000
+       ],
+       "incumbent": 1.1639633631075013,
+       "parts": {},
+       "failed": [],
+       "refused": {},
+       "pairs": {}
+      }
+     }
+    ]
+   }
+  }
+ },
+ "failed": [],
+ "wall_seconds": 983.651136636734
+}

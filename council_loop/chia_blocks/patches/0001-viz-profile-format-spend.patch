@@ -1,0 +1,61 @@
+diff --git a/chia/cli/main.py b/chia/cli/main.py
+index 3212983..808b824 100644
+--- a/chia/cli/main.py
++++ b/chia/cli/main.py
+@@ -218,15 +218,16 @@ def main():
+              "one or more files/directories; directories are searched recursively "
+              "for ChiaProfileCollector.log files")
+     viz_profile_parser.add_argument(
+-        "--format", choices=["svg", "png", "pdf", "html", "table"], default="svg",
++        "--format", choices=["svg", "png", "pdf", "html", "table", "spend"], default="svg",
+         help="Output format (default: svg). 'table' aggregates exec_time_s per "
+-             "function and writes a CSV.")
++             "function and writes a CSV. 'spend' sums the model calls per function "
++             "and model (calls, tokens by kind, USD) and writes a CSV.")
+     viz_profile_parser.add_argument(
+         "--output-dir", default=None,
+-        help="Output directory (default: same as log file; ignored for --format table)")
++        help="Output directory (default: same as log file; ignored for --format table/spend)")
+     viz_profile_parser.add_argument(
+         "--output", default=None,
+-        help="(--format table) Output CSV path. Default: stdout.")
++        help="(--format table/spend) Output CSV path. Default: stdout.")
+     viz_profile_parser.add_argument(
+         "--funcs", default=None,
+         help="(--format table) Comma-separated function names, or path to a "
+diff --git a/chia/cli/viz_profile_cmd.py b/chia/cli/viz_profile_cmd.py
+index 1217164..988d4c4 100644
+--- a/chia/cli/viz_profile_cmd.py
++++ b/chia/cli/viz_profile_cmd.py
+@@ -6,22 +6,26 @@ from pathlib import Path
+ 
+ 
+ def cmd_viz_profile(args):
+-    """Render a profiler JSONL log as a dependency graph (or CSV table)."""
++    """Render a profiler JSONL log as a dependency graph, a CSV table or a spend CSV."""
+     log_paths = args.log_file
+     fmt = args.format
+ 
+-    if fmt == "table":
++    if fmt in ("table", "spend"):
+         missing = [p for p in log_paths if not os.path.exists(p)]
+         if missing:
+             print(f"Error: path(s) not found: {', '.join(missing)}", file=sys.stderr)
+             sys.exit(1)
+-        from chia.trace.profile_table import render_profile_table
+-        render_profile_table(log_paths, output=args.output, funcs=args.funcs)
++        if fmt == "table":
++            from chia.trace.profile_table import render_profile_table
++            render_profile_table(log_paths, output=args.output, funcs=args.funcs)
++        else:
++            from chia.trace.spend import render_spend_table
++            render_spend_table(log_paths, output=args.output)
+         return
+ 
+     if len(log_paths) != 1:
+         print(f"Error: --format {fmt} accepts exactly one log file "
+-              f"(got {len(log_paths)}). Use --format table for aggregation.",
++              f"(got {len(log_paths)}). Use --format table or spend for aggregation.",
+               file=sys.stderr)
+         sys.exit(1)
+     log_path = log_paths[0]

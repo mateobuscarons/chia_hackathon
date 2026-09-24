@@ -1,0 +1,66 @@
+{
+ "2266": {
+  "success": true,
+  "text": "DECISION: NOT_A_BUG\nREASON: A core maintainer explicitly clarified that the `-verilog` flag is a test-only option that is not intended to produce valid Verilog, as its purpose is just to dump all outputs to a single stream for testing. The behavior is working as intended for this debug flag, making this an issue of tool usage and future flag deprecation rather than a compiler bug."
+ },
+ "2669": {
+  "success": true,
+  "text": "This issue points out a difference in the Verilog emitted by CIRCT compared to the Scala FIRRTL compiler, where CIRCT includes explicit zero-padding that the Scala compiler omits. As the reporter notes (\"The output is semantically correct, but this might be a verilog output quality issue\"), this does not produce incorrect behavior, crash, or violate a specification, making it an enhancement or quality-of-results (QoR) improvement rather than a bug.\n\nDECISION: NOT_A_BUG\nREASON: The issue describes a Verilog output quality improvement (omitting unnecessary zero-extensions for arithmetic operations) rather than a defect. The current output is semantically correct and functions as intended, so this is a feature request or enhancement."
+ },
+ "4354": {
+  "success": true,
+  "text": "BUG: `LowerToHW` silently accepts multiple `ForceNameAnnotation`s that assign the same name to different instances within the same module, which causes the names to be silently uniquified by later passes instead of honoring the forced names.\nEXPECTED: `LowerToHW` should emit an error when `ForceNameAnnotation`s would result in duplicate/non-unique names within the same module.\nDECISION: CLEAR"
+ },
+ "4396": {
+  "success": true,
+  "text": "DECISION: NOT_A_BUG\nREASON: This issue is a feature request / enhancement for adding missing optimizations (canonicalization folds) for binary operations with zero-width operands. The compiler is not crashing, miscompiling, or producing invalid IR, but rather missing an opportunity to optimize these operations further."
+ },
+ "4649": {
+  "success": true,
+  "text": "This is a bug, but the expected behavior and correct architectural fix are ambiguous.\n\nThe issue describes a crash during FIRRTL type lowering (`LowerTypes`) when a `ProbeOp` operates on a non-passive type (an aggregate with flips). However, the reporter explicitly outlines multiple defensible ways to resolve it: either restricting `ProbeOp` to only accept passive types at the verifier level, or having `LowerTypes` emit a clean diagnostic error for operations it doesn't know how to rewrite, or potentially extending type lowering to support it in the future. Because the semantics of `ProbeOp` and the intended scope of the fix are unsettled (\"Depending what we want ProbeOp for...\"), a human maintainer needs to decide the correct approach.\n\nDECISION: UNCLEAR\nREASON: While the bug (a crash/failure in `LowerTypes` with non-passive types in a `ProbeOp`) is clear, the expected behavior is not. The reporter explicitly leaves the resolution open, suggesting multiple defensible fixes ranging from restricting `ProbeOp` to only accept passive types (a verifier change) to emitting a graceful diagnostic error in `LowerTypes` instead of crashing."
+ },
+ "5626": {
+  "success": true,
+  "text": "DECISION: UNCLEAR\nREASON: The specific bug and reproducer provided in the original issue description were already fixed in a previous PR. The only remaining part of the issue is a vague note that \"there are some places in LowerToHW where we fail to use the moduleNamespace\", which lacks a concrete reproducer or any specific details on which operations or code paths are still affected."
+ },
+ "5789": {
+  "success": true,
+  "text": "BUG: Inner symbols (`InnerSymAttr`) on module ports are not verified to ensure their `fieldID` is valid for the port's type, allowing invalid IR to pass and cause crashes in later passes.\nEXPECTED: Add a verifier (likely via `HWModuleLike` or the Inner Symbol Table trait) to check inner symbols on ports against the port types and reject invalid field IDs.\nDECISION: CLEAR"
+ },
+ "6226": {
+  "success": true,
+  "text": "Based on the issue description, the problem and expected behavior are well-defined. The `hw.module` port syntax is intended to allow both an SSA value name and an explicit \"true name\" string, but the parser currently fails when a non-numeric SSA name (`%b`) is mixed with a true name (`\"space here\"`). \n\nEven though a later comment suggests this might already be fixed on the `main` branch, the issue itself is unambiguously a bug with a clear expected outcome, making it suitable for the pipeline to test and attempt to reproduce/fix if it is still present.\n\nBUG: The CIRCT parser incorrectly rejects `hw.module` port declarations that specify both a non-numeric SSA name (like `%b`) and a string true name.\nEXPECTED: The parser should successfully parse `hw.module` port declarations that include both an SSA name and a true name.\nDECISION: CLEAR"
+ },
+ "6740": {
+  "success": true,
+  "text": "DECISION: UNCLEAR\nREASON: The bug is clear (`FIRRTLToHW` produces an illegal `hw.bitcast` from `i1` to `!seq.clock` for an invalid clock), but the correct behavior is unclear. It is ambiguous whether `FIRRTLToHW` should be extended to emit valid MLIR (and what the correct HW/Seq representation of an invalid clock actually is), whether it should diagnose and reject this input because it expects `SFCCompat` to handle it, or whether `SFCCompat` is the component that primarily needs fixing."
+ },
+ "7127": {
+  "success": true,
+  "text": "DECISION: UNCLEAR\nREASON: The expected behavior is ambiguous and explicitly questioned by the reporter. It is unsettled whether `DropConst` should strip the type alias when mutating its underlying type (since the original exact type no longer exists) or if it should synthesize a modified alias without the `const` qualifier. This requires a design decision."
+ },
+ "7388": {
+  "success": true,
+  "text": "BUG: `LowerToHW` crashes when lowering a `firrtl.enumcreate` operation for an enum variant with a zero-width payload, likely because the zero-width payload value evaluates to a null `mlir::Value` that is then passed to `hw.union_create`.\nEXPECTED: The compiler should successfully lower `firrtl.enumcreate` operations with zero-width payloads to valid HW dialect operations without crashing.\nDECISION: CLEAR"
+ },
+ "7531": {
+  "success": true,
+  "text": "DECISION: UNCLEAR\nREASON: While the crash during `circt-opt -canonicalize` is clearly a bug, the correct resolution is unsettled. The maintainers discuss several materially different ways to fix it: adding a verifier to reject the comb cycle, fixing an earlier pass in the pipeline to never generate unreachable blocks, or potentially fixing the canonicalizer itself. Without a clear consensus on which component should be modified to resolve this, the expected behavior for a patch is ambiguous."
+ },
+ "7949": {
+  "success": true,
+  "text": "BUG: The `lower-dc-to-hw` pass generates `esi.wrap.vr` operations with multiple uses when processing `dc.fork` (or its associated data), which violates the ESI dialect's strict single-use verifier for ESI channels.\nEXPECTED: The `lower-dc-to-hw` pass should correctly lower `dc.fork` and related constructs into valid hardware/ESI structures (e.g., properly distributing handshakes and data to separate ESI channels) without violating use-count constraints.\nDECISION: CLEAR"
+ },
+ "8508": {
+  "success": true,
+  "text": "DECISION: UNCLEAR\nREASON: While the bug is clear (the `InjectDUTHierarchy` pass blindly casts the DUT to a normal module, leading to an assertion failure or invalid IR when the DUT is an `extmodule`), the expected behavior is not. Because it is highly unusual to mark a blackbox as the Design Under Test\u2014as the reporter notes\u2014it is ambiguous whether the pass should be extended to correctly support wrapping an `extmodule`, or if it should cleanly diagnose and reject such inputs."
+ },
+ "10104": {
+  "success": true,
+  "text": "PART A \u2014 Is this actually a BUG?\nYes, this is a clear bug. The `firrtl-expand-whens` pass is a core part of the CIRCT FIRRTL compilation pipeline, and running it on valid input results in an SSA dominance error. A pass generating invalid IR and causing verification to fail is a defect.\n\nPART B \u2014 Are BOTH of these CLEAR?\n1. The bug: `firrtl-expand-whens` produces invalid MLIR (violating SSA dominance) when a `firrtl.when` contains multiple `firrtl.layerblock` regions that define and use their own variables (like the `ltl.implication` intrinsics).\n2. The correct behavior: The pass should produce valid MLIR that preserves the semantics of the original circuit. Layer blocks inside `when` statements should be appropriately expanded or merged without corrupting SSA value references or definition-use dominance.\n\nBUG: `firrtl-expand-whens` generates invalid MLIR with a dominance error when expanding multiple `firrtl.layerblock`s containing intrinsics inside a `when` block.\nEXPECTED: `firrtl-expand-whens` should produce valid MLIR without dominance violations, correctly resolving variables defined and used within multiple layer blocks.\nDECISION: CLEAR"
+ },
+ "10571": {
+  "success": true,
+  "text": "DECISION: UNCLEAR\nREASON: While the bug is clear (a legalization failure on `comb.mux` of `hw.union` during `aggregate-to-comb`), the expected behavior is ambiguous. Because untagged unions cannot be easily expanded field-by-field like structs or arrays, it is unsettled whether the pass should ignore unions entirely, lower them by bitcasting to integers, or reject them with a proper diagnostic (requiring users to run a union-lowering pass first)."
+ }
+}
